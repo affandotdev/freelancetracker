@@ -1,0 +1,26 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Project {
+  id              String    @id @default(cuid())
+  name            String
+  client          String?
+  clientEmail     String?
+  category        String?   @default("Web Development") // Web Development | UI/UX Design | Mobile App | Branding | SEO & Marketing | Maintenance | Other
+  priority        String    @default("Medium")           // Low | Medium | High | Urgent
+  status          String    @default("Not Started")      // Enquiry | Planning | Not Started | In Progress | On Hold | Completed
+  progress        Int       @default(0)                   // 0-100
+  totalAmount     Float     @default(0)                   // Total Contracted Value
+  receivedAmount  Float     @default(0)                   // Amount Received So Far
+  deadline        DateTime?
+  description     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
