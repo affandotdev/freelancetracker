@@ -1,17 +1,28 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { createProjectAction } from "@/lib/actions";
+import {
+  getProjectDuration,
+  formatDeadlineDate,
+} from "@/lib/dateUtils";
 
 export default function NewProjectPage() {
   const [status, setStatus] = useState("Not Started");
   const [progress, setProgress] = useState(0);
   const [totalAmount, setTotalAmount] = useState<number | string>("");
   const [receivedAmount, setReceivedAmount] = useState<number | string>("");
+  const [deadline, setDeadline] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const isEnquiry = status === "Enquiry";
   const isPlanning = status === "Planning";
+  const duration = getProjectDuration(deadline, status, mounted);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -266,8 +277,35 @@ export default function NewProjectPage() {
             <input
               type="date"
               name="deadline"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
               className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             />
+            {mounted && deadline && (
+              <p
+                suppressHydrationWarning
+                className="text-xs mt-1.5 font-medium flex items-center gap-1.5"
+              >
+                <span
+                  className={
+                    duration.statusType === "overdue"
+                      ? "text-rose-600 font-bold"
+                      : duration.statusType === "today"
+                      ? "text-amber-700 font-bold"
+                      : duration.statusType === "urgent"
+                      ? "text-amber-600 font-semibold"
+                      : duration.statusType === "planning"
+                      ? "text-cyan-700 font-semibold"
+                      : "text-blue-600 font-semibold"
+                  }
+                >
+                  ⏱️ {duration.label}
+                </span>
+                <span className="text-slate-400">
+                  ({formatDeadlineDate(deadline)})
+                </span>
+              </p>
+            )}
           </div>
         </div>
 

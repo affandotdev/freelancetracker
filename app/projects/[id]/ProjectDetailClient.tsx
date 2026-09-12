@@ -1,8 +1,12 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { updateProjectAction, deleteProjectAction } from "@/lib/actions";
+import {
+  getProjectDuration,
+  formatDeadlineDate,
+} from "@/lib/dateUtils";
 
 interface ProjectDetailClientProps {
   project: {
@@ -44,6 +48,13 @@ export default function ProjectDetailClient({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const duration = getProjectDuration(deadline, status, mounted);
 
   const pendingAmount = Math.max(0, totalAmount - receivedAmount);
   const paymentPct =
@@ -148,6 +159,38 @@ export default function ProjectDetailClient({
               ? "🗓️ Planning / Upcoming (Fixed Amount)"
               : status}
           </span>
+
+          {mounted && (
+            <span
+              suppressHydrationWarning
+              className={`text-xs font-bold px-2.5 py-0.5 rounded-md flex items-center gap-1.5 ${
+                duration.statusType === "overdue"
+                  ? "bg-rose-100 text-rose-800 border border-rose-200 animate-pulse"
+                  : duration.statusType === "today"
+                  ? "bg-amber-100 text-amber-900 border border-amber-300 animate-pulse"
+                  : duration.statusType === "urgent"
+                  ? "bg-amber-50 text-amber-800 border border-amber-200"
+                  : duration.statusType === "planning"
+                  ? "bg-cyan-50 text-cyan-800 border border-cyan-200"
+                  : duration.statusType === "completed"
+                  ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  : "bg-slate-100 text-slate-700 border border-slate-200"
+              }`}
+            >
+              <span>
+                {duration.statusType === "overdue"
+                  ? "⚠️"
+                  : duration.statusType === "today"
+                  ? "🔥"
+                  : duration.statusType === "planning"
+                  ? "🚀"
+                  : duration.statusType === "completed"
+                  ? "✓"
+                  : "⏳"}
+              </span>
+              <span>{duration.label}</span>
+            </span>
+          )}
         </div>
 
         <div>
@@ -172,15 +215,15 @@ export default function ProjectDetailClient({
           )}
         </div>
 
-        {/* Financial KPI Widget */}
-        <div className="pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Financial & Timeline KPI Widget */}
+        <div className="pt-4 border-t border-slate-100 grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
               Total Contract
             </span>
             <span
               suppressHydrationWarning
-              className="text-2xl font-extrabold text-slate-900"
+              className="text-xl sm:text-2xl font-extrabold text-slate-900"
             >
               {formatCurrency(totalAmount)}
             </span>
@@ -192,7 +235,7 @@ export default function ProjectDetailClient({
             </span>
             <span
               suppressHydrationWarning
-              className="text-2xl font-extrabold text-emerald-700"
+              className="text-xl sm:text-2xl font-extrabold text-emerald-700"
             >
               {formatCurrency(receivedAmount)}
             </span>
@@ -207,12 +250,66 @@ export default function ProjectDetailClient({
             </span>
             <span
               suppressHydrationWarning
-              className="text-2xl font-extrabold text-amber-700"
+              className="text-xl sm:text-2xl font-extrabold text-amber-700"
             >
               {formatCurrency(pendingAmount)}
             </span>
             <span className="text-[10px] text-amber-600 block mt-0.5">
               {pendingAmount === 0 ? "Fully Settled" : "Awaiting payment"}
+            </span>
+          </div>
+
+          <div
+            className={`p-4 rounded-2xl border ${
+              duration.statusType === "overdue"
+                ? "bg-rose-50/70 border-rose-200"
+                : duration.statusType === "today"
+                ? "bg-amber-50/80 border-amber-200"
+                : duration.statusType === "urgent"
+                ? "bg-amber-50/50 border-amber-200"
+                : duration.statusType === "planning"
+                ? "bg-cyan-50/60 border-cyan-100"
+                : duration.statusType === "completed"
+                ? "bg-emerald-50/60 border-emerald-100"
+                : "bg-slate-50 border-slate-100"
+            }`}
+          >
+            <span
+              className={`text-xs uppercase tracking-wider font-semibold block mb-1 ${
+                duration.statusType === "overdue"
+                  ? "text-rose-600 font-bold"
+                  : duration.statusType === "today"
+                  ? "text-amber-700 font-bold"
+                  : duration.statusType === "planning"
+                  ? "text-cyan-700 font-bold"
+                  : duration.statusType === "completed"
+                  ? "text-emerald-700 font-bold"
+                  : "text-slate-400"
+              }`}
+            >
+              {status === "Planning" ? "Kickoff Countdown" : "Duration Left"}
+            </span>
+            <span
+              suppressHydrationWarning
+              className={`text-xl sm:text-2xl font-extrabold flex items-center gap-1.5 ${
+                duration.statusType === "overdue"
+                  ? "text-rose-700"
+                  : duration.statusType === "today"
+                  ? "text-amber-800"
+                  : duration.statusType === "planning"
+                  ? "text-cyan-800"
+                  : duration.statusType === "completed"
+                  ? "text-emerald-700"
+                  : "text-slate-900"
+              }`}
+            >
+              {duration.label}
+            </span>
+            <span
+              suppressHydrationWarning
+              className="text-[10px] text-slate-500 block mt-0.5 truncate"
+            >
+              {deadline ? `Target: ${formatDeadlineDate(deadline)}` : "No deadline set"}
             </span>
           </div>
         </div>
@@ -447,6 +544,31 @@ export default function ProjectDetailClient({
                 onChange={(e) => setDeadline(e.target.value)}
                 className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
               />
+              {mounted && deadline && (
+                <p
+                  suppressHydrationWarning
+                  className="text-xs mt-1.5 font-medium flex items-center gap-1.5"
+                >
+                  <span
+                    className={
+                      duration.statusType === "overdue"
+                        ? "text-rose-600 font-bold"
+                        : duration.statusType === "today"
+                        ? "text-amber-700 font-bold"
+                        : duration.statusType === "urgent"
+                        ? "text-amber-600 font-semibold"
+                        : duration.statusType === "planning"
+                        ? "text-cyan-700 font-semibold"
+                        : "text-blue-600 font-semibold"
+                    }
+                  >
+                    ⏱️ {duration.label}
+                  </span>
+                  <span className="text-slate-400">
+                    ({formatDeadlineDate(deadline)})
+                  </span>
+                </p>
+              )}
             </div>
           </div>
 

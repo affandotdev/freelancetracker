@@ -3,6 +3,11 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { deleteProjectAction } from "@/lib/actions";
+import {
+  getProjectDuration,
+  formatDeadlineDate,
+  DurationInfo,
+} from "@/lib/dateUtils";
 
 interface Project {
   id: string;
@@ -79,6 +84,24 @@ export default function DashboardClient({
       .filter((p) => p.status === "Enquiry" || p.status === "Enquired")
       .reduce((sum, p) => sum + (p.totalAmount || 0), 0);
   }, [projects]);
+
+  const overdueCount = useMemo(() => {
+    if (!mounted) return 0;
+    return projects.filter((p) => {
+      if (!p.deadline || p.status === "Completed") return false;
+      const duration = getProjectDuration(p.deadline, p.status, mounted);
+      return duration.statusType === "overdue";
+    }).length;
+  }, [projects, mounted]);
+
+  const dueSoonCount = useMemo(() => {
+    if (!mounted) return 0;
+    return projects.filter((p) => {
+      if (!p.deadline || p.status === "Completed") return false;
+      const duration = getProjectDuration(p.deadline, p.status, mounted);
+      return duration.statusType === "urgent" || duration.statusType === "today";
+    }).length;
+  }, [projects, mounted]);
 
   // Filtering & Sorting
   const filteredProjects = useMemo(() => {
@@ -258,6 +281,57 @@ export default function DashboardClient({
     );
   };
 
+  const getDurationBadge = (duration: DurationInfo, status: string) => {
+    if (status === "Completed") {
+      return (
+        <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+          ✓ Completed
+        </span>
+      );
+    }
+
+    if (duration.statusType === "none") {
+      return (
+        <span className="inline-flex items-center gap-1 font-medium px-2 py-0.5 rounded-md text-[10px] bg-slate-100 text-slate-400 border border-slate-200">
+          ⏳ No deadline
+        </span>
+      );
+    }
+
+    switch (duration.statusType) {
+      case "overdue":
+        return (
+          <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] bg-rose-100 text-rose-700 border border-rose-300 animate-pulse">
+            ⚠️ {duration.label}
+          </span>
+        );
+      case "today":
+        return (
+          <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] bg-amber-100 text-amber-800 border border-amber-300 animate-pulse">
+            🔥 {duration.label}
+          </span>
+        );
+      case "urgent":
+        return (
+          <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] bg-amber-50 text-amber-700 border border-amber-200">
+            ⏳ {duration.label}
+          </span>
+        );
+      case "planning":
+        return (
+          <span className="inline-flex items-center gap-1 font-bold px-2 py-0.5 rounded-md text-[10px] bg-cyan-50 text-cyan-700 border border-cyan-200">
+            🚀 {duration.label}
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-md text-[10px] bg-blue-50 text-blue-700 border border-blue-100">
+            ⏱️ {duration.label}
+          </span>
+        );
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* 1. Header with Add CTA */}
@@ -331,16 +405,35 @@ export default function DashboardClient({
           </p>
         </div>
 
-        {/* Active Projects */}
+        {/* Active Projects & Deadlines */}
         <div className="bg-white p-5 rounded-2xl border border-blue-100 shadow-2xs bg-gradient-to-br from-white to-blue-50/30">
-          <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">
-            Active Deliverables
-          </p>
+          <div className="flex items-center justify-between gap-1 mb-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600">
+              Active Deliverables
+            </p>
+            {mounted && overdueCount > 0 && (
+              <span
+                suppressHydrationWarning
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700 border border-rose-200 flex items-center gap-1"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                {overdueCount} overdue
+              </span>
+            )}
+          </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-blue-700">
             {activeCount}
           </p>
-          <p className="text-[11px] text-blue-600/80 mt-1">
-            Currently In Progress
+          <p className="text-[11px] text-blue-600/80 mt-1 flex items-center gap-1.5 flex-wrap">
+            <span>Currently In Progress</span>
+            {mounted && dueSoonCount > 0 && (
+              <span
+                suppressHydrationWarning
+                className="font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded"
+              >
+                • {dueSoonCount} due soon
+              </span>
+            )}
           </p>
         </div>
       </div>
@@ -518,19 +611,16 @@ export default function DashboardClient({
                 ? Math.min(100, Math.round(((p.receivedAmount || 0) / p.totalAmount) * 100))
                 : 0;
 
-            const isOverdue =
-              mounted &&
-              p.deadline &&
-              p.status !== "Completed" &&
-              !isEnquiry &&
-              !isUpcoming &&
-              new Date(p.deadline).getTime() < Date.now();
+            const duration = getProjectDuration(p.deadline, p.status, mounted);
+            const isOverdue = duration.statusType === "overdue";
 
             return (
               <div
                 key={p.id}
                 className={`group relative bg-white rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between border ${
-                  isEnquiry
+                  isOverdue
+                    ? "border-rose-300 hover:border-rose-400 bg-gradient-to-b from-rose-50/20 to-white"
+                    : isEnquiry
                     ? "border-purple-200 hover:border-purple-400 bg-gradient-to-b from-purple-50/25 to-white"
                     : isUpcoming
                     ? "border-cyan-200 hover:border-cyan-400 bg-gradient-to-b from-cyan-50/25 to-white"
@@ -546,6 +636,15 @@ export default function DashboardClient({
                       </span>
                       {getPriorityBadge(p.priority)}
                       {getStatusBadge(p.status)}
+                      {isOverdue && (
+                        <span
+                          suppressHydrationWarning
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-200 animate-pulse flex items-center gap-1"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                          Overdue
+                        </span>
+                      )}
                     </div>
 
                     {/* Quick Card Delete Button */}
@@ -693,32 +792,33 @@ export default function DashboardClient({
                     </div>
                   )}
 
-                  {/* Deadline & Details Link */}
-                  <div className="flex items-center justify-between pt-1 text-[11px]">
-                    {p.deadline ? (
-                      <span
-                        suppressHydrationWarning
-                        className={
-                          isOverdue
-                            ? "font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md"
-                            : "text-slate-500"
-                        }
-                      >
-                        {isUpcoming ? "🗓️ Kickoff: " : "📅 "}
-                        {new Date(p.deadline).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                          timeZone: "UTC",
-                        })}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">No date set</span>
-                    )}
+                  {/* Deadline & Duration Left + Details Link */}
+                  <div className="flex items-center justify-between pt-2.5 border-t border-slate-100 text-[11px] gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {p.deadline ? (
+                        <>
+                          <span
+                            suppressHydrationWarning
+                            className="text-slate-500 font-medium flex items-center gap-1"
+                          >
+                            <span>{isUpcoming ? "🗓️ Kickoff:" : "📅"}</span>
+                            <span>{formatDeadlineDate(p.deadline)}</span>
+                          </span>
+                          <span suppressHydrationWarning>
+                            {getDurationBadge(duration, p.status)}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <span>⏳</span>
+                          <span>No deadline set</span>
+                        </span>
+                      )}
+                    </div>
 
                     <Link
                       href={`/projects/${p.id}`}
-                      className={`font-bold hover:underline ${
+                      className={`font-bold hover:underline shrink-0 ${
                         isEnquiry
                           ? "text-purple-600 hover:text-purple-700"
                           : isUpcoming
