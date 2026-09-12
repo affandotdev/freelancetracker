@@ -158,3 +158,104 @@ export async function deleteProjectAction(id: string) {
   revalidatePath("/");
   redirect("/");
 }
+
+/**
+ * Server Action: Upload an attachment (file or cloud link) for a project.
+ */
+export async function uploadAttachmentAction(formData: FormData) {
+  await requireAuth();
+
+  const projectId = formData.get("projectId") as string;
+  const category = (formData.get("category") as string) || "Quotation";
+  const isLink = formData.get("isLink") === "true";
+
+  if (!projectId) {
+    throw new Error("Project ID is required");
+  }
+
+  if (isLink) {
+    const linkUrl = formData.get("linkUrl") as string;
+    const linkName = (formData.get("linkName") as string) || "Cloud Document";
+
+    if (!linkUrl) {
+      throw new Error("Link URL is required");
+    }
+
+    const created = await (prisma as any).attachment.create({
+      data: {
+        projectId,
+        name: linkName.trim(),
+        category,
+        mimeType: "text/uri-list",
+        size: 0,
+        fileData: linkUrl.trim(),
+        isLink: true,
+      },
+    });
+
+    revalidatePath(`/projects/${projectId}`);
+    return {
+      id: created.id,
+      name: created.name,
+      category: created.category,
+      mimeType: created.mimeType,
+      size: created.size,
+      fileData: created.fileData,
+      isLink: created.isLink,
+      createdAt: created.createdAt.toISOString(),
+    };
+  }
+
+  const file = formData.get("file") as File;
+  if (!file || file.size === 0) {
+    throw new Error("No file provided");
+  }
+
+  // Size limit: 4.5MB (standard for Vercel Serverless payload)
+  const MAX_SIZE = 4.5 * 1024 * 1024;
+  if (file.size > MAX_SIZE) {
+    throw new Error("File size exceeds 4.5MB limit. Please upload a smaller file or attach a cloud link.");
+  }
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  const mimeType = file.type || "application/octet-stream";
+  const base64Data = `data:${mimeType};base64,${buffer.toString("base64")}`;
+
+  const created = await (prisma as any).attachment.create({
+    data: {
+      projectId,
+      name: file.name,
+      category,
+      mimeType,
+      size: file.size,
+      fileData: base64Data,
+      isLink: false,
+    },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+  return {
+    id: created.id,
+    name: created.name,
+    category: created.category,
+    mimeType: created.mimeType,
+    size: created.size,
+    fileData: created.fileData,
+    isLink: created.isLink,
+    createdAt: created.createdAt.toISOString(),
+  };
+}
+
+/**
+ * Server Action: Delete an attachment.
+ */
+export async function deleteAttachmentAction(attachmentId: string, projectId: string) {
+  await requireAuth();
+
+  await (prisma as any).attachment.delete({
+    where: { id: attachmentId },
+  });
+
+  revalidatePath(`/projects/${projectId}`);
+}

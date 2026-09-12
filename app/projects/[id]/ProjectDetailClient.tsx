@@ -1,12 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { updateProjectAction, deleteProjectAction } from "@/lib/actions";
+import {
+  updateProjectAction,
+  deleteProjectAction,
+  uploadAttachmentAction,
+  deleteAttachmentAction,
+} from "@/lib/actions";
 import {
   getProjectDuration,
   formatDeadlineDate,
 } from "@/lib/dateUtils";
+
+export interface AttachmentItem {
+  id: string;
+  name: string;
+  category: string;
+  mimeType: string;
+  size: number;
+  fileData: string;
+  isLink: boolean;
+  createdAt: string;
+}
 
 interface ProjectDetailClientProps {
   project: {
@@ -25,10 +41,12 @@ interface ProjectDetailClientProps {
     createdAt: string;
     updatedAt: string;
   };
+  initialAttachments?: AttachmentItem[];
 }
 
 export default function ProjectDetailClient({
   project,
+  initialAttachments = [],
 }: ProjectDetailClientProps) {
   const [name, setName] = useState(project.name);
   const [client, setClient] = useState(project.client || "");
@@ -43,6 +61,19 @@ export default function ProjectDetailClient({
     project.deadline ? project.deadline.split("T")[0] : ""
   );
   const [description, setDescription] = useState(project.description || "");
+
+  // Attachments State
+  const [attachments, setAttachments] = useState<AttachmentItem[]>(initialAttachments);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState("Quotation");
+  const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [attachmentFilter, setAttachmentFilter] = useState("all");
+  const [previewItem, setPreviewItem] = useState<AttachmentItem | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,6 +123,78 @@ export default function ProjectDetailClient({
     }
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 4.5 * 1024 * 1024) {
+      alert("File exceeds 4.5MB limit. Please choose a smaller file or attach a cloud link.");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("projectId", project.id);
+      fd.append("category", uploadCategory);
+      fd.append("file", file);
+
+      const result = await uploadAttachmentAction(fd);
+      setAttachments((prev) => [result, ...prev]);
+      setToastMessage(`"${file.name}" uploaded successfully!`);
+      setTimeout(() => setToastMessage(""), 3500);
+      setIsUploadModalOpen(false);
+    } catch (err: any) {
+      console.error("Upload failed:", err);
+      alert(err.message || "Failed to upload file");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkUrl.trim()) return;
+
+    setIsUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("projectId", project.id);
+      fd.append("category", uploadCategory);
+      fd.append("isLink", "true");
+      fd.append("linkUrl", linkUrl.trim());
+      fd.append("linkName", linkName.trim() || "Cloud Document");
+
+      const result = await uploadAttachmentAction(fd);
+      setAttachments((prev) => [result, ...prev]);
+      setToastMessage("Cloud document link added!");
+      setTimeout(() => setToastMessage(""), 3500);
+      setLinkUrl("");
+      setLinkName("");
+      setIsUploadModalOpen(false);
+    } catch (err: any) {
+      console.error("Link attachment failed:", err);
+      alert(err.message || "Failed to attach link");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId: string) => {
+    if (!confirm("Delete this document/photo?")) return;
+    try {
+      await deleteAttachmentAction(attachmentId, project.id);
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      if (previewItem?.id === attachmentId) setPreviewItem(null);
+      setToastMessage("Attachment removed");
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      alert("Failed to delete attachment");
+    }
+  };
+
   const handleDeleteConfirm = async () => {
     setIsDeleting(true);
     try {
@@ -110,6 +213,54 @@ export default function ProjectDetailClient({
       maximumFractionDigits: 0,
     }).format(val);
   };
+
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return "Cloud link";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  };
+
+  const getCategoryBadge = (cat: string) => {
+    switch (cat) {
+      case "Quotation":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "Invoice":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "Contract":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "Receipt":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "Photo":
+        return "bg-rose-100 text-rose-800 border-rose-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
+  const getCategoryIcon = (cat: string) => {
+    switch (cat) {
+      case "Quotation":
+        return "📄";
+      case "Invoice":
+        return "🧾";
+      case "Contract":
+        return "📝";
+      case "Receipt":
+        return "💳";
+      case "Photo":
+        return "🖼️";
+      default:
+        return "📎";
+    }
+  };
+
+  // Filter attachments
+  const filteredAttachments = attachments.filter((att) => {
+    if (attachmentFilter === "all") return true;
+    return att.category === attachmentFilter;
+  });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -203,6 +354,13 @@ export default function ProjectDetailClient({
                   : "⏳"}
               </span>
               <span>{duration.label}</span>
+            </span>
+          )}
+
+          {attachments.length > 0 && (
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 border border-slate-200 flex items-center gap-1">
+              <span>📎</span>
+              <span>{attachments.length} files</span>
             </span>
           )}
         </div>
@@ -357,57 +515,386 @@ export default function ProjectDetailClient({
         )}
       </div>
 
-      {/* Enquiry Onboarding Banner */}
-      {status === "Enquiry" && (
-        <div className="p-5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+      {/* ========================================================================= */}
+      {/* DOCUMENTS, QUOTATIONS & PHOTOS SECTION */}
+      {/* ========================================================================= */}
+      <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-2xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
-              <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">
-                Uncommitted Enquiry / Prospective Lead
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
+              <span>📁 Quotations, Documents & Photos</span>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                {attachments.length}
               </span>
-            </div>
-            <p className="text-xs text-purple-700 mt-1">
-              This client inquiry is under discussion. Click below once the proposal is accepted to onboard it into active deliverables.
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Upload quotations, contracts, payment receipts, screenshots, and design assets for this project
             </p>
           </div>
+
           <button
             type="button"
-            onClick={() => {
-              setStatus("In Progress");
-              if (progress === 0) setProgress(15);
-            }}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+            onClick={() => setIsUploadModalOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
           >
-            🚀 Onboard to Active Work
+            <span>+ Upload / Attach File</span>
           </button>
+        </div>
+
+        {/* Filter Tabs for Attachments */}
+        {attachments.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            {[
+              { id: "all", label: "All Files" },
+              { id: "Quotation", label: "📄 Quotations" },
+              { id: "Invoice", label: "🧾 Invoices" },
+              { id: "Contract", label: "📝 Contracts" },
+              { id: "Receipt", label: "💳 Receipts" },
+              { id: "Photo", label: "🖼️ Photos" },
+              { id: "Other", label: "📎 Other" },
+            ].map((tab) => {
+              const count =
+                tab.id === "all"
+                  ? attachments.length
+                  : attachments.filter((a) => a.category === tab.id).length;
+              if (count === 0 && tab.id !== "all") return null;
+
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setAttachmentFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    attachmentFilter === tab.id
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className="ml-1.5 opacity-70 font-normal">({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Attachment Gallery / List */}
+        {filteredAttachments.length === 0 ? (
+          <div className="py-12 px-4 border border-dashed border-slate-200 rounded-2xl text-center bg-slate-50/50">
+            <span className="text-3xl block mb-2">📑</span>
+            <p className="text-xs font-bold text-slate-700">No documents or photos yet</p>
+            <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+              Attach client quotations, approved scope documents, payment proofs, or design screenshots to keep everything in one place.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsUploadModalOpen(true)}
+              className="mt-4 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
+            >
+              + Upload Quotation or Photo
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredAttachments.map((att) => {
+              const isImage =
+                att.mimeType.startsWith("image/") ||
+                att.name.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i);
+              const isPdf =
+                att.mimeType === "application/pdf" || att.name.endsWith(".pdf");
+
+              return (
+                <div
+                  key={att.id}
+                  className="bg-slate-50/90 rounded-2xl p-3.5 border border-slate-200/90 hover:border-blue-300 hover:shadow-xs transition-all flex flex-col justify-between group space-y-3"
+                >
+                  <div>
+                    {/* Top: Category Pill + Delete */}
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${getCategoryBadge(
+                          att.category
+                        )}`}
+                      >
+                        <span>{getCategoryIcon(att.category)}</span>
+                        <span>{att.category}</span>
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteAttachment(att.id)}
+                        title="Delete file"
+                        className="text-slate-400 hover:text-rose-600 p-1 transition-colors cursor-pointer"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+
+                    {/* Preview / Thumbnail */}
+                    {isImage && !att.isLink ? (
+                      <div
+                        onClick={() => setPreviewItem(att)}
+                        className="w-full h-32 rounded-xl bg-slate-200/80 overflow-hidden mb-2.5 cursor-pointer relative group/img border border-slate-200"
+                      >
+                        <img
+                          src={att.fileData || `/api/attachments/${att.id}`}
+                          alt={att.name}
+                          className="w-full h-full object-cover group-hover/img:scale-105 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1">
+                          <span>🔍 View Photo</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        onClick={() => {
+                          if (att.isLink) {
+                            window.open(att.fileData, "_blank");
+                          } else {
+                            window.open(`/api/attachments/${att.id}`, "_blank");
+                          }
+                        }}
+                        className="w-full h-24 rounded-xl bg-slate-100 hover:bg-slate-200/70 border border-slate-200/80 flex flex-col items-center justify-center cursor-pointer transition-colors mb-2.5 text-center p-2 group/doc"
+                      >
+                        <span className="text-2xl mb-1">
+                          {att.isLink ? "🌐" : isPdf ? "📄" : "📝"}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-600 group-hover/doc:text-blue-600 truncate max-w-full">
+                          {att.isLink ? "Open Cloud Link" : "Click to Preview"}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* File Name & Details */}
+                    <div className="space-y-0.5">
+                      <p
+                        title={att.name}
+                        className="text-xs font-bold text-slate-900 truncate"
+                      >
+                        {att.name}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{formatBytes(att.size)}</span>
+                        <span>
+                          {new Date(att.createdAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Open & Download */}
+                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 text-xs">
+                    {att.isLink ? (
+                      <a
+                        href={att.fileData}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-600 hover:underline font-bold text-[11px] flex items-center gap-1"
+                      >
+                        <span>Open Link</span>
+                        <span>↗</span>
+                      </a>
+                    ) : (
+                      <>
+                        <a
+                          href={`/api/attachments/${att.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-blue-600 hover:underline font-bold text-[11px]"
+                        >
+                          Preview ↗
+                        </a>
+                        <a
+                          href={`/api/attachments/${att.id}?download=true`}
+                          download={att.name}
+                          className="text-slate-600 hover:text-slate-900 font-semibold text-[11px]"
+                        >
+                          Download ↓
+                        </a>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Upload Modal Drawer */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900">
+                Upload Project Attachment
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 text-sm p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Mode Switcher: File vs Cloud Link */}
+            <div className="flex p-1 bg-slate-100 rounded-xl gap-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setUploadMode("file")}
+                className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  uploadMode === "file"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                📁 Direct File Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadMode("link")}
+                className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
+                  uploadMode === "link"
+                    ? "bg-white text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                🌐 Cloud Link (Drive/Figma)
+              </button>
+            </div>
+
+            {/* Category Selector */}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Attachment Category
+              </label>
+              <select
+                value={uploadCategory}
+                onChange={(e) => setUploadCategory(e.target.value)}
+                className="w-full px-3.5 py-2.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              >
+                <option value="Quotation">📄 Quotation / Estimate</option>
+                <option value="Invoice">🧾 Invoice / Bill</option>
+                <option value="Contract">📝 Signed Contract / NDA</option>
+                <option value="Receipt">💳 Payment Receipt</option>
+                <option value="Photo">🖼️ Photo / Screenshot / Design</option>
+                <option value="Other">📎 Other Document</option>
+              </select>
+            </div>
+
+            {uploadMode === "file" ? (
+              /* File Input Area */
+              <div className="space-y-3">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Select File (PDF, Images, Word, Spreadsheets)
+                </label>
+                <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 text-center bg-slate-50/50 hover:bg-blue-50/20 transition-all cursor-pointer">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileUpload}
+                    disabled={isUploading}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-2">
+                    Max size: 4.5MB per file • Stored securely with project data
+                  </p>
+                </div>
+                {isUploading && (
+                  <p className="text-xs font-bold text-blue-600 text-center animate-pulse">
+                    Uploading & encoding file to project...
+                  </p>
+                )}
+              </div>
+            ) : (
+              /* Cloud Link Input Form */
+              <form onSubmit={handleLinkSubmit} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Document Title
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Master Proposal on Google Docs / Figma Prototype"
+                    value={linkName}
+                    onChange={(e) => setLinkName(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Cloud URL Link
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://drive.google.com/... or https://figma.com/..."
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isUploading || !linkUrl}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer mt-2"
+                >
+                  {isUploading ? "Saving..." : "Attach Cloud Document Link"}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
 
-      {/* Planning / Upcoming Kickoff Banner */}
-      {status === "Planning" && (
-        <div className="p-5 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 border border-cyan-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse" />
-              <span className="text-xs font-bold text-cyan-900 uppercase tracking-wider">
-                🗓️ Confirmed Upcoming Project (Fixed Amount)
-              </span>
-            </div>
-            <p className="text-xs text-cyan-700 mt-1">
-              Fixed contract terms confirmed with client. Ready to kick off? Click below to move status to In Progress.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setStatus("In Progress");
-              if (progress === 0) setProgress(15);
-            }}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
+      {/* Lightbox / Image Preview Modal */}
+      {previewItem && (
+        <div
+          onClick={() => setPreviewItem(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl overflow-hidden max-w-2xl w-full border border-slate-200 shadow-2xl space-y-3 p-4"
           >
-            ⚡ Kick Off & Start Work
-          </button>
+            <div className="flex items-center justify-between px-2">
+              <span className="text-xs font-bold text-slate-800 truncate max-w-md">
+                {previewItem.name}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPreviewItem(null)}
+                className="text-slate-400 hover:text-slate-700 text-sm p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-slate-900 rounded-2xl p-2">
+              <img
+                src={previewItem.fileData || `/api/attachments/${previewItem.id}`}
+                alt={previewItem.name}
+                className="max-h-[65vh] object-contain rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-2 pt-1 text-xs">
+              <a
+                href={`/api/attachments/${previewItem.id}?download=true`}
+                download={previewItem.name}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-xs transition-colors"
+              >
+                Download Photo ↓
+              </a>
+            </div>
+          </div>
         </div>
       )}
 
@@ -701,7 +1188,7 @@ export default function ProjectDetailClient({
             <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to permanently delete{" "}
               <strong className="text-slate-900">&quot;{name}&quot;</strong>?
-              This action is immediate and cannot be undone.
+              This action will also erase all attached quotations, contracts, and receipts.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button

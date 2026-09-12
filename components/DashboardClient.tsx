@@ -24,6 +24,7 @@ interface Project {
   description: string | null;
   createdAt: string;
   updatedAt: string;
+  attachmentCount?: number;
 }
 
 interface DashboardClientProps {
@@ -829,6 +830,13 @@ export default function DashboardClient({
                           Overdue
                         </span>
                       )}
+
+                      {p.attachmentCount && p.attachmentCount > 0 ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200/80 flex items-center gap-1">
+                          <span>📎</span>
+                          <span>{p.attachmentCount}</span>
+                        </span>
+                      ) : null}
                     </div>
 
                     {/* Delete Icon Button */}
@@ -1117,7 +1125,14 @@ export default function DashboardClient({
                             <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 truncate max-w-[100px]">
                               {p.client || p.category || "General"}
                             </span>
-                            {getPriorityBadge(p.priority)}
+                            <div className="flex items-center gap-1">
+                              {p.attachmentCount && p.attachmentCount > 0 ? (
+                                <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200">
+                                  📎 {p.attachmentCount}
+                                </span>
+                              ) : null}
+                              {getPriorityBadge(p.priority)}
+                            </div>
                           </div>
 
                           <Link
@@ -1215,9 +1230,16 @@ export default function DashboardClient({
                         >
                           {p.name}
                         </Link>
-                        <span className="text-[10px] text-slate-400 font-normal block">
-                          {p.category || "General"}
-                        </span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-400 font-normal">
+                            {p.category || "General"}
+                          </span>
+                          {p.attachmentCount && p.attachmentCount > 0 ? (
+                            <span className="text-[9px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200">
+                              📎 {p.attachmentCount}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
                       <td className="py-3.5 px-4 text-slate-600 font-medium">
