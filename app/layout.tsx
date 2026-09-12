@@ -5,8 +5,8 @@ import { getSession } from "@/lib/session";
 import { logoutAction } from "@/lib/actions";
 
 export const metadata: Metadata = {
-  title: "Project Tracker - Freelance Workspace",
-  description: "Track freelance deliverables, client contacts, and project revenue.",
+  title: "WorkPlan • Freelance Deliverables & Revenue Tracker",
+  description: "Track freelance client projects, deadlines, milestones, and cashflow in real-time.",
 };
 
 export default async function RootLayout({
@@ -19,34 +19,60 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-blue-500 selection:text-white"
+        className="min-h-full flex flex-col bg-slate-50 text-slate-900 antialiased selection:bg-blue-600 selection:text-white"
         suppressHydrationWarning
       >
-        <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
-          <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-            {/* Logo */}
-            <Link
-              href="/"
-              className="flex items-center gap-2.5 font-extrabold text-base sm:text-lg text-slate-900 hover:text-blue-600 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-blue-500/20">
-                PT
-              </div>
-              <span>Project Tracker</span>
-            </Link>
+        {/* Modern Sticky Navigation */}
+        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 transition-all">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            {/* Logo & Brand */}
+            <div className="flex items-center gap-6">
+              <Link
+                href="/"
+                className="flex items-center gap-3 font-extrabold text-base sm:text-lg text-slate-900 hover:opacity-90 transition-opacity"
+              >
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold text-sm shadow-md shadow-indigo-500/20 ring-1 ring-white/30">
+                  WP
+                </div>
+                <div className="flex flex-col leading-tight">
+                  <span className="font-extrabold tracking-tight text-slate-900 text-sm sm:text-base">
+                    WorkPlan
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest -mt-0.5">
+                    Freelance Suite
+                  </span>
+                </div>
+              </Link>
+
+              {/* Navigation links */}
+              <nav className="hidden md:flex items-center gap-1 pl-4 border-l border-slate-200">
+                <Link
+                  href="/"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  href="/projects/new"
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-900 hover:bg-slate-100/80 transition-colors"
+                >
+                  + Add Project
+                </Link>
+              </nav>
+            </div>
 
             {/* User Info & Actions */}
             {session && (
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full text-xs font-semibold text-slate-700">
+                <div className="flex items-center gap-2 px-3 py-1 bg-slate-100/80 rounded-full text-xs font-semibold text-slate-700 border border-slate-200/60 shadow-2xs">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{session.username}</span>
+                  <span className="text-slate-800 font-bold">{session.username}</span>
                 </div>
 
                 <form action={logoutAction}>
                   <button
                     type="submit"
-                    className="text-xs font-bold px-3 py-1.5 text-slate-600 hover:text-rose-600 bg-slate-100 hover:bg-rose-50 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                    className="text-xs font-bold px-3 py-1.5 text-slate-600 hover:text-rose-600 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl transition-all cursor-pointer shadow-2xs"
                   >
                     Logout
                   </button>
@@ -56,14 +82,21 @@ export default async function RootLayout({
           </div>
         </header>
 
-        <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8">
+        {/* Main Content Area */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
           {children}
         </main>
 
-        <footer className="border-t border-slate-200 py-6 text-center text-xs text-slate-400 bg-white/50">
-          <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p>Project Tracker • Personal Freelance Suite</p>
-            <p className="text-slate-400">PostgreSQL (Neon) • Next.js 14</p>
+        {/* Modern Clean Footer */}
+        <footer className="border-t border-slate-200/80 py-6 text-center text-xs text-slate-400 bg-white/60">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p className="flex items-center gap-2">
+              <span className="font-bold text-slate-600">WorkPlan</span>
+              <span>• Freelance Deliverables & Revenue Tracker</span>
+            </p>
+            <p className="text-slate-400">
+              Self-hosted Freelance CRM • All data private & secure
+            </p>
           </div>
         </footer>
       </body>

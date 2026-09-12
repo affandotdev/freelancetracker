@@ -47,7 +47,7 @@ export default function ProjectDetailClient({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [message, setMessage] = useState("");
+  const [toastMessage, setToastMessage] = useState("");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function ProjectDetailClient({
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdating(true);
-    setMessage("");
+    setToastMessage("");
 
     try {
       await updateProjectAction(project.id, {
@@ -81,11 +81,12 @@ export default function ProjectDetailClient({
         deadline: deadline || null,
         description,
       });
-      setMessage("Project & financials updated successfully!");
-      setTimeout(() => setMessage(""), 3000);
-    } catch (err: any) {
-      console.error(err);
-      setMessage("Failed to update project.");
+
+      setToastMessage("Project changes saved successfully!");
+      setTimeout(() => setToastMessage(""), 3500);
+    } catch (err) {
+      console.error("Failed to update project:", err);
+      alert("Failed to update project. Please try again.");
     } finally {
       setIsUpdating(false);
     }
@@ -111,26 +112,39 @@ export default function ProjectDetailClient({
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      {/* Top Navigation */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/"
-          className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          ← Back to Dashboard
-        </Link>
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 bg-emerald-600 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs font-bold animate-bounce">
+          <span>✓</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Breadcrumb & Actions */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+          <Link href="/" className="hover:text-blue-600 transition-colors">
+            ← Dashboard
+          </Link>
+          <span>/</span>
+          <span className="text-slate-700">{client || "Personal"}</span>
+          <span>/</span>
+          <span className="text-slate-900 font-bold truncate max-w-[200px]">{name}</span>
+        </div>
+
         <button
           type="button"
           onClick={() => setIsDeleteModalOpen(true)}
-          className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-xl border border-rose-200 transition-colors cursor-pointer"
+          className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-xl border border-rose-200 transition-colors cursor-pointer"
         >
-          🗑️ Delete Project
+          🗑️ Delete
         </button>
       </div>
 
       {/* Main Hero Header Card */}
-      <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-xs space-y-4">
+      <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-2xs space-y-5">
+        {/* Badges Row */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700">
             {category}
@@ -193,6 +207,7 @@ export default function ProjectDetailClient({
           )}
         </div>
 
+        {/* Project Title & Client Info */}
         <div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             {name}
@@ -215,50 +230,54 @@ export default function ProjectDetailClient({
           )}
         </div>
 
-        {/* Financial & Timeline KPI Widget */}
+        {/* Financial & Timeline KPI Cards Grid */}
         <div className="pt-4 border-t border-slate-100 grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Total Contract */}
           <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
             <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
               Total Contract
             </span>
             <span
               suppressHydrationWarning
-              className="text-xl sm:text-2xl font-extrabold text-slate-900"
+              className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight"
             >
               {formatCurrency(totalAmount)}
             </span>
           </div>
 
+          {/* Received Cash */}
           <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-100">
             <span className="text-xs uppercase tracking-wider font-semibold text-emerald-600 block mb-1">
               Received Cash
             </span>
             <span
               suppressHydrationWarning
-              className="text-xl sm:text-2xl font-extrabold text-emerald-700"
+              className="text-xl sm:text-2xl font-extrabold text-emerald-700 tracking-tight"
             >
               {formatCurrency(receivedAmount)}
             </span>
-            <span className="text-[10px] text-emerald-600 block mt-0.5">
+            <span className="text-[10px] text-emerald-600 block mt-0.5 font-medium">
               {paymentPct}% collected
             </span>
           </div>
 
+          {/* Pending Balance */}
           <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-100">
             <span className="text-xs uppercase tracking-wider font-semibold text-amber-600 block mb-1">
               Pending Balance
             </span>
             <span
               suppressHydrationWarning
-              className="text-xl sm:text-2xl font-extrabold text-amber-700"
+              className="text-xl sm:text-2xl font-extrabold text-amber-700 tracking-tight"
             >
               {formatCurrency(pendingAmount)}
             </span>
-            <span className="text-[10px] text-amber-600 block mt-0.5">
+            <span className="text-[10px] text-amber-600 block mt-0.5 font-medium">
               {pendingAmount === 0 ? "Fully Settled" : "Awaiting payment"}
             </span>
           </div>
 
+          {/* Project Duration Left */}
           <div
             className={`p-4 rounded-2xl border ${
               duration.statusType === "overdue"
@@ -291,7 +310,7 @@ export default function ProjectDetailClient({
             </span>
             <span
               suppressHydrationWarning
-              className={`text-xl sm:text-2xl font-extrabold flex items-center gap-1.5 ${
+              className={`text-xl sm:text-2xl font-extrabold flex items-center gap-1.5 tracking-tight ${
                 duration.statusType === "overdue"
                   ? "text-rose-700"
                   : duration.statusType === "today"
@@ -313,11 +332,34 @@ export default function ProjectDetailClient({
             </span>
           </div>
         </div>
+
+        {/* Dual Progress Meter for Deliverable & Collection */}
+        {totalAmount > 0 && (
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+              <span>Financial Recovery vs Work Progress</span>
+              <span className="text-slate-900 font-bold">
+                {paymentPct}% Billed • {progress}% Built
+              </span>
+            </div>
+            <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden flex">
+              <div
+                className="bg-emerald-500 h-full transition-all duration-500"
+                style={{ width: `${paymentPct}%` }}
+                title={`Cash Collected: ${paymentPct}%`}
+              />
+              <div
+                className="bg-slate-200 h-full transition-all duration-500"
+                style={{ width: `${100 - paymentPct}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Enquiry Onboarding Banner */}
       {status === "Enquiry" && (
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+        <div className="p-5 bg-gradient-to-r from-purple-50 via-indigo-50 to-blue-50 border border-purple-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
@@ -326,7 +368,7 @@ export default function ProjectDetailClient({
               </span>
             </div>
             <p className="text-xs text-purple-700 mt-1">
-              This client inquiry is under discussion and not yet committed. Click below once the proposal is accepted to onboard it into active deliverables.
+              This client inquiry is under discussion. Click below once the proposal is accepted to onboard it into active deliverables.
             </p>
           </div>
           <button
@@ -344,7 +386,7 @@ export default function ProjectDetailClient({
 
       {/* Planning / Upcoming Kickoff Banner */}
       {status === "Planning" && (
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 border border-cyan-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
+        <div className="p-5 bg-gradient-to-r from-cyan-50 via-sky-50 to-blue-50 border border-cyan-200 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-2xs">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 animate-pulse" />
@@ -372,17 +414,17 @@ export default function ProjectDetailClient({
       {/* Editable Management Form */}
       <form
         onSubmit={handleUpdate}
-        className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-xs space-y-6"
+        className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-2xs space-y-6"
       >
-        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800">
-            Project Specifications & Milestones
-          </h2>
-          {message && (
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-              {message}
-            </span>
-          )}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900">
+              Project Configuration & Specifications
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Update scope, timeline, contracted fees, and current completion level
+            </p>
+          </div>
         </div>
 
         {/* Title, Category & Priority */}
@@ -395,7 +437,7 @@ export default function ProjectDetailClient({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
 
@@ -406,7 +448,7 @@ export default function ProjectDetailClient({
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
             >
               <option value="Web Development">Web Development</option>
               <option value="UI/UX Design">UI/UX Design</option>
@@ -425,7 +467,7 @@ export default function ProjectDetailClient({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
@@ -445,65 +487,64 @@ export default function ProjectDetailClient({
               type="text"
               value={client}
               onChange={(e) => setClient(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. Acme Corp / Sarah Jenkins"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Client Email
+              Client Contact Email
             </label>
             <input
               type="email"
               value={clientEmail}
               onChange={(e) => setClientEmail(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="client@company.com"
+              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
         </div>
 
-        {/* Financials Form */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              {status === "Planning"
-                ? "Fixed Agreed Contract Amount (₹)"
-                : "Total Contract Amount (₹)"}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={totalAmount}
-              onChange={(e) => setTotalAmount(Number(e.target.value) || 0)}
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {status === "Planning" && (
-              <p className="text-[11px] text-cyan-700 mt-1">
-                Agreed fixed fee for upcoming project kickoff.
-              </p>
-            )}
-          </div>
+        {/* Financial Specifications */}
+        <div className="p-5 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-4">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+            Financial Terms & Milestones (₹ INR)
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                {status === "Enquiry"
+                  ? "Quoted Budget Estimate (₹)"
+                  : status === "Planning"
+                  ? "Fixed Agreed Contract Amount (₹)"
+                  : "Total Contract Value (₹)"}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(Number(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              {status === "Planning"
-                ? "Advance / Deposit Received (₹)"
-                : "Received Amount (₹)"}
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={receivedAmount}
-              onChange={(e) => setReceivedAmount(Number(e.target.value) || 0)}
-              className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {status === "Planning" && (
-              <p className="text-[11px] text-slate-500 mt-1">
-                Advance paid to confirm the upcoming work slot.
-              </p>
-            )}
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                {status === "Planning"
+                  ? "Advance Deposit Received (₹)"
+                  : "Received Cash Amount (₹)"}
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={receivedAmount}
+                onChange={(e) => setReceivedAmount(Number(e.target.value) || 0)}
+                className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-emerald-700"
+              />
+            </div>
           </div>
         </div>
 
@@ -521,7 +562,7 @@ export default function ProjectDetailClient({
                   setStatus(s);
                   if (s === "Completed" && progress < 100) setProgress(100);
                 }}
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-semibold"
               >
                 <option value="Not Started">Not Started</option>
                 <option value="In Progress">In Progress</option>
@@ -542,7 +583,7 @@ export default function ProjectDetailClient({
                 type="date"
                 value={deadline}
                 onChange={(e) => setDeadline(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
               />
               {mounted && deadline && (
                 <p
@@ -572,31 +613,17 @@ export default function ProjectDetailClient({
             </div>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
+          {/* Work Progress with Quick Presets */}
+          <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
                 Work Completion Progress
               </label>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setProgress((p) => Math.max(0, p - 10))}
-                  className="px-2 py-0.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 rounded-md"
-                >
-                  -10%
-                </button>
-                <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                  {progress}%
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setProgress((p) => Math.min(100, p + 10))}
-                  className="px-2 py-0.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 rounded-md"
-                >
-                  +10%
-                </button>
-              </div>
+              <span className="text-xs font-extrabold text-blue-700 bg-blue-100 px-2.5 py-0.5 rounded-lg">
+                {progress}%
+              </span>
             </div>
+
             <input
               type="range"
               min="0"
@@ -606,38 +633,67 @@ export default function ProjectDetailClient({
               onChange={(e) => setProgress(Number(e.target.value))}
               className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
+
+            {/* Quick Preset Buttons */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Presets:</span>
+              {[
+                { label: "0%", val: 0 },
+                { label: "25%", val: 25 },
+                { label: "50%", val: 50 },
+                { label: "75%", val: 75 },
+                { label: "100% Done", val: 100 },
+              ].map((btn) => (
+                <button
+                  key={btn.val}
+                  type="button"
+                  onClick={() => {
+                    setProgress(btn.val);
+                    if (btn.val === 100) setStatus("Completed");
+                  }}
+                  className={`text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer ${
+                    progress === btn.val
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                  }`}
+                >
+                  {btn.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* Description */}
+        {/* Scope & Description */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-            Scope & Notes
+            Scope, Milestones & Notes
           </label>
           <textarea
-            rows={3}
+            rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="w-full p-3.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            placeholder="Record key milestones, client requests, deliverables, or technical specs..."
+            className="w-full p-3.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-medium leading-relaxed"
           />
         </div>
 
-        {/* Save Changes Button */}
+        {/* Submit Save Button */}
         <div className="pt-2">
           <button
             type="submit"
             disabled={isUpdating}
-            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
+            className="w-full py-3 px-5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-sm font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all cursor-pointer disabled:opacity-50"
           >
-            {isUpdating ? "Saving..." : "Save Project Changes"}
+            {isUpdating ? "Saving Changes..." : "Save Project Changes"}
           </button>
         </div>
       </form>
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full border border-slate-200 shadow-xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full border border-slate-200 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-rose-600">
               <span className="text-2xl">⚠️</span>
               <h3 className="text-lg font-bold text-slate-900">Delete Project?</h3>
@@ -645,13 +701,13 @@ export default function ProjectDetailClient({
             <p className="text-xs text-slate-600 leading-relaxed">
               Are you sure you want to permanently delete{" "}
               <strong className="text-slate-900">&quot;{name}&quot;</strong>?
-              This cannot be undone.
+              This action is immediate and cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setIsDeleteModalOpen(false)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -659,7 +715,7 @@ export default function ProjectDetailClient({
                 type="button"
                 onClick={handleDeleteConfirm}
                 disabled={isDeleting}
-                className="px-4 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
               >
                 {isDeleting ? "Deleting..." : "Yes, Delete"}
               </button>
