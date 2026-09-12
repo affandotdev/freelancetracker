@@ -116,3 +116,28 @@ export function formatDeadlineDate(dateStr: string | null | undefined): string {
     timeZone: "UTC",
   });
 }
+
+/**
+ * Calculates a YYYY-MM-DD date string by adding a number of days to today (or to a base date).
+ */
+export function addDaysToDate(days: number, fromDate?: string | null): string {
+  const base = fromDate ? new Date(fromDate + "T00:00:00") : new Date();
+  base.setDate(base.getDate() + days);
+  const year = base.getFullYear();
+  const month = String(base.getMonth() + 1).padStart(2, "0");
+  const day = String(base.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Calculates the number of calendar days from today to a target date string (YYYY-MM-DD).
+ */
+export function getDaysDifference(targetDateStr: string | null | undefined): number | null {
+  if (!targetDateStr) return null;
+  const target = new Date(targetDateStr.split("T")[0] + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffMs = target.getTime() - today.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+

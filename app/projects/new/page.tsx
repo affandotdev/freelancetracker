@@ -6,6 +6,8 @@ import { createProjectAction } from "@/lib/actions";
 import {
   getProjectDuration,
   formatDeadlineDate,
+  addDaysToDate,
+  getDaysDifference,
 } from "@/lib/dateUtils";
 
 export default function NewProjectPage() {
@@ -14,7 +16,33 @@ export default function NewProjectPage() {
   const [totalAmount, setTotalAmount] = useState<number | string>("");
   const [receivedAmount, setReceivedAmount] = useState<number | string>("");
   const [deadline, setDeadline] = useState("");
+  const [durationDays, setDurationDays] = useState<string>("");
   const [mounted, setMounted] = useState(false);
+
+  const handleDaysChange = (daysStr: string) => {
+    setDurationDays(daysStr);
+    const parsed = parseInt(daysStr, 10);
+    if (!isNaN(parsed) && parsed >= 0) {
+      setDeadline(addDaysToDate(parsed));
+    } else if (daysStr === "") {
+      setDeadline("");
+    }
+  };
+
+  const handleDateChange = (dateVal: string) => {
+    setDeadline(dateVal);
+    const diff = getDaysDifference(dateVal);
+    if (diff !== null && diff >= 0) {
+      setDurationDays(diff.toString());
+    } else {
+      setDurationDays("");
+    }
+  };
+
+  const applyDaysPreset = (days: number) => {
+    setDurationDays(days.toString());
+    setDeadline(addDaysToDate(days));
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -267,24 +295,91 @@ export default function NewProjectPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              {isEnquiry
-                ? "Target Decision / Start Date"
-                : isPlanning
-                ? "Scheduled Kickoff / Start Date"
-                : "Target Deadline"}
-            </label>
-            <input
-              type="date"
-              name="deadline"
-              value={deadline}
-              onChange={(e) => setDeadline(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            />
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                {isEnquiry
+                  ? "Target Decision / Start Date"
+                  : isPlanning
+                  ? "Scheduled Kickoff / Start Date"
+                  : "Target Deadline & Duration"}
+              </label>
+              {deadline && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeadline("");
+                    setDurationDays("");
+                  }}
+                  className="text-[10px] text-slate-400 hover:text-rose-600 font-semibold cursor-pointer"
+                >
+                  ✕ Clear
+                </button>
+              )}
+            </div>
+
+            {/* Two-Way Inputs: Calendar Date OR Duration in Days */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div>
+                <span className="text-[10px] text-slate-400 font-semibold block mb-1">Calendar Date:</span>
+                <input
+                  type="date"
+                  name="deadline"
+                  value={deadline}
+                  onChange={(e) => handleDateChange(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer font-medium"
+                />
+              </div>
+
+              <div>
+                <span className="text-[10px] text-slate-400 font-semibold block mb-1">Or Duration (Days from now):</span>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="365"
+                    placeholder="e.g. 20, 30"
+                    value={durationDays}
+                    onChange={(e) => handleDaysChange(e.target.value)}
+                    className="w-full px-3 py-2 pr-12 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-slate-800"
+                  />
+                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 pointer-events-none">
+                    days
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Presets (e.g. +7d, +15d, +20d, +30d, +45d, +60d) */}
+            <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mr-0.5">Quick Add:</span>
+              {[
+                { days: 7, label: "+7d" },
+                { days: 15, label: "+15d" },
+                { days: 20, label: "+20d" },
+                { days: 30, label: "+30d (1 mo)" },
+                { days: 45, label: "+45d" },
+                { days: 60, label: "+60d (2 mos)" },
+              ].map((p) => (
+                <button
+                  key={p.days}
+                  type="button"
+                  onClick={() => applyDaysPreset(p.days)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    durationDays === p.days.toString()
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : "bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border border-slate-200/80"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {mounted && deadline && (
-              <p
+              <div
                 suppressHydrationWarning
-                className="text-xs mt-1.5 font-medium flex items-center gap-1.5"
+                className="text-xs mt-1 p-2 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between font-medium"
               >
                 <span
                   className={
@@ -301,10 +396,10 @@ export default function NewProjectPage() {
                 >
                   ⏱️ {duration.label}
                 </span>
-                <span className="text-slate-400">
-                  ({formatDeadlineDate(deadline)})
+                <span className="text-[11px] text-slate-500 font-semibold">
+                  {formatDeadlineDate(deadline)}
                 </span>
-              </p>
+              </div>
             )}
           </div>
         </div>
