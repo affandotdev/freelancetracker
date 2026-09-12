@@ -294,7 +294,6 @@ export default function NewProjectPage() {
             </select>
           </div>
 
-          <div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
