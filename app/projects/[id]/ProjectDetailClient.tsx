@@ -67,6 +67,9 @@ export default function ProjectDetailClient({
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadCategory, setUploadCategory] = useState("Quotation");
   const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
   const [isUploading, setIsUploading] = useState(false);
@@ -74,6 +77,22 @@ export default function ProjectDetailClient({
   const [previewItem, setPreviewItem] = useState<AttachmentItem | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const closeModal = () => {
+    setIsUploadModalOpen(false);
+    setSelectedFile(null);
+    setUploadError("");
+    setIsDragging(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const openUploadModal = (cat?: string) => {
+    if (cat) setUploadCategory(cat);
+    setSelectedFile(null);
+    setUploadError("");
+    setIsDragging(false);
+    setIsUploadModalOpen(true);
+  };
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -123,33 +142,57 @@ export default function ProjectDetailClient({
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleFileUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) {
+      setUploadError("Please select a file to upload");
+      return;
+    }
 
-    if (file.size > 4.5 * 1024 * 1024) {
-      alert("File exceeds 4.5MB limit. Please choose a smaller file or attach a cloud link.");
+    if (selectedFile.size > 4.5 * 1024 * 1024) {
+      setUploadError("File exceeds 4.5MB limit. Please choose a smaller file or attach a cloud link.");
       return;
     }
 
     setIsUploading(true);
+    setUploadError("");
+
     try {
       const fd = new FormData();
       fd.append("projectId", project.id);
       fd.append("category", uploadCategory);
-      fd.append("file", file);
+      fd.append("file", selectedFile);
 
-      const result = await uploadAttachmentAction(fd);
-      setAttachments((prev) => [result, ...prev]);
-      setToastMessage(`"${file.name}" uploaded successfully!`);
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        body: fd,
+      });
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn("Upload response parse warning:", parseErr);
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.error ||
+          (res.status === 413
+            ? "File size exceeds server payload limit. Please upload a smaller file or attach a cloud link."
+            : `Upload failed (Status ${res.status}). Please try again.`)
+        );
+      }
+
+      setAttachments((prev) => [data.attachment, ...prev]);
+      setToastMessage(`"${selectedFile.name}" uploaded successfully!`);
       setTimeout(() => setToastMessage(""), 3500);
-      setIsUploadModalOpen(false);
+      closeModal();
     } catch (err: any) {
       console.error("Upload failed:", err);
-      alert(err.message || "Failed to upload file");
+      setUploadError(err.message || "Failed to upload file. Please try again.");
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -158,6 +201,8 @@ export default function ProjectDetailClient({
     if (!linkUrl.trim()) return;
 
     setIsUploading(true);
+    setUploadError("");
+
     try {
       const fd = new FormData();
       fd.append("projectId", project.id);
@@ -166,16 +211,31 @@ export default function ProjectDetailClient({
       fd.append("linkUrl", linkUrl.trim());
       fd.append("linkName", linkName.trim() || "Cloud Document");
 
-      const result = await uploadAttachmentAction(fd);
-      setAttachments((prev) => [result, ...prev]);
+      const res = await fetch("/api/attachments", {
+        method: "POST",
+        body: fd,
+      });
+
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.warn("Link response parse warning:", parseErr);
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to attach link");
+      }
+
+      setAttachments((prev) => [data.attachment, ...prev]);
       setToastMessage("Cloud document link added!");
       setTimeout(() => setToastMessage(""), 3500);
       setLinkUrl("");
       setLinkName("");
-      setIsUploadModalOpen(false);
+      closeModal();
     } catch (err: any) {
       console.error("Link attachment failed:", err);
-      alert(err.message || "Failed to attach link");
+      setUploadError(err.message || "Failed to attach link");
     } finally {
       setIsUploading(false);
     }
@@ -184,14 +244,19 @@ export default function ProjectDetailClient({
   const handleDeleteAttachment = async (attachmentId: string) => {
     if (!confirm("Delete this document/photo?")) return;
     try {
-      await deleteAttachmentAction(attachmentId, project.id);
+      const res = await fetch(`/api/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete attachment");
+      }
       setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
       if (previewItem?.id === attachmentId) setPreviewItem(null);
       setToastMessage("Attachment removed");
       setTimeout(() => setToastMessage(""), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete failed:", err);
-      alert("Failed to delete attachment");
+      alert(err.message || "Failed to delete attachment");
     }
   };
 
@@ -534,7 +599,7 @@ export default function ProjectDetailClient({
 
           <button
             type="button"
-            onClick={() => setIsUploadModalOpen(true)}
+            onClick={() => openUploadModal()}
             className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <span>+ Upload / Attach File</span>
@@ -588,7 +653,7 @@ export default function ProjectDetailClient({
             </p>
             <button
               type="button"
-              onClick={() => setIsUploadModalOpen(true)}
+              onClick={() => openUploadModal()}
               className="mt-4 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
             >
               + Upload Quotation or Photo
@@ -726,15 +791,21 @@ export default function ProjectDetailClient({
 
       {/* Upload Modal Drawer */}
       {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 shadow-2xl space-y-5">
+        <div
+          onClick={closeModal}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full border border-slate-200 shadow-2xl space-y-5"
+          >
             <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold text-slate-900">
                 Upload Project Attachment
               </h3>
               <button
                 type="button"
-                onClick={() => setIsUploadModalOpen(false)}
+                onClick={closeModal}
                 className="text-slate-400 hover:text-slate-600 text-sm p-1 cursor-pointer"
               >
                 ✕
@@ -745,7 +816,10 @@ export default function ProjectDetailClient({
             <div className="flex p-1 bg-slate-100 rounded-xl gap-1 text-xs font-bold">
               <button
                 type="button"
-                onClick={() => setUploadMode("file")}
+                onClick={() => {
+                  setUploadMode("file");
+                  setUploadError("");
+                }}
                 className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
                   uploadMode === "file"
                     ? "bg-white text-slate-900 shadow-2xs"
@@ -756,7 +830,10 @@ export default function ProjectDetailClient({
               </button>
               <button
                 type="button"
-                onClick={() => setUploadMode("link")}
+                onClick={() => {
+                  setUploadMode("link");
+                  setUploadError("");
+                }}
                 className={`flex-1 py-1.5 rounded-lg transition-all cursor-pointer ${
                   uploadMode === "link"
                     ? "bg-white text-slate-900 shadow-2xs"
@@ -787,32 +864,135 @@ export default function ProjectDetailClient({
             </div>
 
             {uploadMode === "file" ? (
-              /* File Input Area */
-              <div className="space-y-3">
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                  Select File (PDF, Images, Word, Spreadsheets)
-                </label>
-                <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 text-center bg-slate-50/50 hover:bg-blue-50/20 transition-all cursor-pointer">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileUpload}
-                    disabled={isUploading}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer"
-                  />
-                  <p className="text-[10px] text-slate-400 mt-2">
-                    Max size: 4.5MB per file • Stored securely with project data
-                  </p>
-                </div>
-                {isUploading && (
-                  <p className="text-xs font-bold text-blue-600 text-center animate-pulse">
-                    Uploading & encoding file to project...
-                  </p>
+              /* File Input Form */
+              <form onSubmit={handleFileUploadSubmit} className="space-y-4">
+                {uploadError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
+                    <span className="text-sm shrink-0">⚠️</span>
+                    <span className="flex-1">{uploadError}</span>
+                  </div>
                 )}
-              </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Select Document / Photo
+                  </label>
+
+                  {!selectedFile ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) {
+                          setSelectedFile(file);
+                          setUploadError("");
+                        }
+                      }}
+                      className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2 ${
+                        isDragging
+                          ? "border-blue-500 bg-blue-50/50 scale-[0.99]"
+                          : "border-slate-300 hover:border-blue-400 bg-slate-50/60 hover:bg-blue-50/20"
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-2xl shadow-2xs">
+                        📁
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800">
+                          Click to browse or drag & drop file
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          PDF quotations, JPG/PNG photos, invoices, docs (up to 4.5MB)
+                        </p>
+                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.doc,.xlsx,.xls,.txt"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            setSelectedFile(f);
+                            setUploadError("");
+                          }
+                        }}
+                        disabled={isUploading}
+                        className="hidden"
+                      />
+                    </div>
+                  ) : (
+                    <div className="border border-slate-200 bg-slate-50/80 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-2xl shrink-0">
+                            {selectedFile.type.startsWith("image/")
+                              ? "🖼️"
+                              : selectedFile.name.endsWith(".pdf")
+                              ? "📄"
+                              : "📎"}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold text-slate-900 truncate">
+                              {selectedFile.name}
+                            </p>
+                            <p className="text-[10px] text-slate-500">
+                              {formatBytes(selectedFile.size)} • {uploadCategory}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          disabled={isUploading}
+                          className="text-xs font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
+                        >
+                          ✕ Change
+                        </button>
+                      </div>
+
+                      {selectedFile.size > 4.5 * 1024 * 1024 && (
+                        <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-[11px] text-rose-700 font-semibold">
+                          ⚠️ File is {formatBytes(selectedFile.size)}, which exceeds the 4.5MB limit. Please choose a smaller file or use Cloud Link mode.
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isUploading || !selectedFile || (selectedFile && selectedFile.size > 4.5 * 1024 * 1024)}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  {isUploading ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      <span>Uploading & Saving to Project...</span>
+                    </>
+                  ) : (
+                    <span>Upload Attachment Now 🚀</span>
+                  )}
+                </button>
+              </form>
             ) : (
               /* Cloud Link Input Form */
               <form onSubmit={handleLinkSubmit} className="space-y-3">
+                {uploadError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
+                    <span className="text-sm shrink-0">⚠️</span>
+                    <span className="flex-1">{uploadError}</span>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
                     Document Title
@@ -844,9 +1024,16 @@ export default function ProjectDetailClient({
                 <button
                   type="submit"
                   disabled={isUploading || !linkUrl}
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer mt-2"
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer mt-2 flex items-center justify-center gap-2"
                 >
-                  {isUploading ? "Saving..." : "Attach Cloud Document Link"}
+                  {isUploading ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                      <span>Saving Cloud Link...</span>
+                    </>
+                  ) : (
+                    <span>Attach Cloud Document Link</span>
+                  )}
                 </button>
               </form>
             )}

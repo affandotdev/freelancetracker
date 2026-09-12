@@ -2,8 +2,46 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/session";
 
+export const dynamic = "force-dynamic";
+
 interface RouteParams {
   params: Promise<{ id: string }> | { id: string };
+}
+
+async function getAttachmentRecord(id: string) {
+  if (typeof (prisma as any).attachment?.findUnique === "function") {
+    try {
+      const att = await (prisma as any).attachment.findUnique({
+        where: { id },
+      });
+      if (att) return att;
+    } catch (e) {
+      console.warn("Prisma findUnique fallback:", e);
+    }
+  }
+
+  const rows: any[] = await prisma.$queryRawUnsafe(
+    `SELECT * FROM "Attachment" WHERE "id" = $1 LIMIT 1`,
+    id
+  );
+  return rows?.[0] || null;
+}
+
+async function deleteAttachmentRecord(id: string) {
+  if (typeof (prisma as any).attachment?.delete === "function") {
+    try {
+      return await (prisma as any).attachment.delete({
+        where: { id },
+      });
+    } catch (e) {
+      console.warn("Prisma delete fallback:", e);
+    }
+  }
+
+  return await prisma.$executeRawUnsafe(
+    `DELETE FROM "Attachment" WHERE "id" = $1`,
+    id
+  );
 }
 
 export async function GET(req: NextRequest, { params }: RouteParams) {
@@ -16,9 +54,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   const { id } = resolvedParams;
 
   try {
-    const attachment = await (prisma as any).attachment.findUnique({
-      where: { id },
-    });
+    const attachment = await getAttachmentRecord(id);
 
     if (!attachment) {
       return new NextResponse("Attachment not found", { status: 404 });
@@ -58,3 +94,22 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     return new NextResponse("Error retrieving file", { status: 500 });
   }
 }
+
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const resolvedParams = await params;
+  const { id } = resolvedParams;
+
+  try {
+    await deleteAttachmentRecord(id);
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting attachment:", error);
+    return NextResponse.json({ error: "Failed to delete attachment" }, { status: 500 });
+  }
+}
+

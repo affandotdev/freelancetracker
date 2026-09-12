@@ -36,7 +36,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  const attachments = (project.attachments || []).map((att: any) => ({
+  let rawAttachments: any[] = project.attachments || [];
+  if (!project.attachments) {
+    try {
+      rawAttachments = await prisma.$queryRawUnsafe(
+        `SELECT "id", "name", "category", "mimeType", "size", "fileData", "isLink", "createdAt" 
+         FROM "Attachment" WHERE "projectId" = $1 ORDER BY "createdAt" DESC`,
+        id
+      );
+    } catch (sqlErr) {
+      console.warn("Could not query attachments via raw SQL:", sqlErr);
+    }
+  }
+
+  const attachments = (rawAttachments || []).map((att: any) => ({
     id: att.id,
     name: att.name,
     category: att.category,
