@@ -251,6 +251,7 @@ export default function ProjectDetailClient({
         throw new Error("Failed to delete attachment");
       }
       setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+      setAttachmentFilter("all"); // Always reset filter so user isn't stuck on an empty tab
       if (previewItem?.id === attachmentId) setPreviewItem(null);
       setToastMessage("Attachment removed");
       setTimeout(() => setToastMessage(""), 3000);
@@ -581,34 +582,236 @@ export default function ProjectDetailClient({
       </div>
 
       {/* ========================================================================= */}
-      {/* DOCUMENTS, QUOTATIONS & PHOTOS SECTION */}
+      {/* DOCUMENTS, QUOTATIONS & PHOTOS SECTION (ALWAYS-VISIBLE UPLOAD SUITE) */}
       {/* ========================================================================= */}
       <div className="bg-white p-6 sm:p-8 border border-slate-200 rounded-3xl shadow-2xs space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
               <span>📁 Quotations, Documents & Photos</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                {attachments.length}
+              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                {attachments.length} {attachments.length === 1 ? "file" : "files"}
               </span>
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Upload quotations, contracts, payment receipts, screenshots, and design assets for this project
+              Permanently store project estimates, signed contracts, receipts, design photos, or external links
             </p>
           </div>
-
-          <button
-            type="button"
-            onClick={() => openUploadModal()}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer shrink-0"
-          >
-            <span>+ Upload / Attach File</span>
-          </button>
         </div>
 
-        {/* Filter Tabs for Attachments */}
+        {/* ALWAYS-VISIBLE INLINE UPLOAD AREA (Never disappears when files are deleted) */}
+        <div className="bg-slate-50/80 border border-slate-200/90 rounded-2xl p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Category Selector Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+              {[
+                { id: "Quotation", label: "📄 Quotation" },
+                { id: "Invoice", label: "🧾 Invoice" },
+                { id: "Contract", label: "📝 Contract" },
+                { id: "Receipt", label: "💳 Receipt" },
+                { id: "Photo", label: "🖼️ Photo / Asset" },
+                { id: "Other", label: "📎 Other" },
+              ].map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setUploadCategory(cat.id)}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer whitespace-nowrap text-xs ${
+                    uploadCategory === cat.id
+                      ? "bg-blue-600 text-white shadow-xs"
+                      : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Mode Switcher: File vs Cloud Link */}
+            <div className="flex p-1 bg-white border border-slate-200 rounded-xl gap-1 text-xs font-bold shrink-0 self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadMode("file");
+                  setUploadError("");
+                }}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  uploadMode === "file"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                📁 Direct File
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUploadMode("link");
+                  setUploadError("");
+                }}
+                className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  uploadMode === "link"
+                    ? "bg-slate-900 text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-900"
+                }`}
+              >
+                🌐 Cloud Link
+              </button>
+            </div>
+          </div>
+
+          {/* Inline Upload Form */}
+          {uploadMode === "file" ? (
+            <form onSubmit={handleFileUploadSubmit} className="space-y-3">
+              {uploadError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
+                  <span className="text-sm shrink-0">⚠️</span>
+                  <span className="flex-1">{uploadError}</span>
+                </div>
+              )}
+
+              {!selectedFile ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) {
+                      setSelectedFile(file);
+                      setUploadError("");
+                    }
+                  }}
+                  className={`border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
+                    isDragging
+                      ? "border-blue-500 bg-blue-50/60 scale-[0.99]"
+                      : "border-slate-300 hover:border-blue-400 bg-white hover:bg-blue-50/20 shadow-2xs"
+                  }`}
+                >
+                  <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shadow-2xs">
+                    📁
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Click to browse or drag & drop {uploadCategory.toLowerCase()} file here
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      PDF, JPG, PNG, DOCX, XLSX up to 4.5MB • Stored permanently with project
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.doc,.xlsx,.xls,.txt"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setSelectedFile(f);
+                        setUploadError("");
+                      }
+                    }}
+                    disabled={isUploading}
+                    className="hidden"
+                  />
+                </div>
+              ) : (
+                <div className="border border-slate-200 bg-white rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-3 min-w-0 w-full sm:w-auto">
+                    <span className="text-2xl shrink-0">
+                      {selectedFile.type.startsWith("image/")
+                        ? "🖼️"
+                        : selectedFile.name.endsWith(".pdf")
+                        ? "📄"
+                        : "📎"}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {formatBytes(selectedFile.size)} • Category: <strong className="text-blue-600">{uploadCategory}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      disabled={isUploading}
+                      className="px-3 py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                    >
+                      ✕ Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isUploading || selectedFile.size > 4.5 * 1024 * 1024}
+                      className="flex-1 sm:flex-initial px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isUploading ? (
+                        <>
+                          <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <span>Upload {uploadCategory} Now 🚀</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </form>
+          ) : (
+            /* Inline Cloud Link Form */
+            <form onSubmit={handleLinkSubmit} className="space-y-3">
+              {uploadError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
+                  <span className="text-sm shrink-0">⚠️</span>
+                  <span className="flex-1">{uploadError}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  required
+                  placeholder="Document Title (e.g. Master Proposal on Google Docs / Figma)"
+                  value={linkName}
+                  onChange={(e) => setLinkName(e.target.value)}
+                  className="w-full px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://drive.google.com/... or https://figma.com/..."
+                    value={linkUrl}
+                    onChange={(e) => setLinkUrl(e.target.value)}
+                    className="flex-1 px-3.5 py-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  />
+                  <button
+                    type="submit"
+                    disabled={isUploading || !linkUrl}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50 cursor-pointer shrink-0"
+                  >
+                    {isUploading ? "Saving..." : "+ Add Link"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Filter Tabs for Existing Files */}
         {attachments.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-t border-slate-100 pt-4 scrollbar-none text-xs">
             {[
               { id: "all", label: "All Files" },
               { id: "Quotation", label: "📄 Quotations" },
@@ -645,19 +848,12 @@ export default function ProjectDetailClient({
 
         {/* Attachment Gallery / List */}
         {filteredAttachments.length === 0 ? (
-          <div className="py-12 px-4 border border-dashed border-slate-200 rounded-2xl text-center bg-slate-50/50">
-            <span className="text-3xl block mb-2">📑</span>
-            <p className="text-xs font-bold text-slate-700">No documents or photos yet</p>
-            <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-              Attach client quotations, approved scope documents, payment proofs, or design screenshots to keep everything in one place.
+          <div className="py-8 px-4 border border-dashed border-slate-200 rounded-2xl text-center bg-slate-50/40">
+            <span className="text-2xl block mb-1">📑</span>
+            <p className="text-xs font-bold text-slate-700">No documents or photos currently attached</p>
+            <p className="text-[11px] text-slate-400 mt-0.5 max-w-sm mx-auto">
+              Use the upload area above to attach quotation estimates, signed contracts, or design screenshots anytime.
             </p>
-            <button
-              type="button"
-              onClick={() => openUploadModal()}
-              className="mt-4 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-2xs"
-            >
-              + Upload Quotation or Photo
-            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
