@@ -8,15 +8,21 @@ export async function proxy(request: NextRequest) {
   const session = await verifySessionToken(token);
 
   const isLoginPage = pathname === "/login";
+  const isAuthenticated = Boolean(session && session.userId);
 
   // If user is not authenticated and attempts to access any route other than /login
-  if (!session && !isLoginPage) {
+  if (!isAuthenticated && !isLoginPage) {
     const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    const response = NextResponse.redirect(loginUrl);
+    // If a stale or invalid session cookie exists, delete it to prevent redirect loops
+    if (token) {
+      response.cookies.delete(SESSION_COOKIE_NAME);
+    }
+    return response;
   }
 
   // If user is already authenticated and visits /login, redirect to /
-  if (session && isLoginPage) {
+  if (isAuthenticated && isLoginPage) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 

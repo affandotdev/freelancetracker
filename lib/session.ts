@@ -60,7 +60,11 @@ export async function verifySessionToken(token?: string): Promise<SessionPayload
   try {
     const secretKey = getSecretKey();
     const { payload } = await jwtVerify(token, secretKey);
-    return payload as unknown as SessionPayload;
+    const data = payload as unknown as SessionPayload;
+    if (!data || !data.userId) {
+      return null;
+    }
+    return data;
   } catch {
     return null;
   }
