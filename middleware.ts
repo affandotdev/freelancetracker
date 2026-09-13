@@ -20,6 +20,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
+  // Role-based Access Control:
+  // If user is a MEMBER, restrict access to Super Admin routes:
+  // /team, /objections, /projects (project management is Super Admin only)
+  if (session && session.role !== "SUPER_ADMIN") {
+    if (
+      pathname.startsWith("/team") ||
+      pathname.startsWith("/objections") ||
+      pathname.startsWith("/projects")
+    ) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
   return NextResponse.next();
 }
 

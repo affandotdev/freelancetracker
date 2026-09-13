@@ -7,6 +7,7 @@ import {
   deleteProjectAction,
   uploadAttachmentAction,
   deleteAttachmentAction,
+  createTaskAction,
 } from "@/lib/actions";
 import {
   getProjectDuration,
@@ -14,6 +15,7 @@ import {
   addDaysToDate,
   getDaysDifference,
 } from "@/lib/dateUtils";
+import TaskStatusBadge from "@/components/TaskStatusBadge";
 
 export interface AttachmentItem {
   id: string;
@@ -24,6 +26,27 @@ export interface AttachmentItem {
   fileData: string;
   isLink: boolean;
   createdAt: string;
+}
+
+export interface ProjectTaskItem {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: string;
+  progress: number;
+  deadline?: string | null;
+  assignedTo?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  openObjectionsCount?: number;
+}
+
+export interface TeamMemberOption {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface ProjectDetailClientProps {
@@ -44,11 +67,15 @@ interface ProjectDetailClientProps {
     updatedAt: string;
   };
   initialAttachments?: AttachmentItem[];
+  initialTasks?: ProjectTaskItem[];
+  teamMembers?: TeamMemberOption[];
 }
 
 export default function ProjectDetailClient({
   project,
   initialAttachments = [],
+  initialTasks = [],
+  teamMembers = [],
 }: ProjectDetailClientProps) {
   const [name, setName] = useState(project.name);
   const [client, setClient] = useState(project.client || "");
@@ -106,6 +133,61 @@ export default function ProjectDetailClient({
   };
 
   const [description, setDescription] = useState(project.description || "");
+
+  // Tasks State & Handler
+  const [tasks, setTasks] = useState<ProjectTaskItem[]>(initialTasks);
+  const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskAssignedToId, setTaskAssignedToId] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState("");
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskTitle.trim()) return;
+
+    setIsCreatingTask(true);
+    try {
+      const formData = new FormData();
+      formData.append("projectId", project.id);
+      formData.append("title", taskTitle);
+      formData.append("description", taskDescription);
+      formData.append("assignedToId", taskAssignedToId);
+      formData.append("deadline", taskDeadline);
+
+      const created = await createTaskAction(formData);
+      if (created) {
+        const assignedMember = teamMembers.find((m) => m.id === taskAssignedToId);
+        setTasks((prev) => [
+          ...prev,
+          {
+            id: created.id,
+            title: created.title,
+            description: created.description,
+            status: created.status,
+            progress: created.progress,
+            deadline: created.deadline ? created.deadline.toISOString() : null,
+            assignedTo: assignedMember
+              ? { id: assignedMember.id, name: assignedMember.name, email: assignedMember.email }
+              : null,
+            openObjectionsCount: 0,
+          },
+        ]);
+      }
+      setIsAddTaskModalOpen(false);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskAssignedToId("");
+      setTaskDeadline("");
+      setToastMessage("Task created and assigned!");
+      setTimeout(() => setToastMessage(""), 3000);
+    } catch (err: any) {
+      alert(err?.message || "Failed to create task.");
+    } finally {
+      setIsCreatingTask(false);
+    }
+  };
 
   // Attachments State
   const [attachments, setAttachments] = useState<AttachmentItem[]>(initialAttachments);
@@ -625,6 +707,211 @@ export default function ProjectDetailClient({
           </div>
         )}
       </div>
+
+      {/* ========================================================================= */}
+      {/* PROJECT TASKS & TEAM ASSIGNMENT SECTION */}
+      {/* ========================================================================= */}
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <span>📋 Deliverable Tasks & Team Assignments</span>
+              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                {tasks.length}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Break this project down into assignable tasks, track worker progress, and resolve blockers.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsAddTaskModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all cursor-pointer self-start sm:self-auto"
+          >
+            <span>+ Add Task</span>
+          </button>
+        </div>
+
+        {tasks.length === 0 ? (
+          <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2">
+            <span className="text-2xl">📝</span>
+            <p className="text-xs font-bold text-slate-700">No tasks created for this project yet.</p>
+            <p className="text-xs text-slate-400">Click "+ Add Task" to assign work to your team members.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {tasks.map((task) => (
+              <Link
+                key={task.id}
+                href={`/tasks/${task.id}`}
+                className="group p-4 bg-slate-50/70 hover:bg-slate-50 border border-slate-200/80 hover:border-blue-400 rounded-2xl transition-all shadow-2xs space-y-2.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+                    {task.title}
+                  </h3>
+                  <TaskStatusBadge status={task.status} className="shrink-0 scale-90 origin-top-right" />
+                </div>
+
+                {task.description && (
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                    {task.description}
+                  </p>
+                )}
+
+                {/* Progress Bar */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                    <span>Progress</span>
+                    <span className="text-blue-600">{task.progress}%</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${
+                        task.status === "Done"
+                          ? "bg-emerald-500"
+                          : task.status === "Blocked"
+                          ? "bg-rose-500"
+                          : "bg-blue-600"
+                      }`}
+                      style={{ width: `${task.progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Meta Footer */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-600 truncate">
+                    {task.assignedTo ? (
+                      <>
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[9px] font-bold flex items-center justify-center shrink-0">
+                          {task.assignedTo.name.charAt(0).toUpperCase()}
+                        </span>
+                        <span className="font-semibold truncate">{task.assignedTo.name}</span>
+                      </>
+                    ) : (
+                      <span className="text-slate-400 italic">Unassigned</span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    {task.openObjectionsCount && task.openObjectionsCount > 0 ? (
+                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md border border-rose-200">
+                        ⚠️ Blocker
+                      </span>
+                    ) : null}
+                    {task.deadline && (
+                      <span className="text-slate-500 text-[10px] font-medium">
+                        Due: {formatDeadlineDate(task.deadline)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add Task Modal */}
+      {isAddTaskModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+                Add Task to Project
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsAddTaskModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTask} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Task Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={taskTitle}
+                  onChange={(e) => setTaskTitle(e.target.value)}
+                  placeholder="e.g. Design mobile wireframes & user flows"
+                  className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  Description / Deliverable Notes
+                </label>
+                <textarea
+                  rows={3}
+                  value={taskDescription}
+                  onChange={(e) => setTaskDescription(e.target.value)}
+                  placeholder="Specific requirements, assets needed, or acceptance criteria..."
+                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 leading-relaxed"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Assign To Team Member
+                  </label>
+                  <select
+                    value={taskAssignedToId}
+                    onChange={(e) => setTaskAssignedToId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                    Deadline (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={taskDeadline}
+                    onChange={(e) => setTaskDeadline(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAddTaskModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingTask || !taskTitle.trim()}
+                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isCreatingTask ? "Creating..." : "Create Task"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* DOCUMENTS, QUOTATIONS & PHOTOS SECTION (ALWAYS-VISIBLE UPLOAD SUITE) */}

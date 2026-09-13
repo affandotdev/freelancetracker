@@ -27,14 +27,27 @@ interface Project {
   attachmentCount?: number;
 }
 
+import ActivityFeed, { ActivityItem } from "./ActivityFeed";
+
+export interface TeamStats {
+  totalMembers: number;
+  openObjections: number;
+  tasksInProgress: number;
+  tasksOverdue: number;
+}
+
 interface DashboardClientProps {
   initialProjects: Project[];
+  teamStats?: TeamStats;
+  recentActivity?: ActivityItem[];
 }
 
 type ViewMode = "grid" | "kanban" | "table";
 
 export default function DashboardClient({
   initialProjects,
+  teamStats,
+  recentActivity = [],
 }: DashboardClientProps) {
   const [mounted, setMounted] = useState(false);
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -574,6 +587,110 @@ export default function DashboardClient({
           </p>
         </button>
       </div>
+
+      {/* Super Admin Team & Task Summary Cards */}
+      {teamStats && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Link
+              href="/team"
+              className="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Team Members
+                </span>
+                <span className="text-base group-hover:scale-110 transition-transform">
+                  👥
+                </span>
+              </div>
+              <div className="text-2xl font-black text-slate-900 mt-1.5">
+                {teamStats.totalMembers}
+              </div>
+              <span className="text-[11px] text-blue-600 font-semibold group-hover:underline block mt-0.5">
+                Manage accounts →
+              </span>
+            </Link>
+
+            <Link
+              href="/objections"
+              className={`group bg-white p-5 rounded-2xl border shadow-2xs hover:shadow-xs transition-all ${
+                teamStats.openObjections > 0
+                  ? "border-rose-200 hover:border-rose-300"
+                  : "border-slate-200/80 hover:border-blue-400"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Open Objections
+                </span>
+                <span className="text-base">⚠️</span>
+              </div>
+              <div
+                className={`text-2xl font-black mt-1.5 ${
+                  teamStats.openObjections > 0 ? "text-rose-600" : "text-slate-900"
+                }`}
+              >
+                {teamStats.openObjections}
+              </div>
+              <span
+                className={`text-[11px] font-semibold group-hover:underline block mt-0.5 ${
+                  teamStats.openObjections > 0 ? "text-rose-600 font-bold" : "text-slate-500"
+                }`}
+              >
+                {teamStats.openObjections > 0
+                  ? "Active roadblocks need review →"
+                  : "All objections resolved →"}
+              </span>
+            </Link>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Tasks In Progress
+                </span>
+                <span className="text-base">⚡</span>
+              </div>
+              <div className="text-2xl font-black text-blue-600 mt-1.5">
+                {teamStats.tasksInProgress}
+              </div>
+              <span className="text-[11px] text-slate-500 block mt-0.5">
+                Across all project deliverables
+              </span>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Tasks Overdue
+                </span>
+                <span className="text-base">⏰</span>
+              </div>
+              <div
+                className={`text-2xl font-black mt-1.5 ${
+                  teamStats.tasksOverdue > 0 ? "text-rose-600" : "text-emerald-600"
+                }`}
+              >
+                {teamStats.tasksOverdue}
+              </div>
+              <span
+                className={`text-[11px] font-semibold block mt-0.5 ${
+                  teamStats.tasksOverdue > 0 ? "text-rose-600 font-bold" : "text-emerald-600"
+                }`}
+              >
+                {teamStats.tasksOverdue > 0
+                  ? "Requires deadline attention"
+                  : "All deliverables on track"}
+              </span>
+            </div>
+          </div>
+
+          {/* Recent Team Activity Feed */}
+          {recentActivity && recentActivity.length > 0 && (
+            <ActivityFeed activities={recentActivity} />
+          )}
+        </div>
+      )}
 
       {/* 3. Notification Banners */}
       {enquiryCount > 0 && activeTab !== "Enquiry" && (

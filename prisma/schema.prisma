@@ -1,10 +1,22 @@
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+model User {
+  id            String      @id @default(cuid())
+  name          String
+  email         String      @unique
+  passwordHash  String
+  role          String      @default("MEMBER") // SUPER_ADMIN | MEMBER
+  createdAt     DateTime    @default(now())
+  tasksAssigned Task[]      @relation("AssignedTasks")
+  objections    Objection[]
 }
 
 model Project {
@@ -21,8 +33,55 @@ model Project {
   deadline        DateTime?
   description     String?
   attachments     Attachment[]
+  tasks           Task[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  projectId     String
+  project       Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  assignedToId  String?
+  assignedTo    User?        @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  status        String       @default("To Do") // To Do | In Progress | In Review | Done | Blocked
+  progress      Int          @default(0)       // 0-100
+  deadline      DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  objections    Objection[]
+  updates       TaskUpdate[]
+
+  @@index([projectId])
+  @@index([assignedToId])
+}
+
+model TaskUpdate {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+}
+
+model Objection {
+  id          String    @id @default(cuid())
+  taskId      String
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  raisedById  String
+  raisedBy    User      @relation(fields: [raisedById], references: [id])
+  message     String
+  status      String    @default("Open") // Open | Resolved
+  resolution  String?
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+
+  @@index([taskId])
+  @@index([raisedById])
 }
 
 model Attachment {

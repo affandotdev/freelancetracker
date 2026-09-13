@@ -31,14 +31,14 @@ export default function LoginPage() {
         <form action={formAction} className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Username
+              Work Email / Username
             </label>
             <input
               type="text"
-              name="username"
+              name="email"
               required
               autoFocus
-              placeholder="e.g. admin"
+              placeholder="e.g. admin@workplan.dev or worker@example.com"
               className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
             />
           </div>
