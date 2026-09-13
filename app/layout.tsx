@@ -25,7 +25,7 @@ export default async function RootLayout({
         suppressHydrationWarning
       >
         {/* Modern Sticky Navigation */}
-        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 transition-all">
+        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-40 transition-all print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
             {/* Logo & Brand */}
             <div className="flex items-center gap-6">
@@ -63,6 +63,18 @@ export default async function RootLayout({
                         className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-blue-600 hover:bg-slate-100/80 transition-colors"
                       >
                         Team
+                      </Link>
+                      <Link
+                        href="/accounts"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-emerald-600 hover:bg-emerald-50/80 transition-colors"
+                      >
+                        Accounts
+                      </Link>
+                      <Link
+                        href="/commissions"
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-amber-600 hover:bg-amber-50/80 transition-colors"
+                      >
+                        Commissions
                       </Link>
                       <Link
                         href="/objections"
@@ -124,7 +136,7 @@ export default async function RootLayout({
         </main>
 
         {/* Modern Clean Footer */}
-        <footer className="border-t border-slate-200/80 py-6 text-center text-xs text-slate-400 bg-white/60">
+        <footer className="border-t border-slate-200/80 py-6 text-center text-xs text-slate-400 bg-white/60 print:hidden">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
             <p className="flex items-center gap-2">
               <span className="font-bold text-slate-600">WorkPlan</span>

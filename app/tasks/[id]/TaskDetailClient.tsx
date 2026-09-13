@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import TaskStatusBadge from "@/components/TaskStatusBadge";
+import BackButton from "@/components/BackButton";
 import {
   updateTaskAction,
   addTaskUpdateAction,
@@ -188,12 +189,10 @@ export default function TaskDetailClient({
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Navigation Breadcrumb */}
       <div className="flex items-center justify-between">
-        <Link
-          href={isSuperAdmin ? `/projects/${task.projectId}` : "/"}
-          className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
-        >
-          ← Back to {isSuperAdmin ? `Project: ${task.projectName}` : "My Tasks"}
-        </Link>
+        <BackButton
+          fallbackHref={isSuperAdmin ? `/projects/${task.projectId}` : "/"}
+          label={isSuperAdmin ? `Project: ${task.projectName}` : "Back to My Tasks"}
+        />
 
         {isSuperAdmin && (
           <button

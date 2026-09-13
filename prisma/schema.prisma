@@ -34,6 +34,9 @@ model Project {
   description     String?
   attachments     Attachment[]
   tasks           Task[]
+  commissions     Commission[]
+  payments        Payment[]
+  invoices        Invoice[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }
@@ -95,6 +98,50 @@ model Attachment {
   fileData    String   @db.Text              // Base64 data URI or external URL
   isLink      Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Commission {
+  id          String    @id @default(cuid())
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  beneficiary String
+  amount      Float
+  percentage  Float?
+  status      String    @default("Pending") // Pending | Paid
+  notes       String?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  amount      Float
+  method      String   @default("Bank Transfer") // Cash | Bank Transfer | UPI | Cheque | Other
+  note        String?
+  paidOn      DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([projectId])
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  projectId      String
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  invoiceNumber  String   @unique   // e.g. INV-0001, auto-incremented
+  issueDate      DateTime @default(now())
+  dueDate        DateTime?
+  amount         Float               // amount this invoice is for
+  status         String   @default("Draft") // Draft | Sent | Paid
+  notes          String?
+  createdAt      DateTime @default(now())
 
   @@index([projectId])
 }

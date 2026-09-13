@@ -16,6 +16,7 @@ import {
   getDaysDifference,
 } from "@/lib/dateUtils";
 import TaskStatusBadge from "@/components/TaskStatusBadge";
+import BackButton from "@/components/BackButton";
 
 export interface AttachmentItem {
   id: string;
@@ -467,14 +468,14 @@ export default function ProjectDetailClient({
 
       {/* Top Breadcrumb & Actions */}
       <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-          <Link href="/" className="hover:text-blue-600 transition-colors">
-            ← Dashboard
-          </Link>
-          <span>/</span>
-          <span className="text-slate-700">{client || "Personal"}</span>
-          <span>/</span>
-          <span className="text-slate-900 font-bold truncate max-w-[200px]">{name}</span>
+        <div className="flex items-center gap-3">
+          <BackButton fallbackHref="/" label="Dashboard" />
+          <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-slate-500">
+            <span>/</span>
+            <span className="text-slate-700">{client || "Personal"}</span>
+            <span>/</span>
+            <span className="text-slate-900 font-bold truncate max-w-[200px]">{name}</span>
+          </div>
         </div>
 
         <button

@@ -441,21 +441,13 @@ export default function DashboardClient({
 
       {/* 2. Interactive KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Pipeline */}
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab("all");
-            setPaymentFilter("All");
-          }}
-          className={`text-left p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
-            activeTab === "all" && paymentFilter === "All"
-              ? "bg-white border-blue-500 shadow-md ring-2 ring-blue-500/10"
-              : "bg-white border-slate-200/90 hover:border-slate-300 shadow-2xs hover:shadow-xs"
-          }`}
+        {/* Total Pipeline - Links to Accounts Ledger */}
+        <Link
+          href="/accounts"
+          className="text-left p-5 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group bg-white border-slate-200/90 hover:border-blue-500 shadow-2xs hover:shadow-md hover:ring-2 hover:ring-blue-500/10 block"
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-400 group-hover:text-blue-600 transition-colors">
               Total Pipeline
             </span>
             <span className="text-sm">💼</span>
@@ -468,11 +460,12 @@ export default function DashboardClient({
           </p>
           <p className="text-[11px] text-slate-500 mt-1.5 flex items-center justify-between">
             <span>Across {projects.length} project{projects.length === 1 ? "" : "s"}</span>
-            <span className="text-blue-600 font-semibold group-hover:translate-x-0.5 transition-transform">
-              View all →
+            <span className="text-blue-600 font-bold group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
+              <span>View accounts</span>
+              <span>→</span>
             </span>
           </p>
-        </button>
+        </Link>
 
         {/* Total Received */}
         <button

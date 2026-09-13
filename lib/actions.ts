@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { createSession, deleteSession, getSession } from "@/lib/session";
+import { getNextInvoiceNumber } from "@/lib/invoiceNumber";
 
 /**
  * Ensures the default SUPER_ADMIN exists in the database.
@@ -703,3 +704,308 @@ export async function deleteAttachmentAction(attachmentId: string, projectId: st
 
   revalidatePath(`/projects/${projectId}`);
 }
+
+/* ==========================================================================
+   ACCOUNTS & PAYMENT ACTIONS (Super Admin only)
+   ========================================================================== */
+
+/**
+ * Super Admin records an individual payment for a project.
+ * Automatically recalculates and updates Project.receivedAmount as sum of all payments.
+ */
+export async function addPaymentAction(
+  projectId: string,
+  amount: number,
+  method: string = "Bank Transfer",
+  note?: string | null,
+  paidOn?: string | null
+) {
+  await requireSuperAdmin();
+
+  if (amount === undefined || isNaN(amount) || amount <= 0) {
+    throw new Error("A valid payment amount greater than 0 is required.");
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+  });
+
+  if (!project) {
+    throw new Error("Project not found.");
+  }
+
+  // 1. Create Payment record
+  const createdPayment = await (prisma as any).payment.create({
+    data: {
+      projectId,
+      amount: Number(amount),
+      method: method || "Bank Transfer",
+      note: note?.trim() || null,
+      paidOn: paidOn ? new Date(paidOn) : new Date(),
+    },
+  });
+
+  // 2. Sum all payments for this project
+  const allPayments = await (prisma as any).payment.findMany({
+    where: { projectId },
+    select: { amount: true },
+  });
+
+  const totalPaid = allPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+  // 3. Update project's synced receivedAmount
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      receivedAmount: totalPaid,
+    },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath(`/accounts/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
+  return createdPayment;
+}
+
+/**
+ * Super Admin deletes a payment entry and re-syncs Project.receivedAmount.
+ */
+export async function deletePaymentAction(paymentId: string) {
+  await requireSuperAdmin();
+
+  const payment = await (prisma as any).payment.findUnique({
+    where: { id: paymentId },
+  });
+
+  if (!payment) {
+    throw new Error("Payment record not found.");
+  }
+
+  const projectId = payment.projectId;
+
+  // Delete payment
+  await (prisma as any).payment.delete({
+    where: { id: paymentId },
+  });
+
+  // Recalculate total payments for this project
+  const remainingPayments = await (prisma as any).payment.findMany({
+    where: { projectId },
+    select: { amount: true },
+  });
+
+  const totalPaid = remainingPayments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+
+  await prisma.project.update({
+    where: { id: projectId },
+    data: {
+      receivedAmount: totalPaid,
+    },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath(`/accounts/${projectId}`);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
+}
+
+/**
+ * Super Admin generates a new sequential invoice for a project.
+ */
+export async function createInvoiceAction(formData: FormData) {
+  await requireSuperAdmin();
+
+  const projectId = formData.get("projectId") as string;
+  const amountStr = formData.get("amount") as string;
+  const dueDateStr = formData.get("dueDate") as string;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+
+  if (!projectId || !amountStr) {
+    throw new Error("Project and Invoice Amount are required.");
+  }
+
+  const amount = parseFloat(amountStr);
+  if (isNaN(amount) || amount <= 0) {
+    throw new Error("Please enter a valid invoice amount greater than 0.");
+  }
+
+  const invoiceNumber = await getNextInvoiceNumber();
+
+  const created = await (prisma as any).invoice.create({
+    data: {
+      projectId,
+      invoiceNumber,
+      amount,
+      dueDate: dueDateStr ? new Date(dueDateStr) : null,
+      status: "Draft",
+      notes,
+    },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath(`/accounts/${projectId}`);
+  revalidatePath(`/invoices/${created.id}`);
+  return created;
+}
+
+/**
+ * Super Admin updates an invoice's status (Draft -> Sent -> Paid).
+ */
+export async function updateInvoiceStatusAction(
+  invoiceId: string,
+  status: "Draft" | "Sent" | "Paid"
+) {
+  await requireSuperAdmin();
+
+  const updated = await (prisma as any).invoice.update({
+    where: { id: invoiceId },
+    data: { status },
+  });
+
+  revalidatePath("/accounts");
+  revalidatePath(`/invoices/${invoiceId}`);
+  return updated;
+}
+
+/**
+ * Super Admin deletes an invoice record.
+ */
+export async function deleteInvoiceAction(invoiceId: string) {
+  await requireSuperAdmin();
+
+  await (prisma as any).invoice.delete({
+    where: { id: invoiceId },
+  });
+
+  revalidatePath("/accounts");
+}
+
+/**
+ * Compatibility helper for direct updates:
+ */
+export async function recordPaymentAction(projectId: string, amount: number) {
+  return addPaymentAction(projectId, amount, "Direct Entry", "Recorded from Accounts");
+}
+
+/* ==========================================================================
+   DIRECT MEMBER TASK ASSIGNMENT ACTIONS (Super Admin only)
+   ========================================================================== */
+
+/**
+ * Super Admin directly creates a task assigned to a specific member from their profile.
+ */
+export async function assignTaskToMemberAction(formData: FormData) {
+  await requireSuperAdmin();
+
+  const projectId = formData.get("projectId") as string;
+  const memberId = formData.get("memberId") as string;
+  const title = (formData.get("title") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim() || null;
+  const deadlineVal = (formData.get("deadline") as string) || null;
+  const status = (formData.get("status") as string) || "To Do";
+
+  if (!projectId || !title || !memberId) {
+    throw new Error("Project, Task Title, and Member are required.");
+  }
+
+  const created = await prisma.task.create({
+    data: {
+      projectId,
+      assignedToId: memberId,
+      title,
+      description,
+      status,
+      progress: status === "Done" ? 100 : 0,
+      deadline: deadlineVal ? new Date(deadlineVal) : null,
+    },
+  });
+
+  revalidatePath(`/team/${memberId}`);
+  revalidatePath("/team");
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
+  return created;
+}
+
+/* ==========================================================================
+   COMMISSION ACTIONS (Super Admin only)
+   ========================================================================== */
+
+/**
+ * Super Admin creates a new commission record.
+ */
+export async function createCommissionAction(formData: FormData) {
+  await requireSuperAdmin();
+
+  const beneficiary = (formData.get("beneficiary") as string)?.trim();
+  const projectId = (formData.get("projectId") as string) || null;
+  const amountStr = formData.get("amount") as string;
+  const percentageStr = formData.get("percentage") as string;
+  const status = (formData.get("status") as string) || "Pending";
+  const notes = (formData.get("notes") as string)?.trim() || null;
+
+  if (!beneficiary || !amountStr) {
+    throw new Error("Beneficiary name and commission amount are required.");
+  }
+
+  const amount = parseFloat(amountStr);
+  if (isNaN(amount) || amount <= 0) {
+    throw new Error("Please enter a valid commission amount greater than 0.");
+  }
+
+  const percentage = percentageStr ? parseFloat(percentageStr) : null;
+  const isPaid = status === "Paid";
+
+  const created = await (prisma as any).commission.create({
+    data: {
+      beneficiary,
+      projectId: projectId && projectId !== "none" ? projectId : null,
+      amount,
+      percentage: percentage && !isNaN(percentage) ? percentage : null,
+      status,
+      notes,
+      paidAt: isPaid ? new Date() : null,
+    },
+  });
+
+  revalidatePath("/commissions");
+  return created;
+}
+
+/**
+ * Super Admin updates commission status (e.g. mark as Paid or Pending).
+ */
+export async function updateCommissionStatusAction(
+  commissionId: string,
+  status: "Pending" | "Paid"
+) {
+  await requireSuperAdmin();
+
+  const isPaid = status === "Paid";
+
+  const updated = await (prisma as any).commission.update({
+    where: { id: commissionId },
+    data: {
+      status,
+      paidAt: isPaid ? new Date() : null,
+    },
+  });
+
+  revalidatePath("/commissions");
+  return updated;
+}
+
+/**
+ * Super Admin deletes a commission record.
+ */
+export async function deleteCommissionAction(commissionId: string) {
+  await requireSuperAdmin();
+
+  await (prisma as any).commission.delete({
+    where: { id: commissionId },
+  });
+
+  revalidatePath("/commissions");
+}
+

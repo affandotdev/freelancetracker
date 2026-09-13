@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import { createProjectAction } from "@/lib/actions";
 import {
   getProjectDuration,
@@ -55,13 +56,8 @@ export default function NewProjectPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <Link
-          href="/"
-          className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
-        >
-          ← Back to Dashboard
-        </Link>
+      <div className="space-y-2">
+        <BackButton fallbackHref="/" label="Back to Dashboard" />
         <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight mt-1">
           {isEnquiry
             ? "Record Project Enquiry"

@@ -33,7 +33,10 @@ export async function proxy(request: NextRequest) {
     if (
       pathname.startsWith("/team") ||
       pathname.startsWith("/objections") ||
-      pathname.startsWith("/projects")
+      pathname.startsWith("/projects") ||
+      pathname.startsWith("/accounts") ||
+      pathname.startsWith("/commissions") ||
+      pathname.startsWith("/invoices")
     ) {
       return NextResponse.redirect(new URL("/", request.url));
     }

@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
+import Link from "next/link";
+import BackButton from "@/components/BackButton";
 import { createTeamMemberAction, removeTeamMemberAction } from "@/lib/actions";
 
 interface TeamMemberData {
@@ -58,6 +60,11 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
   return (
     <div className="space-y-6">
+      {/* Top Bar with Back Navigation */}
+      <div className="flex items-center justify-between gap-4">
+        <BackButton fallbackHref="/" label="Back to Dashboard" />
+      </div>
+
       {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -137,11 +144,14 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
             return (
               <div
                 key={member.id}
-                className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors"
+                className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
               >
-                <div className="flex items-center gap-3.5 min-w-0">
+                <Link
+                  href={`/team/${member.id}`}
+                  className="flex items-center gap-3.5 min-w-0 flex-1 group"
+                >
                   <div
-                    className={`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold text-sm shadow-2xs shrink-0 ${
+                    className={`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold text-sm shadow-2xs shrink-0 group-hover:scale-105 transition-transform ${
                       isSuperAdmin
                         ? "bg-amber-100 text-amber-800 border border-amber-200"
                         : "bg-indigo-100 text-indigo-800 border border-indigo-200"
@@ -152,7 +162,7 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 truncate">
+                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                         {member.name}
                       </h3>
                       {isSelf && (
@@ -174,10 +184,10 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
                       {member.email}
                     </p>
                   </div>
-                </div>
+                </Link>
 
-                <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-auto">
-                  <div className="text-right">
+                <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
+                  <div className="text-right mr-2 hidden sm:block">
                     <span className="text-[10px] uppercase font-bold text-slate-400 block">
                       Active Tasks
                     </span>
@@ -185,6 +195,14 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
                       {member.activeTasksCount} active ({member.completedTasksCount} done)
                     </span>
                   </div>
+
+                  <Link
+                    href={`/team/${member.id}`}
+                    className="px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/80 border border-blue-200 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>View Work & Assign</span>
+                    <span>→</span>
+                  </Link>
 
                   {!isSelf && (
                     <button

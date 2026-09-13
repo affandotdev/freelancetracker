@@ -218,29 +218,44 @@ Work_plan/
 │   ├── projects/
 │   │   ├── [id]/                   # Project detail with tasks & attachments
 │   │   └── new/page.tsx            # Project & lead creation
+│   ├── accounts/                   # Accounts ledger & payment history
+│   │   ├── page.tsx                # Main ledger with CSV export
+│   │   └── [projectId]/            # Project account detail with payment logs & invoices
+│   ├── commissions/                # Commission & referral payouts
+│   │   └── page.tsx
+│   ├── invoices/                   # Sequential invoice print engine
+│   │   └── [id]/page.tsx           # Print-friendly invoice sheet
 │   ├── tasks/
 │   │   └── [id]/                   # Role-aware task detail workspace
 │   │       ├── page.tsx
 │   │       └── TaskDetailClient.tsx
 │   ├── team/                       # Super Admin team management
 │   │   ├── page.tsx
+│   │   ├── [id]/page.tsx           # Member deliverables & direct task assignment
 │   │   └── TeamClient.tsx
-│   ├── layout.tsx                  # Root layout with role-based navigation
+│   ├── layout.tsx                  # Root layout with role-based navigation & print isolation
 │   └── page.tsx                    # Role-aware dashboard (Admin vs Member)
 ├── components/
+│   ├── BackButton.tsx              # Universal back navigation
+│   ├── ExportCsvButton.tsx         # Reusable client-side CSV downloader
+│   ├── PaymentHistoryTable.tsx     # Itemized payment log table
+│   ├── AddPaymentForm.tsx          # Real payment recording form
+│   ├── InvoiceList.tsx             # Invoice management table
 │   ├── ActivityFeed.tsx            # Recent team events stream
 │   ├── DashboardClient.tsx         # Super Admin project & revenue dashboard
 │   ├── MemberDashboardClient.tsx   # Freelance worker personal task dashboard
 │   ├── TaskCard.tsx                # Reusable task card with progress & alerts
 │   └── TaskStatusBadge.tsx         # Color-coded status badges
 ├── lib/
-│   ├── actions.ts                  # Server Actions (auth, team, tasks, objections)
+│   ├── actions.ts                  # Server Actions (payments, invoices, commissions, tasks)
+│   ├── csvExport.ts                # Client-side RFC-4180 CSV export generator
+│   ├── invoiceNumber.ts            # Auto-incrementing invoice number generator
 │   ├── dateUtils.ts                # Two-way date/days calculation utilities
 │   ├── prisma.ts                   # Singleton Prisma Client
 │   ├── roles.ts                    # Server-side role authorization helpers
 │   └── session.ts                  # JWT token creation & Edge verification
 ├── prisma/
-│   ├── schema.prisma               # PostgreSQL models
+│   ├── schema.prisma               # PostgreSQL models (User, Project, Payment, Invoice, Task, Commission)
 │   └── seed.ts                     # Standalone Super Admin seed script
 └── proxy.ts                        # Next.js 16 Edge network route protection guard
 ```
@@ -254,7 +269,7 @@ Work_plan/
 git add .
 
 # 2. Commit changes
-git commit -m "Add Team Management, Task Assignment, Objections Inbox, and Member Dashboards"
+git commit -m "Upgrade Accounts Ledger: Payment History, Invoices, CSV Export, and Print Engine"
 
 # 3. Push to GitHub (triggers Vercel deployment)
 git push origin main
