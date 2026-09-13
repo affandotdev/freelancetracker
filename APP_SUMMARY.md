@@ -274,7 +274,7 @@ All database modifications are executed via secure Next.js Server Actions with r
 - **Team**: `createTeamMemberAction`, `removeTeamMemberAction`
 - **Projects**: `createProjectAction`, `updateProjectAction`, `deleteProjectAction`
 - **Tasks**: `createTaskAction`, `updateTaskAction`, `deleteTaskAction`, `assignTaskToMemberAction`
-- **Deliverable Updates & Objections**: `addTaskUpdateAction`, `raiseObjectionAction`, `resolveObjectionAction`
+- **Deliverable Updates & Objections**: `addTaskUpdateAction`, `deleteTaskUpdateAction` (accessible to assigned Member and Super Admin), `raiseObjectionAction`, `resolveObjectionAction`
 - **Accounts & Payments**: `recordPaymentAction`
 - **Commissions**: `createCommissionAction`, `updateCommissionStatusAction`, `deleteCommissionAction`
 - **Attachments**: `uploadAttachmentAction`, `deleteAttachmentAction`

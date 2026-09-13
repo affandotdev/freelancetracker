@@ -498,6 +498,48 @@ export async function addTaskUpdateAction(formData: FormData) {
   return update;
 }
 
+/**
+ * Delete a timestamped work update from a task.
+ * Accessible to assigned Member and Super Admin.
+ */
+export async function deleteTaskUpdateAction(updateId: string) {
+  const session = await requireAuth();
+
+  if (!updateId) {
+    throw new Error("Update ID is required.");
+  }
+
+  const update = await prisma.taskUpdate.findUnique({
+    where: { id: updateId },
+    include: {
+      task: true,
+    },
+  });
+
+  if (!update) {
+    throw new Error("Update not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isAssignedMember = update.task.assignedToId === session.userId;
+
+  if (!isSuperAdmin && !isAssignedMember) {
+    throw new Error("Unauthorized: Only the assigned member or Super Admin can delete this update.");
+  }
+
+  await prisma.taskUpdate.delete({
+    where: { id: updateId },
+  });
+
+  revalidatePath(`/tasks/${update.taskId}`);
+  revalidatePath(`/projects/${update.task.projectId}`);
+  if (update.task.assignedToId) {
+    revalidatePath(`/team/${update.task.assignedToId}`);
+  }
+  revalidatePath("/");
+  return { success: true };
+}
+
 /* ==========================================================================
    OBJECTIONS ACTIONS
    ========================================================================== */

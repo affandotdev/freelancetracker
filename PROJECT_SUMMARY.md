@@ -199,7 +199,7 @@ model Objection {
 - Worker clicks a task to open `/tasks/[id]`, where they can adjust the progress slider (0–100%) and select a status.
 
 ### 5. Work Updates & Objection Resolution (`/tasks/[id]` & `/objections`)
-- **Work Updates Log**: Worker types a progress note ("Finished authentication API") and clicks "Post Update". It appears in chronological order and on the Super Admin's live activity feed.
+- **Work Updates Log**: Worker or Super Admin types a progress note ("Finished authentication API") and clicks "Post Update". It appears in chronological order and on the Super Admin's live activity feed. Both the assigned Member and Super Admin can delete updates with a single click and confirmation prompt, updating the feed and counters immediately.
 - **Raise an Objection**: When blocked, the worker clicks "+ Raise an Objection". The task changes to `Blocked` and routes the blocker to the Super Admin's `/objections` inbox.
 - **Resolution**: Super Admin reviews the objection on `/objections`, writes a resolution note, and marks it resolved. The task automatically shifts back to `In Progress`.
 
