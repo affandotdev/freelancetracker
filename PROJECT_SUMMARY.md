@@ -242,7 +242,7 @@ Work_plan/
 ├── prisma/
 │   ├── schema.prisma               # PostgreSQL models
 │   └── seed.ts                     # Standalone Super Admin seed script
-└── middleware.ts                   # Role-based route protection guard
+└── proxy.ts                        # Next.js 16 Edge network route protection guard
 ```
 
 ---
