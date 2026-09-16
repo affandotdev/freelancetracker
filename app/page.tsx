@@ -20,16 +20,44 @@ export default async function DashboardPage() {
   // -------------------------------------------------------------
   if (session.role === "MEMBER") {
     let memberTasks: any[] = [];
+    let memberIssues: any[] = [];
+    let projects: any[] = [];
+    let teamMembers: any[] = [];
+
     try {
-      const rawTasks = await prisma.task.findMany({
-        where: { assignedToId: session.userId },
-        orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
-        include: {
-          project: { select: { id: true, name: true } },
-          objections: { where: { status: "Open" } },
-          assignedTo: { select: { id: true, name: true, email: true } },
-        },
-      });
+      const [rawTasks, rawIssues, rawProjects, rawUsers] = await Promise.all([
+        prisma.task.findMany({
+          where: { assignedToId: session.userId },
+          orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
+          include: {
+            project: { select: { id: true, name: true } },
+            objections: { where: { status: "Open" } },
+            assignedTo: { select: { id: true, name: true, email: true } },
+          },
+        }),
+        (prisma as any).issue.findMany({
+          where: {
+            OR: [
+              { assignedToId: session.userId },
+              { raisedById: session.userId },
+            ],
+          },
+          orderBy: [{ createdAt: "desc" }],
+          include: {
+            project: { select: { id: true, name: true } },
+            raisedBy: { select: { id: true, name: true, email: true } },
+            assignedTo: { select: { id: true, name: true, email: true } },
+          },
+        }),
+        prisma.project.findMany({
+          select: { id: true, name: true, client: true },
+          orderBy: { name: "asc" },
+        }),
+        prisma.user.findMany({
+          select: { id: true, name: true, email: true },
+          orderBy: { name: "asc" },
+        }),
+      ]);
 
       memberTasks = rawTasks.map((t) => ({
         id: t.id,
@@ -43,14 +71,47 @@ export default async function DashboardPage() {
         assignedTo: t.assignedTo,
         openObjectionsCount: t.objections.length,
       }));
+
+      memberIssues = rawIssues.map((issue: any) => ({
+        id: issue.id,
+        projectId: issue.projectId,
+        projectName: issue.project?.name || "General Project",
+        title: issue.title,
+        description: issue.description,
+        priority: issue.priority,
+        status: issue.status,
+        resolution: issue.resolution,
+        createdAt: issue.createdAt.toISOString(),
+        updatedAt: issue.updatedAt.toISOString(),
+        resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
+        raisedBy: {
+          id: issue.raisedBy.id,
+          name: issue.raisedBy.name,
+          email: issue.raisedBy.email,
+        },
+        assignedTo: issue.assignedTo
+          ? {
+              id: issue.assignedTo.id,
+              name: issue.assignedTo.name,
+              email: issue.assignedTo.email,
+            }
+          : null,
+      }));
+
+      projects = rawProjects;
+      teamMembers = rawUsers;
     } catch (err) {
-      console.warn("Could not load member tasks, retrying with fallback:", err);
+      console.warn("Could not load member data, retrying with fallback:", err);
     }
 
     return (
       <MemberDashboardClient
         memberName={session.name || session.email}
+        currentUserId={session.userId}
         tasks={memberTasks}
+        issues={memberIssues}
+        projects={projects}
+        teamMembers={teamMembers}
       />
     );
   }

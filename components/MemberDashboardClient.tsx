@@ -1,19 +1,71 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
+import Link from "next/link";
 import TaskCard, { TaskCardData } from "./TaskCard";
+import { createIssueAction, updateIssueStatusAction } from "@/lib/actions";
+
+export interface MemberIssueData {
+  id: string;
+  projectId: string;
+  projectName: string;
+  title: string;
+  description?: string | null;
+  priority: string;
+  status: string;
+  resolution?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string | null;
+  raisedBy: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  assignedTo?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
 
 interface MemberDashboardClientProps {
   memberName: string;
+  currentUserId: string;
   tasks: TaskCardData[];
+  issues?: MemberIssueData[];
+  projects?: { id: string; name: string; client?: string | null }[];
+  teamMembers?: { id: string; name: string; email: string }[];
 }
 
 export default function MemberDashboardClient({
   memberName,
+  currentUserId,
   tasks,
+  issues: initialIssues = [],
+  projects = [],
+  teamMembers = [],
 }: MemberDashboardClientProps) {
-  const [filter, setFilter] = useState<string>("All");
+  const [activeTab, setActiveTab] = useState<"tasks" | "issues">("tasks");
+  const [taskFilter, setTaskFilter] = useState<string>("All");
+  const [issueFilter, setIssueFilter] = useState<string>("All");
 
+  const [issues, setIssues] = useState<MemberIssueData[]>(initialIssues);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  // Inline resolution state
+  const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
+  const [resolutionText, setResolutionText] = useState("");
+
+  // Report issue form state
+  const [newTitle, setNewTitle] = useState("");
+  const [newProjectId, setNewProjectId] = useState(projects[0]?.id || "");
+  const [newAssignedToId, setNewAssignedToId] = useState(currentUserId);
+  const [newPriority, setNewPriority] = useState("Medium");
+  const [newDescription, setNewDescription] = useState("");
+
+  // Task Stats
   const todoTasks = tasks.filter((t) => t.status === "To Do");
   const inProgressTasks = tasks.filter((t) => t.status === "In Progress");
   const inReviewTasks = tasks.filter((t) => t.status === "In Review");
@@ -21,135 +73,683 @@ export default function MemberDashboardClient({
   const blockedTasks = tasks.filter((t) => t.status === "Blocked");
 
   const filteredTasks = tasks.filter((t) => {
-    if (filter === "All") return true;
-    return t.status === filter;
+    if (taskFilter === "All") return true;
+    return t.status === taskFilter;
   });
 
   const totalTasks = tasks.length;
   const completedTasks = doneTasks.length;
-  const activeTasks = totalTasks - completedTasks;
   const totalBlockers = tasks.reduce(
     (acc, t) => acc + (t.openObjectionsCount || 0),
     0
   );
 
+  // Issue Stats
+  const myAssignedIssues = issues.filter((i) => i.assignedTo?.id === currentUserId);
+  const openIssues = issues.filter((i) => i.status === "Open");
+  const inProgressIssues = issues.filter((i) => i.status === "In Progress");
+  const resolvedIssues = issues.filter(
+    (i) => i.status === "Resolved" || i.status === "Closed"
+  );
+
+  const filteredIssues = issues.filter((issue) => {
+    if (issueFilter === "All") return true;
+    if (issueFilter === "Assigned to Me") return issue.assignedTo?.id === currentUserId;
+    if (issueFilter === "Reported by Me") return issue.raisedBy.id === currentUserId;
+    return issue.status === issueFilter;
+  });
+
+  // Issue Handlers
+  const handleCreateIssue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newProjectId) return;
+
+    const formData = new FormData();
+    formData.append("projectId", newProjectId);
+    formData.append("title", newTitle);
+    formData.append("description", newDescription);
+    formData.append("priority", newPriority);
+    formData.append("assignedToId", newAssignedToId || "none");
+
+    startTransition(async () => {
+      try {
+        const created = await createIssueAction(formData);
+        if (created) {
+          const formatted: MemberIssueData = {
+            id: created.id,
+            projectId: created.projectId,
+            projectName: created.project?.name || "Project",
+            title: created.title,
+            description: created.description,
+            priority: created.priority,
+            status: created.status,
+            resolution: created.resolution,
+            createdAt: new Date(created.createdAt).toISOString(),
+            updatedAt: new Date(created.updatedAt).toISOString(),
+            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
+            raisedBy: {
+              id: created.raisedBy.id,
+              name: created.raisedBy.name,
+              email: created.raisedBy.email,
+            },
+            assignedTo: created.assignedTo
+              ? {
+                  id: created.assignedTo.id,
+                  name: created.assignedTo.name,
+                  email: created.assignedTo.email,
+                }
+              : null,
+          };
+          setIssues((prev) => [formatted, ...prev]);
+        }
+        setIsReportModalOpen(false);
+        setNewTitle("");
+        setNewDescription("");
+        setNewAssignedToId(currentUserId);
+        setNewPriority("Medium");
+      } catch (err: any) {
+        alert(err?.message || "Failed to submit bug report.");
+      }
+    });
+  };
+
+  const handleUpdateStatus = (issueId: string, newStatus: string, resolution?: string) => {
+    const formData = new FormData();
+    formData.append("issueId", issueId);
+    formData.append("status", newStatus);
+    if (resolution !== undefined) {
+      formData.append("resolution", resolution);
+    }
+
+    startTransition(async () => {
+      try {
+        await updateIssueStatusAction(formData);
+        setIssues((prev) =>
+          prev.map((i) =>
+            i.id === issueId
+              ? {
+                  ...i,
+                  status: newStatus,
+                  resolution: resolution !== undefined ? resolution : i.resolution,
+                  resolvedAt:
+                    newStatus === "Resolved" || newStatus === "Closed"
+                      ? new Date().toISOString()
+                      : null,
+                }
+              : i
+          )
+        );
+        setResolvingIssueId(null);
+        setResolutionText("");
+      } catch (err: any) {
+        alert(err?.message || "Failed to update bug status.");
+      }
+    });
+  };
+
+  const getPriorityBadgeClass = (priority: string) => {
+    switch (priority) {
+      case "Critical":
+        return "bg-rose-100 text-rose-800 border-rose-200";
+      case "High":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "Medium":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "Open":
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "In Progress":
+        return "bg-blue-50 text-blue-700 border-blue-200";
+      case "Resolved":
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      case "Closed":
+        return "bg-slate-100 text-slate-700 border-slate-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white p-6 sm:p-8 rounded-3xl shadow-md shadow-blue-500/15 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <span className="text-xs font-bold uppercase tracking-wider text-blue-200">
-            Worker Workspace
-          </span>
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 px-2 py-0.5 rounded-full bg-white/10">
+              Worker Workspace
+            </span>
+            <span className="text-xs text-blue-100 font-semibold">• Live Deliverables & Issues</span>
+          </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
             Welcome back, {memberName}!
           </h1>
-          <p className="text-xs sm:text-sm text-blue-100/90 max-w-xl">
-            Here are the deliverables and tasks assigned to you. Click any task to update progress, post work logs, or raise an objection.
+          <p className="text-xs sm:text-sm text-blue-100/90 max-w-xl leading-relaxed">
+            Manage your assigned tasks, post progress updates, and track or report project bugs against team deliverables.
           </p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20 text-center shrink-0 min-w-[140px]">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">
-            Overall Completion
-          </span>
-          <span className="text-2xl font-black">
-            {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
-          </span>
-          <span className="text-[10px] text-blue-100 block">
-            {completedTasks} of {totalTasks} tasks done
-          </span>
-        </div>
-      </div>
-
-      {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Assigned Tasks
-          </span>
-          <div className="text-2xl font-black text-slate-900 mt-1">
-            {totalTasks}
-          </div>
-          <span className="text-[11px] text-slate-500">Total assigned to you</span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            In Progress
-          </span>
-          <div className="text-2xl font-black text-blue-600 mt-1">
-            {inProgressTasks.length}
-          </div>
-          <span className="text-[11px] text-slate-500">Actively underway</span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Roadblocks
-          </span>
-          <div className="text-2xl font-black text-rose-600 mt-1">
-            {blockedTasks.length}
-          </div>
-          <span className="text-[11px] text-slate-500">
-            {totalBlockers} open objection{totalBlockers !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Completed
-          </span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">
-            {completedTasks}
-          </div>
-          <span className="text-[11px] text-slate-500">Successfully shipped</span>
-        </div>
-      </div>
-
-      {/* Status Filter Tabs */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-2xl max-w-xl text-xs font-bold flex-wrap">
-        {[
-          { key: "All", label: `All (${totalTasks})` },
-          { key: "To Do", label: `To Do (${todoTasks.length})` },
-          { key: "In Progress", label: `In Progress (${inProgressTasks.length})` },
-          { key: "In Review", label: `In Review (${inReviewTasks.length})` },
-          { key: "Done", label: `Done (${doneTasks.length})` },
-          { key: "Blocked", label: `Blocked (${blockedTasks.length})` },
-        ].map((tab) => (
+        <div className="flex items-center gap-3 shrink-0">
           <button
-            key={tab.key}
             type="button"
-            onClick={() => setFilter(tab.key)}
-            className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
-              filter === tab.key
-                ? "bg-white text-slate-900 shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+            onClick={() => setIsReportModalOpen(true)}
+            className="px-4 py-2.5 bg-white text-indigo-700 hover:bg-blue-50 font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+          >
+            <span>🐛</span>
+            <span>+ Report Bug</span>
+          </button>
+
+          <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 text-center min-w-[120px]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">
+              Task Done
+            </span>
+            <span className="text-xl font-black">
+              {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
+            </span>
+            <span className="text-[10px] text-blue-100 block">
+              {completedTasks}/{totalTasks}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Primary Workspace Navigation Tabs */}
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("tasks")}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "tasks"
+                ? "bg-blue-600 text-white shadow-md shadow-blue-500/20"
+                : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
             }`}
           >
-            {tab.label}
+            <span>📋 Deliverables & Tasks</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full ${
+                activeTab === "tasks" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
+              }`}
+            >
+              {tasks.length}
+            </span>
           </button>
-        ))}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("issues")}
+            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "issues"
+                ? "bg-rose-600 text-white shadow-md shadow-rose-500/20"
+                : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200"
+            }`}
+          >
+            <span>🐛 Bugs & Issues</span>
+            <span
+              className={`text-[10px] px-2 py-0.5 rounded-full ${
+                activeTab === "issues" ? "bg-white/20 text-white" : "bg-rose-100 text-rose-700"
+              }`}
+            >
+              {issues.length}
+            </span>
+          </button>
+        </div>
+
+        <Link
+          href="/issues"
+          className="text-xs font-bold text-slate-500 hover:text-rose-600 transition-colors flex items-center gap-1"
+        >
+          <span>Open Full Bug Tracker</span>
+          <span>→</span>
+        </Link>
       </div>
 
-      {/* Tasks Grid */}
-      {filteredTasks.length === 0 ? (
-        <div className="bg-white p-12 border border-slate-200/80 rounded-3xl text-center space-y-2 shadow-2xs">
-          <span className="text-3xl">☕</span>
-          <h3 className="text-sm font-bold text-slate-800">
-            {filter === "All"
-              ? "You have no assigned tasks yet."
-              : `No tasks found with status "${filter}".`}
-          </h3>
-          <p className="text-xs text-slate-400">
-            Your team lead will assign deliverables to you as project milestones are defined.
-          </p>
+      {/* TAB 1: DELIVERABLES & TASKS */}
+      {activeTab === "tasks" && (
+        <div className="space-y-6">
+          {/* KPI Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Assigned Tasks
+              </span>
+              <div className="text-2xl font-black text-slate-900 mt-1">{totalTasks}</div>
+              <span className="text-[11px] text-slate-500">Total assigned to you</span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                In Progress
+              </span>
+              <div className="text-2xl font-black text-blue-600 mt-1">{inProgressTasks.length}</div>
+              <span className="text-[11px] text-slate-500">Actively underway</span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Roadblocks
+              </span>
+              <div className="text-2xl font-black text-rose-600 mt-1">{blockedTasks.length}</div>
+              <span className="text-[11px] text-slate-500">
+                {totalBlockers} open objection{totalBlockers !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Completed
+              </span>
+              <div className="text-2xl font-black text-emerald-600 mt-1">{completedTasks}</div>
+              <span className="text-[11px] text-slate-500">Successfully shipped</span>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-2xl max-w-xl text-xs font-bold flex-wrap">
+            {[
+              { key: "All", label: `All (${totalTasks})` },
+              { key: "To Do", label: `To Do (${todoTasks.length})` },
+              { key: "In Progress", label: `In Progress (${inProgressTasks.length})` },
+              { key: "In Review", label: `In Review (${inReviewTasks.length})` },
+              { key: "Done", label: `Done (${doneTasks.length})` },
+              { key: "Blocked", label: `Blocked (${blockedTasks.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setTaskFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  taskFilter === tab.key
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tasks Grid */}
+          {filteredTasks.length === 0 ? (
+            <div className="bg-white p-12 border border-slate-200/80 rounded-3xl text-center space-y-2 shadow-2xs">
+              <span className="text-3xl">☕</span>
+              <h3 className="text-sm font-bold text-slate-800">
+                {taskFilter === "All"
+                  ? "You have no assigned tasks yet."
+                  : `No tasks found with status "${taskFilter}".`}
+              </h3>
+              <p className="text-xs text-slate-400">
+                Your team lead will assign deliverables to you as project milestones are defined.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredTasks.map((task) => (
+                <TaskCard key={task.id} task={task} showProject={true} />
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTasks.map((task) => (
-            <TaskCard key={task.id} task={task} showProject={true} />
-          ))}
+      )}
+
+      {/* TAB 2: BUGS & ISSUES */}
+      {activeTab === "issues" && (
+        <div className="space-y-6">
+          {/* Issue KPI Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Total Issues
+              </span>
+              <div className="text-2xl font-black text-slate-900 mt-1">{issues.length}</div>
+              <span className="text-[11px] text-slate-500">Related to your work</span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-200/60 bg-rose-50/20 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500">
+                Assigned to You
+              </span>
+              <div className="text-2xl font-black text-rose-600 mt-1">{myAssignedIssues.length}</div>
+              <span className="text-[11px] text-rose-600/80">Need your resolution</span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-blue-200/60 bg-blue-50/20 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-blue-500">
+                In Progress
+              </span>
+              <div className="text-2xl font-black text-blue-600 mt-1">{inProgressIssues.length}</div>
+              <span className="text-[11px] text-blue-600/80">Active fixes</span>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200/60 bg-emerald-50/20 shadow-2xs">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-500">
+                Resolved
+              </span>
+              <div className="text-2xl font-black text-emerald-600 mt-1">{resolvedIssues.length}</div>
+              <span className="text-[11px] text-emerald-600/80">Verified & closed</span>
+            </div>
+          </div>
+
+          {/* Issue Filters */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-200/70 rounded-2xl max-w-xl text-xs font-bold flex-wrap">
+            {[
+              { key: "All", label: `All (${issues.length})` },
+              { key: "Assigned to Me", label: `Assigned to Me (${myAssignedIssues.length})` },
+              { key: "Open", label: `Open (${openIssues.length})` },
+              { key: "In Progress", label: `In Progress (${inProgressIssues.length})` },
+              { key: "Resolved", label: `Resolved (${resolvedIssues.length})` },
+            ].map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setIssueFilter(tab.key)}
+                className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer ${
+                  issueFilter === tab.key
+                    ? "bg-white text-slate-900 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Issues List */}
+          {filteredIssues.length === 0 ? (
+            <div className="bg-white p-12 border border-slate-200/80 rounded-3xl text-center space-y-3 shadow-2xs">
+              <span className="text-3xl">🎉</span>
+              <h3 className="text-sm font-bold text-slate-800">No issues found</h3>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                No bugs are currently blocking your deliverables under this filter.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(true)}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+              >
+                + Report a Defect
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredIssues.map((issue) => {
+                const isOpen = issue.status === "Open";
+                const isInProgress = issue.status === "In Progress";
+                const isResolved = issue.status === "Resolved" || issue.status === "Closed";
+                const isMyIssue = issue.assignedTo?.id === currentUserId;
+
+                return (
+                  <div
+                    key={issue.id}
+                    className={`bg-white p-5 rounded-3xl border transition-all shadow-2xs space-y-3.5 ${
+                      isMyIssue && isOpen
+                        ? "border-rose-300 ring-2 ring-rose-500/10"
+                        : "border-slate-200/80"
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(
+                            issue.priority
+                          )}`}
+                        >
+                          {issue.priority} Priority
+                        </span>
+                        <span
+                          className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${getStatusBadgeClass(
+                            issue.status
+                          )}`}
+                        >
+                          {issue.status}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                          📁 {issue.projectName}
+                        </span>
+                      </div>
+
+                      <span className="text-slate-400 text-[11px]">
+                        {new Date(issue.createdAt).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                        {issue.title}
+                      </h3>
+                      {issue.description && (
+                        <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                          {issue.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Resolution Note */}
+                    {issue.resolution && (
+                      <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
+                        <span className="font-bold block">✓ Resolution Note:</span>
+                        <p className="whitespace-pre-wrap">{issue.resolution}</p>
+                      </div>
+                    )}
+
+                    {/* Inline Resolution Box */}
+                    {resolvingIssueId === issue.id && (
+                      <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                        <label className="block text-xs font-bold text-slate-700">
+                          How did you resolve this bug?
+                        </label>
+                        <textarea
+                          rows={2}
+                          required
+                          value={resolutionText}
+                          onChange={(e) => setResolutionText(e.target.value)}
+                          placeholder="e.g. Corrected CSS overflow issue and updated mobile breakpoint."
+                          className="w-full p-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResolvingIssueId(null);
+                              setResolutionText("");
+                            }}
+                            className="px-3 py-1 text-xs text-slate-600 hover:bg-slate-200/60 rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isPending || !resolutionText.trim()}
+                            onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
+                            className="px-4 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-2xs cursor-pointer disabled:opacity-50"
+                          >
+                            {isPending ? "Saving..." : "Confirm Fix & Resolve"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* People & Quick Actions */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                      <div className="flex items-center gap-3 text-slate-500">
+                        <span>
+                          Reported by: <strong className="text-slate-700">{issue.raisedBy.name}</strong>
+                        </span>
+                        <span>
+                          Assigned to:{" "}
+                          <strong className="text-slate-700">
+                            {issue.assignedTo ? issue.assignedTo.name : "Unassigned"}
+                          </strong>
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {isOpen && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => handleUpdateStatus(issue.id, "In Progress")}
+                            className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold rounded-xl border border-blue-200 transition-colors cursor-pointer"
+                          >
+                            Start Working →
+                          </button>
+                        )}
+
+                        {!isResolved && (
+                          <button
+                            type="button"
+                            disabled={isPending}
+                            onClick={() => {
+                              setResolvingIssueId(issue.id);
+                              setResolutionText("");
+                            }}
+                            className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-xl border border-emerald-200 transition-colors cursor-pointer"
+                          >
+                            ✓ Mark as Resolved
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Report Bug Modal */}
+      {isReportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🐛</span>
+                <h3 className="text-lg font-bold text-slate-900">Report a Bug / Issue</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsReportModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 text-base font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Raise a bug against a project and select which member should complete / resolve it.
+            </p>
+
+            <form onSubmit={handleCreateIssue} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Issue Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Button alignment broken on mobile safari"
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Project <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={newProjectId}
+                  onChange={(e) => setNewProjectId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} {p.client ? `(${p.client})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Assign To Member
+                  </label>
+                  <select
+                    value={newAssignedToId}
+                    onChange={(e) => setNewAssignedToId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} ({m.email})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Priority / Severity
+                  </label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value)}
+                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
+                  >
+                    <option value="Low">Low (Trivial / cosmetic)</option>
+                    <option value="Medium">Medium (Normal defect)</option>
+                    <option value="High">High (Major feature broken)</option>
+                    <option value="Critical">Critical (Blocker / crash)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                  Steps to Reproduce / Details
+                </label>
+                <textarea
+                  rows={3}
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  placeholder="Describe the issue and how to reproduce it..."
+                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsReportModalOpen(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending || !newTitle.trim() || !newProjectId}
+                  className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isPending ? "Submitting..." : "Submit Bug Report"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

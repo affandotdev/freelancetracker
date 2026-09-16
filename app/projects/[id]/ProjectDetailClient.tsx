@@ -17,6 +17,7 @@ import {
 } from "@/lib/dateUtils";
 import TaskStatusBadge from "@/components/TaskStatusBadge";
 import BackButton from "@/components/BackButton";
+import ProjectIssuesSection, { ProjectIssueItem } from "@/components/ProjectIssuesSection";
 
 export interface AttachmentItem {
   id: string;
@@ -69,6 +70,7 @@ interface ProjectDetailClientProps {
   };
   initialAttachments?: AttachmentItem[];
   initialTasks?: ProjectTaskItem[];
+  initialIssues?: ProjectIssueItem[];
   teamMembers?: TeamMemberOption[];
 }
 
@@ -76,6 +78,7 @@ export default function ProjectDetailClient({
   project,
   initialAttachments = [],
   initialTasks = [],
+  initialIssues = [],
   teamMembers = [],
 }: ProjectDetailClientProps) {
   const [name, setName] = useState(project.name);
@@ -913,6 +916,16 @@ export default function ProjectDetailClient({
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* ISSUES & BUG TRACKER SECTION */}
+      {/* ========================================================================= */}
+      <ProjectIssuesSection
+        projectId={project.id}
+        projectName={name}
+        initialIssues={initialIssues}
+        teamMembers={teamMembers}
+      />
 
       {/* ========================================================================= */}
       {/* DOCUMENTS, QUOTATIONS & PHOTOS SECTION (ALWAYS-VISIBLE UPLOAD SUITE) */}

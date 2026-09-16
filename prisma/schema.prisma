@@ -15,8 +15,10 @@ model User {
   passwordHash  String
   role          String      @default("MEMBER") // SUPER_ADMIN | MEMBER
   createdAt     DateTime    @default(now())
-  tasksAssigned Task[]      @relation("AssignedTasks")
-  objections    Objection[]
+  tasksAssigned  Task[]      @relation("AssignedTasks")
+  objections     Objection[]
+  issuesAssigned Issue[]     @relation("IssuesAssigned")
+  issuesRaised   Issue[]     @relation("IssuesRaised")
 }
 
 model Project {
@@ -37,6 +39,7 @@ model Project {
   commissions     Commission[]
   payments        Payment[]
   invoices        Invoice[]
+  issues          Issue[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }
@@ -144,4 +147,26 @@ model Invoice {
   createdAt      DateTime @default(now())
 
   @@index([projectId])
+}
+
+model Issue {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?   @db.Text
+  priority     String    @default("Medium") // Low | Medium | High | Critical
+  status       String    @default("Open")   // Open | In Progress | Resolved | Closed
+  resolution   String?   @db.Text
+  raisedById   String
+  raisedBy     User      @relation("IssuesRaised", fields: [raisedById], references: [id])
+  assignedToId String?
+  assignedTo   User?     @relation("IssuesAssigned", fields: [assignedToId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  resolvedAt   DateTime?
+
+  @@index([projectId])
+  @@index([raisedById])
+  @@index([assignedToId])
 }

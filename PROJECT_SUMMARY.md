@@ -203,6 +203,12 @@ model Objection {
 - **Raise an Objection**: When blocked, the worker clicks "+ Raise an Objection". The task changes to `Blocked` and routes the blocker to the Super Admin's `/objections` inbox.
 - **Resolution**: Super Admin reviews the objection on `/objections`, writes a resolution note, and marks it resolved. The task automatically shifts back to `In Progress`.
 
+### 6. Issues & Bug Tracking System (`/issues`, `/`, & `/projects/[id]`)
+- **Bug Reporting**: Any team member or Super Admin can report defects against any project and designate which member is responsible for fixing it.
+- **Worker Workspace Integration**: Members have a dedicated "Bugs & Issues" tab on their dashboard to track assigned bugs, start work, and confirm resolution notes.
+- **Project Cockpit**: Each project page has an integrated `ProjectIssuesSection` with live priority and status tracking.
+- **Central Tracker Hub (`/issues`)**: Filter by Project, Assignee, Priority (Critical, High, Medium, Low), and Status (Open, In Progress, Resolved).
+
 ---
 
 ## 📁 Application & Directory Structure
@@ -225,6 +231,9 @@ Work_plan/
 │   │   └── page.tsx
 │   ├── invoices/                   # Sequential invoice print engine
 │   │   └── [id]/page.tsx           # Print-friendly invoice sheet
+│   ├── issues/                     # Central Bug & Issue Tracker
+│   │   ├── page.tsx
+│   │   └── IssuesClient.tsx
 │   ├── tasks/
 │   │   └── [id]/                   # Role-aware task detail workspace
 │   │       ├── page.tsx
@@ -241,6 +250,7 @@ Work_plan/
 │   ├── PaymentHistoryTable.tsx     # Itemized payment log table
 │   ├── AddPaymentForm.tsx          # Real payment recording form
 │   ├── InvoiceList.tsx             # Invoice management table
+│   ├── ProjectIssuesSection.tsx    # Project-specific bug report & tracking section
 │   ├── ActivityFeed.tsx            # Recent team events stream
 │   ├── DashboardClient.tsx         # Super Admin project & revenue dashboard
 │   ├── MemberDashboardClient.tsx   # Freelance worker personal task dashboard

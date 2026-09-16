@@ -40,6 +40,7 @@ It is engineered with **strict server-side role isolation** supporting two opera
 | **`/projects/new`** | `SUPER_ADMIN` | Onboard new clients & projects: deliverables, client contacts, categories, duration calculator, and financial milestones. |
 | **`/projects/[id]`** | `SUPER_ADMIN` | Deep-dive project cockpit: financial health, task breakdown with assignments, cloud file attachments & photo receipts. |
 | **`/tasks/[id]`** | Both (Authorized Only) | Detailed deliverable view: interactive progress slider, timestamped work logs, and objection raising/resolving. |
+| **`/issues`** | Both | **Bug & Issue Tracker**: Report quality defects against projects & members, filter by priority/assignee, update resolution status, and track bug fixes in real-time. |
 | **`/login`** | Public | Secure authentication portal with bcrypt password verification and session cookie management. |
 
 ---
@@ -262,6 +263,28 @@ model Invoice {
 
   @@index([projectId])
 }
+
+model Issue {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?   @db.Text
+  priority     String    @default("Medium") // Low | Medium | High | Critical
+  status       String    @default("Open")   // Open | In Progress | Resolved | Closed
+  resolution   String?   @db.Text
+  raisedById   String
+  raisedBy     User      @relation("IssuesRaised", fields: [raisedById], references: [id])
+  assignedToId String?
+  assignedTo   User?     @relation("IssuesAssigned", fields: [assignedToId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  resolvedAt   DateTime?
+
+  @@index([projectId])
+  @@index([raisedById])
+  @@index([assignedToId])
+}
 ```
 
 ---
@@ -275,6 +298,7 @@ All database modifications are executed via secure Next.js Server Actions with r
 - **Projects**: `createProjectAction`, `updateProjectAction`, `deleteProjectAction`
 - **Tasks**: `createTaskAction`, `updateTaskAction`, `deleteTaskAction`, `assignTaskToMemberAction`
 - **Deliverable Updates & Objections**: `addTaskUpdateAction`, `deleteTaskUpdateAction` (accessible to assigned Member and Super Admin), `raiseObjectionAction`, `resolveObjectionAction`
+- **Issues & Bug Tracker**: `createIssueAction`, `updateIssueStatusAction`, `reassignIssueAction`, `deleteIssueAction`
 - **Accounts & Payments**: `recordPaymentAction`
 - **Commissions**: `createCommissionAction`, `updateCommissionStatusAction`, `deleteCommissionAction`
 - **Attachments**: `uploadAttachmentAction`, `deleteAttachmentAction`

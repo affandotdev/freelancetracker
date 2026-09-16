@@ -42,6 +42,17 @@ export default async function ProjectDetailPage({ params }: PageProps) {
           },
         },
       },
+      issues: {
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          raisedBy: {
+            select: { id: true, name: true, email: true },
+          },
+          assignedTo: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      },
     },
   });
 
@@ -83,6 +94,32 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     openObjectionsCount: task.objections.length,
   }));
 
+  const issues = ((project as any).issues || []).map((issue: any) => ({
+    id: issue.id,
+    projectId: issue.projectId,
+    projectName: project.name,
+    title: issue.title,
+    description: issue.description,
+    priority: issue.priority,
+    status: issue.status,
+    resolution: issue.resolution,
+    createdAt: issue.createdAt.toISOString(),
+    updatedAt: issue.updatedAt.toISOString(),
+    resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
+    raisedBy: {
+      id: issue.raisedBy.id,
+      name: issue.raisedBy.name,
+      email: issue.raisedBy.email,
+    },
+    assignedTo: issue.assignedTo
+      ? {
+          id: issue.assignedTo.id,
+          name: issue.assignedTo.name,
+          email: issue.assignedTo.email,
+        }
+      : null,
+  }));
+
   return (
     <ProjectDetailClient
       project={{
@@ -93,6 +130,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       }}
       initialAttachments={attachments}
       initialTasks={tasks}
+      initialIssues={issues}
       teamMembers={rawTeamMembers}
     />
   );

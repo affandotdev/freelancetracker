@@ -1051,3 +1051,211 @@ export async function deleteCommissionAction(commissionId: string) {
   revalidatePath("/commissions");
 }
 
+/* ==========================================================================
+   ISSUES & BUG TRACKER ACTIONS
+   ========================================================================== */
+
+/**
+ * Report a new bug/issue against a project and optionally assign it to a team member.
+ * Accessible to any authenticated user (Member or Super Admin).
+ */
+export async function createIssueAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const projectId = (formData.get("projectId") as string)?.trim();
+  const title = (formData.get("title") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim() || null;
+  const priority = (formData.get("priority") as string)?.trim() || "Medium";
+  const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
+
+  if (!projectId || !title) {
+    throw new Error("Project and issue title are required.");
+  }
+
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+  });
+
+  if (!project) {
+    throw new Error("Project not found.");
+  }
+
+  const issue = await (prisma as any).issue.create({
+    data: {
+      projectId,
+      title,
+      description,
+      priority,
+      status: "Open",
+      raisedById: session.userId,
+      assignedToId: assignedToId && assignedToId !== "none" ? assignedToId : null,
+    },
+    include: {
+      project: { select: { id: true, name: true } },
+      raisedBy: { select: { id: true, name: true, email: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/issues");
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
+  if (assignedToId) {
+    revalidatePath(`/team/${assignedToId}`);
+  }
+
+  return issue;
+}
+
+/**
+ * Update the status of an issue (e.g. Open -> In Progress -> Resolved -> Closed),
+ * with an optional resolution explanation.
+ * Accessible to assigned Member, reporter, or Super Admin.
+ */
+export async function updateIssueStatusAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const issueId = formData.get("issueId") as string;
+  const status = formData.get("status") as string;
+  const resolution = (formData.get("resolution") as string)?.trim() || null;
+
+  if (!issueId || !status) {
+    throw new Error("Issue ID and status are required.");
+  }
+
+  const validStatuses = ["Open", "In Progress", "Resolved", "Closed"];
+  if (!validStatuses.includes(status)) {
+    throw new Error(`Invalid status. Must be one of: ${validStatuses.join(", ")}`);
+  }
+
+  const issue = await (prisma as any).issue.findUnique({
+    where: { id: issueId },
+  });
+
+  if (!issue) {
+    throw new Error("Issue not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isAssigned = issue.assignedToId === session.userId;
+  const isReporter = issue.raisedById === session.userId;
+
+  if (!isSuperAdmin && !isAssigned && !isReporter) {
+    throw new Error("Unauthorized: Only the assigned member, reporter, or Super Admin can update this issue.");
+  }
+
+  const isResolvedOrClosed = status === "Resolved" || status === "Closed";
+
+  const updated = await (prisma as any).issue.update({
+    where: { id: issueId },
+    data: {
+      status,
+      resolution: resolution !== null ? resolution : issue.resolution,
+      resolvedAt: isResolvedOrClosed ? (issue.resolvedAt || new Date()) : null,
+    },
+    include: {
+      project: { select: { id: true, name: true } },
+      raisedBy: { select: { id: true, name: true, email: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/issues");
+  revalidatePath(`/projects/${issue.projectId}`);
+  revalidatePath("/");
+  if (issue.assignedToId) {
+    revalidatePath(`/team/${issue.assignedToId}`);
+  }
+
+  return updated;
+}
+
+/**
+ * Reassign an issue to a different team member.
+ * Accessible to Super Admin, reporter, or assigned member.
+ */
+export async function reassignIssueAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const issueId = formData.get("issueId") as string;
+  const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
+
+  if (!issueId) {
+    throw new Error("Issue ID is required.");
+  }
+
+  const issue = await (prisma as any).issue.findUnique({
+    where: { id: issueId },
+  });
+
+  if (!issue) {
+    throw new Error("Issue not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isReporter = issue.raisedById === session.userId;
+  const isAssigned = issue.assignedToId === session.userId;
+
+  if (!isSuperAdmin && !isReporter && !isAssigned) {
+    throw new Error("Unauthorized: Only Super Admin, reporter, or assigned member can reassign this issue.");
+  }
+
+  const targetUserId = assignedToId && assignedToId !== "none" ? assignedToId : null;
+
+  const updated = await (prisma as any).issue.update({
+    where: { id: issueId },
+    data: {
+      assignedToId: targetUserId,
+    },
+  });
+
+  revalidatePath("/issues");
+  revalidatePath(`/projects/${issue.projectId}`);
+  revalidatePath("/");
+  if (targetUserId) {
+    revalidatePath(`/team/${targetUserId}`);
+  }
+
+  return updated;
+}
+
+/**
+ * Delete an issue.
+ * Accessible to Super Admin or the user who reported it.
+ */
+export async function deleteIssueAction(issueId: string) {
+  const session = await requireAuth();
+
+  if (!issueId) {
+    throw new Error("Issue ID is required.");
+  }
+
+  const issue = await (prisma as any).issue.findUnique({
+    where: { id: issueId },
+  });
+
+  if (!issue) {
+    throw new Error("Issue not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isReporter = issue.raisedById === session.userId;
+
+  if (!isSuperAdmin && !isReporter) {
+    throw new Error("Unauthorized: Only the reporter or Super Admin can delete this issue.");
+  }
+
+  await (prisma as any).issue.delete({
+    where: { id: issueId },
+  });
+
+  revalidatePath("/issues");
+  revalidatePath(`/projects/${issue.projectId}`);
+  revalidatePath("/");
+  if (issue.assignedToId) {
+    revalidatePath(`/team/${issue.assignedToId}`);
+  }
+
+  return { success: true };
+}
+

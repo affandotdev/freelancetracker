@@ -56,6 +56,13 @@ export default async function RootLayout({
                     {isSuperAdmin ? "Dashboard" : "My Tasks"}
                   </Link>
 
+                  <Link
+                    href="/issues"
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-rose-600 hover:bg-rose-50/80 transition-colors"
+                  >
+                    Issues
+                  </Link>
+
                   {isSuperAdmin && (
                     <>
                       <Link
