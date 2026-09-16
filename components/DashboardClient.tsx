@@ -28,6 +28,8 @@ interface Project {
 }
 
 import ActivityFeed, { ActivityItem } from "./ActivityFeed";
+import AdminWorksMonitor, { TaskMonitoringItem } from "./AdminWorksMonitor";
+import AdminBugsMonitor, { IssueMonitoringItem } from "./AdminBugsMonitor";
 
 export interface TeamStats {
   totalMembers: number;
@@ -40,6 +42,9 @@ interface DashboardClientProps {
   initialProjects: Project[];
   teamStats?: TeamStats;
   recentActivity?: ActivityItem[];
+  allTasks?: TaskMonitoringItem[];
+  allIssues?: IssueMonitoringItem[];
+  teamMembers?: { id: string; name: string; email: string; role?: string }[];
 }
 
 type ViewMode = "grid" | "kanban" | "table";
@@ -48,8 +53,12 @@ export default function DashboardClient({
   initialProjects,
   teamStats,
   recentActivity = [],
+  allTasks = [],
+  allIssues = [],
+  teamMembers = [],
 }: DashboardClientProps) {
   const [mounted, setMounted] = useState(false);
+  const [activeSection, setActiveSection] = useState<"projects" | "works" | "bugs">("projects");
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all"); // 'all' | 'In Progress' | 'Enquiry' | 'Planning' | 'Completed'
@@ -131,6 +140,21 @@ export default function DashboardClient({
       return duration.statusType === "urgent" || duration.statusType === "today";
     }).length;
   }, [projects, mounted]);
+
+  const criticalBugsCount = useMemo(() => {
+    return allIssues.filter(
+      (i) => i.priority === "Critical" && i.status !== "Resolved" && i.status !== "Closed"
+    ).length;
+  }, [allIssues]);
+
+  const tasksOverdueCount = useMemo(() => {
+    if (!mounted) return 0;
+    return allTasks.filter((t) => {
+      if (!t.deadline || t.status === "Done" || t.status === "Completed") return false;
+      const d = getProjectDuration(t.deadline, t.status, mounted);
+      return d.statusType === "overdue";
+    }).length;
+  }, [allTasks, mounted]);
 
   // Filtering & Sorting
   const filteredProjects = useMemo(() => {
@@ -418,26 +442,148 @@ export default function DashboardClient({
 
   return (
     <div className="space-y-8">
-      {/* 1. Header & Quick Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <span>Projects & Cashflow</span>
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Live overview of client deliverables, agreed fees, deadlines, and collected revenue
-          </p>
+      {/* Top-Level Admin Control Suite Switcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-2 bg-slate-100/90 rounded-3xl border border-slate-200/90 shadow-2xs">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setActiveSection("projects")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm transition-all cursor-pointer ${
+              activeSection === "projects"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/80 ring-2 ring-slate-900/5 font-black"
+                : "text-slate-600 hover:text-slate-900 hover:bg-white/50 font-bold"
+            }`}
+          >
+            <span>📁 Projects & Pipeline</span>
+            <span
+              className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                activeSection === "projects" ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-700"
+              }`}
+            >
+              {projects.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("works")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm transition-all cursor-pointer ${
+              activeSection === "works"
+                ? "bg-white text-blue-900 shadow-xs border border-blue-200 ring-2 ring-blue-500/10 font-black"
+                : "text-slate-600 hover:text-blue-700 hover:bg-white/50 font-bold"
+            }`}
+          >
+            <span>⚡ Assigned Works Monitor</span>
+            <span
+              className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                activeSection === "works" ? "bg-blue-600 text-white" : "bg-blue-100 text-blue-800"
+              }`}
+            >
+              {allTasks.length}
+            </span>
+            {tasksOverdueCount > 0 && (
+              <span
+                className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"
+                title={`${tasksOverdueCount} overdue deliverable(s)`}
+              />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSection("bugs")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs sm:text-sm transition-all cursor-pointer ${
+              activeSection === "bugs"
+                ? "bg-white text-rose-900 shadow-xs border border-rose-200 ring-2 ring-rose-500/10 font-black"
+                : "text-slate-600 hover:text-rose-700 hover:bg-white/50 font-bold"
+            }`}
+          >
+            <span>🐛 Assigned Bugs Monitor</span>
+            <span
+              className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                activeSection === "bugs" ? "bg-rose-600 text-white" : "bg-rose-100 text-rose-800"
+              }`}
+            >
+              {allIssues.length}
+            </span>
+            {criticalBugsCount > 0 && (
+              <span
+                className="w-2 h-2 rounded-full bg-rose-600 animate-pulse"
+                title={`${criticalBugsCount} critical blocker bug(s)`}
+              />
+            )}
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-blue-500/25 hover:shadow-lg transition-all cursor-pointer"
-          >
-            <span>+ Add New Project</span>
-          </Link>
+        <div className="flex items-center gap-2 px-2 self-end sm:self-auto">
+          {activeSection === "projects" && (
+            <Link
+              href="/projects/new"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <span>+ Add Project</span>
+            </Link>
+          )}
+          {activeSection === "works" && (
+            <Link
+              href="/team"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <span>👥 Manage Team Accounts</span>
+            </Link>
+          )}
+          {activeSection === "bugs" && (
+            <Link
+              href="/issues"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+            >
+              <span>Full Issues Hub ↗</span>
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* SECTION 1: ASSIGNED WORKS MONITOR */}
+      {activeSection === "works" && (
+        <AdminWorksMonitor
+          initialTasks={allTasks}
+          teamMembers={teamMembers}
+          projects={projects.map((p) => ({ id: p.id, name: p.name, client: p.client }))}
+        />
+      )}
+
+      {/* SECTION 2: ASSIGNED BUGS MONITOR */}
+      {activeSection === "bugs" && (
+        <AdminBugsMonitor
+          initialIssues={allIssues}
+          teamMembers={teamMembers}
+          projects={projects.map((p) => ({ id: p.id, name: p.name, client: p.client }))}
+        />
+      )}
+
+      {/* SECTION 3: PROJECTS & CASHFLOW */}
+      {activeSection === "projects" && (
+        <div className="space-y-8">
+          {/* 1. Header & Quick Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <span>Projects & Cashflow</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                Live overview of client deliverables, agreed fees, deadlines, and collected revenue
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Link
+                href="/projects/new"
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md shadow-blue-500/25 hover:shadow-lg transition-all cursor-pointer"
+              >
+                <span>+ Add New Project</span>
+              </Link>
+            </div>
+          </div>
 
       {/* 2. Interactive KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -584,7 +730,7 @@ export default function DashboardClient({
       {/* Super Admin Team & Task Summary Cards */}
       {teamStats && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <Link
               href="/team"
               className="group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all"
@@ -637,9 +783,13 @@ export default function DashboardClient({
               </span>
             </Link>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setActiveSection("works")}
+              className="text-left group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-blue-400 hover:shadow-xs transition-all cursor-pointer"
+            >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-700">
                   Tasks In Progress
                 </span>
                 <span className="text-base">⚡</span>
@@ -647,12 +797,16 @@ export default function DashboardClient({
               <div className="text-2xl font-black text-blue-600 mt-1.5">
                 {teamStats.tasksInProgress}
               </div>
-              <span className="text-[11px] text-slate-500 block mt-0.5">
-                Across all project deliverables
+              <span className="text-[11px] text-blue-600 font-semibold group-hover:underline block mt-0.5">
+                Monitor assigned works →
               </span>
-            </div>
+            </button>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setActiveSection("works")}
+              className="text-left group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-rose-300 hover:shadow-xs transition-all cursor-pointer"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Tasks Overdue
@@ -667,14 +821,76 @@ export default function DashboardClient({
                 {teamStats.tasksOverdue}
               </div>
               <span
-                className={`text-[11px] font-semibold block mt-0.5 ${
+                className={`text-[11px] font-semibold group-hover:underline block mt-0.5 ${
                   teamStats.tasksOverdue > 0 ? "text-rose-600 font-bold" : "text-emerald-600"
                 }`}
               >
                 {teamStats.tasksOverdue > 0
-                  ? "Requires deadline attention"
+                  ? "Action deadlines in monitor →"
                   : "All deliverables on track"}
               </span>
+            </button>
+
+            {/* Assigned Bugs Card */}
+            <button
+              type="button"
+              onClick={() => setActiveSection("bugs")}
+              className="text-left group bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-rose-400 hover:shadow-xs transition-all cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-rose-700">
+                  Assigned Bugs
+                </span>
+                <span className="text-base">🐛</span>
+              </div>
+              <div className="text-2xl font-black text-slate-900 mt-1.5 flex items-center gap-2">
+                <span>{allIssues.length}</span>
+                {criticalBugsCount > 0 && (
+                  <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-rose-600 text-white animate-pulse">
+                    {criticalBugsCount} crit
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-rose-600 font-semibold group-hover:underline block mt-0.5">
+                Monitor assigned defects →
+              </span>
+            </button>
+          </div>
+
+          {/* Quick Monitoring Banner */}
+          <div className="p-4 bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-rose-50/50 rounded-2xl border border-slate-200/90 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-black text-base shrink-0 shadow-xs">
+                ⚡
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                  <span>Assigned Deliverables & Bug Monitoring Suite Active</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-extrabold">
+                    {allTasks.length} works • {allIssues.length} bugs
+                  </span>
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Inspect worker workloads, live progress sliders, deadline alerts, roadblocks, and reassign tasks directly.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveSection("works")}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+              >
+                Monitor Works →
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveSection("bugs")}
+                className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+              >
+                Monitor Bugs →
+              </button>
             </div>
           </div>
 
@@ -1483,6 +1699,8 @@ export default function DashboardClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
         </div>
       )}
     </div>

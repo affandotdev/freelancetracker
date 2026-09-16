@@ -309,6 +309,21 @@ All database modifications are executed via secure Next.js Server Actions with r
 - **Smart Visual Modal (`ReportBugModal`)**: Step-by-step visual selector with member search, project selection, quick idea tags (e.g. *API 500 error*, *Mobile layout broken*), 1-click priority pills (Critical, High, Medium, Low), and clear target confirmation buttons.
 - **Task Detail Integration**: Members viewing `/tasks/[id]` can click `🐛 Report Bug on this Task` from the top header or the roadblocks card to file bugs without leaving the task.
 
+### ⚡ Super Admin Assigned Works & Bugs Monitoring Suite
+- **Top Control Suite Switcher**: On the main Admin Panel (`/`), Super Admin can toggle between **📁 Projects & Pipeline**, **⚡ Assigned Works Monitor**, and **🐛 Assigned Bugs Monitor** with live badges and critical indicators.
+- **Assigned Works Monitor (`AdminWorksMonitor.tsx`)**:
+  - Live KPI strip (Total Works, In Progress, Overdue with pulsing badge, Roadblocks, To Do, Completed, Average Progress).
+  - Worker filter bar with member avatars showing live task counts; clicking any worker isolates their workload.
+  - Multi-dimensional filters (Status, Project, Search query).
+  - Toggle between **Card Grid** and **Compact Monitoring Table** views.
+  - Inline quick-actions: 1-click reassignment dropdown, quick status advance (`To Do` / `In Progress` / `Done`), quick progress jump buttons (0%, 25%, 50%, 75%, 100%), roadblock warnings, and latest worker update log.
+- **Assigned Bugs Monitor (`AdminBugsMonitor.tsx`)**:
+  - Quality KPI metrics (Total Bugs, Critical Blockers, Open, In Progress, Resolved).
+  - Worker defect filter chips: see who is assigned which bugs at a glance.
+  - Priority & Status filters, project dropdown, and live keyword search.
+  - Direct 1-click status advances (`Start Work`, `Resolve Bug` with resolution explanation), inline reassignment dropdown, and delete action.
+  - `+ Report New Bug` button opening `ReportBugModal` directly from the monitoring dashboard.
+
 ---
 
 ## 🔑 Pre-Configured Credentials

@@ -237,11 +237,103 @@ export default async function DashboardPage() {
     console.warn("Could not load recent activity from database:", err);
   }
 
+  // Super Admin Assigned Works (Tasks) + Assigned Bugs (Issues) + Team Members
+  let allTasks: any[] = [];
+  let allIssues: any[] = [];
+  let teamMembers: any[] = [];
+
+  try {
+    const [rawTasks, rawIssues, rawUsers] = await Promise.all([
+      prisma.task.findMany({
+        orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
+        include: {
+          project: { select: { id: true, name: true, client: true } },
+          assignedTo: { select: { id: true, name: true, email: true, role: true } },
+          objections: { where: { status: "Open" } },
+          updates: {
+            take: 1,
+            orderBy: { createdAt: "desc" },
+            select: { id: true, text: true, createdAt: true },
+          },
+        },
+      }),
+      (prisma as any).issue.findMany({
+        orderBy: [{ createdAt: "desc" }],
+        include: {
+          project: { select: { id: true, name: true, client: true } },
+          raisedBy: { select: { id: true, name: true, email: true } },
+          assignedTo: { select: { id: true, name: true, email: true, role: true } },
+        },
+      }),
+      prisma.user.findMany({
+        select: { id: true, name: true, email: true, role: true },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+
+    allTasks = rawTasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      description: t.description,
+      status: t.status,
+      progress: t.progress,
+      deadline: t.deadline ? t.deadline.toISOString() : null,
+      projectId: t.projectId,
+      projectName: t.project.name,
+      projectClient: t.project.client,
+      assignedTo: t.assignedTo,
+      openObjectionsCount: t.objections.length,
+      latestUpdate: t.updates[0]
+        ? {
+            id: t.updates[0].id,
+            text: t.updates[0].text,
+            createdAt: t.updates[0].createdAt.toISOString(),
+          }
+        : null,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+    }));
+
+    allIssues = rawIssues.map((issue: any) => ({
+      id: issue.id,
+      projectId: issue.projectId,
+      projectName: issue.project?.name || "General Project",
+      title: issue.title,
+      description: issue.description,
+      priority: issue.priority,
+      status: issue.status,
+      resolution: issue.resolution,
+      createdAt: issue.createdAt.toISOString(),
+      updatedAt: issue.updatedAt.toISOString(),
+      resolvedAt: issue.resolvedAt ? issue.resolvedAt.toISOString() : null,
+      raisedBy: {
+        id: issue.raisedBy.id,
+        name: issue.raisedBy.name,
+        email: issue.raisedBy.email,
+      },
+      assignedTo: issue.assignedTo
+        ? {
+            id: issue.assignedTo.id,
+            name: issue.assignedTo.name,
+            email: issue.assignedTo.email,
+            role: issue.assignedTo.role,
+          }
+        : null,
+    }));
+
+    teamMembers = rawUsers;
+  } catch (err) {
+    console.warn("Could not load all tasks / issues for super admin:", err);
+  }
+
   return (
     <DashboardClient
       initialProjects={projects}
       teamStats={teamStats}
       recentActivity={activityItems}
+      allTasks={allTasks}
+      allIssues={allIssues}
+      teamMembers={teamMembers}
     />
   );
 }
