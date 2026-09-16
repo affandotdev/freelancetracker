@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import ReportBugModal from "@/components/ReportBugModal";
@@ -79,6 +79,16 @@ export default function IssuesClient({
   });
 
   const isSuperAdmin = currentUser.role === "SUPER_ADMIN";
+
+  // Only non-admin workers can be assigned bugs (Admin cannot be assigned bugs)
+  const assignableMembers = useMemo(() => {
+    return teamMembers.filter(
+      (m) =>
+        m.role !== "SUPER_ADMIN" &&
+        !m.name.toLowerCase().includes("super admin") &&
+        !m.email.toLowerCase().includes("admin@")
+    );
+  }, [teamMembers]);
 
   // Filter calculation
   const filteredIssues = issues.filter((issue) => {
@@ -289,7 +299,7 @@ export default function IssuesClient({
       </div>
 
       {/* QUICK REPORT: CLICK ANY TEAM MEMBER */}
-      {teamMembers.length > 0 && (
+      {assignableMembers.length > 0 && (
         <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -304,7 +314,7 @@ export default function IssuesClient({
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {teamMembers.map((m) => {
+            {assignableMembers.map((m) => {
               const initials = m.name
                 .split(" ")
                 .map((w) => w[0])
@@ -435,7 +445,7 @@ export default function IssuesClient({
             <option value="assigned_to_me">Assigned to Me</option>
             <option value="reported_by_me">Reported by Me</option>
             <option value="unassigned">Unassigned</option>
-            {teamMembers.map((m) => (
+            {assignableMembers.map((m) => (
               <option key={m.id} value={m.id}>
                 Member: {m.name}
               </option>
@@ -672,7 +682,7 @@ export default function IssuesClient({
                           className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-md font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
                         >
                           <option value="">Unassigned</option>
-                          {teamMembers.map((m) => (
+                          {assignableMembers.map((m) => (
                             <option key={m.id} value={m.id}>
                               {m.name}
                             </option>
@@ -740,7 +750,7 @@ export default function IssuesClient({
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         projects={projects}
-        teamMembers={teamMembers}
+        teamMembers={assignableMembers}
         defaultProjectId={modalDefaults.projectId}
         defaultAssignedToId={modalDefaults.assignedToId}
         defaultTitle={modalDefaults.title}

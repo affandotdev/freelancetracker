@@ -1080,6 +1080,14 @@ export async function createIssueAction(formData: FormData) {
     throw new Error("Project not found.");
   }
 
+  let targetAssigneeId = assignedToId && assignedToId !== "none" ? assignedToId : null;
+  if (targetAssigneeId) {
+    const targetUser = await prisma.user.findUnique({ where: { id: targetAssigneeId } });
+    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
+      targetAssigneeId = null; // Bugs cannot be assigned to an Admin
+    }
+  }
+
   const issue = await (prisma as any).issue.create({
     data: {
       projectId,
@@ -1088,7 +1096,7 @@ export async function createIssueAction(formData: FormData) {
       priority,
       status: "Open",
       raisedById: session.userId,
-      assignedToId: assignedToId && assignedToId !== "none" ? assignedToId : null,
+      assignedToId: targetAssigneeId,
     },
     include: {
       project: { select: { id: true, name: true } },
@@ -1201,6 +1209,12 @@ export async function reassignIssueAction(formData: FormData) {
   }
 
   const targetUserId = assignedToId && assignedToId !== "none" ? assignedToId : null;
+  if (targetUserId) {
+    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
+    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
+      throw new Error("Bugs cannot be assigned to an Admin. Please assign to a team member.");
+    }
+  }
 
   const updated = await (prisma as any).issue.update({
     where: { id: issueId },

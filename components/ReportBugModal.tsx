@@ -53,20 +53,37 @@ export default function ReportBugModal({
       if (defaultProjectId) setSelectedProjectId(defaultProjectId);
       else if (!selectedProjectId && projects.length > 0) setSelectedProjectId(projects[0].id);
 
-      if (defaultAssignedToId !== undefined) setSelectedMemberId(defaultAssignedToId);
+      if (defaultAssignedToId !== undefined) {
+        const isTargetAdmin = teamMembers.find(
+          (m) =>
+            m.id === defaultAssignedToId &&
+            (m.role === "SUPER_ADMIN" ||
+              m.name.toLowerCase().includes("super admin") ||
+              m.email.toLowerCase().includes("admin@"))
+        );
+        setSelectedMemberId(isTargetAdmin ? "" : defaultAssignedToId);
+      }
       if (defaultTitle) setTitle(defaultTitle);
     }
-  }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects]);
+  }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
 
   if (!isOpen) return null;
 
-  const filteredMembers = teamMembers.filter((m) => {
+  // Only non-admin workers can be assigned bugs (Admin cannot be assigned bugs)
+  const nonAdminMembers = teamMembers.filter(
+    (m) =>
+      m.role !== "SUPER_ADMIN" &&
+      !m.name.toLowerCase().includes("super admin") &&
+      !m.email.toLowerCase().includes("admin@")
+  );
+
+  const filteredMembers = nonAdminMembers.filter((m) => {
     if (!memberSearch.trim()) return true;
     const q = memberSearch.toLowerCase();
     return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
   });
 
-  const selectedMember = teamMembers.find((m) => m.id === selectedMemberId);
+  const selectedMember = nonAdminMembers.find((m) => m.id === selectedMemberId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const quickTags = [

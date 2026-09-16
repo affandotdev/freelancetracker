@@ -72,6 +72,16 @@ export default function AdminBugsMonitor({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [prefilledMemberId, setPrefilledMemberId] = useState<string>("");
 
+  // Only non-admin workers can be assigned bugs (Admin cannot be assigned bugs)
+  const assignableMembers = useMemo(() => {
+    return teamMembers.filter(
+      (m) =>
+        m.role !== "SUPER_ADMIN" &&
+        !m.name.toLowerCase().includes("super admin") &&
+        !m.email.toLowerCase().includes("admin@")
+    );
+  }, [teamMembers]);
+
   // KPIs
   const stats = useMemo(() => {
     const total = issues.length;
@@ -435,7 +445,7 @@ export default function AdminBugsMonitor({
           </button>
 
           {/* Individual Members */}
-          {teamMembers.map((member) => {
+          {assignableMembers.map((member) => {
             const isSelected = selectedMemberId === member.id;
             const count = memberBugCounts.map.get(member.id) || { total: 0, open: 0, critical: 0 };
             const initial = member.name.slice(0, 1).toUpperCase();
@@ -710,7 +720,7 @@ export default function AdminBugsMonitor({
                         className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-800 cursor-pointer focus:outline-none focus:ring-1 focus:ring-rose-500"
                       >
                         <option value="none">-- Unassigned --</option>
-                        {teamMembers.map((m) => (
+                        {assignableMembers.map((m) => (
                           <option key={m.id} value={m.id}>
                             👤 {m.name}
                           </option>
@@ -771,7 +781,7 @@ export default function AdminBugsMonitor({
             setPrefilledMemberId("");
           }}
           projects={projects}
-          teamMembers={teamMembers}
+          teamMembers={assignableMembers}
           defaultAssignedToId={prefilledMemberId}
           onSuccess={(created) => {
             if (created) {

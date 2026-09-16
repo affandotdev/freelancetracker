@@ -47,6 +47,13 @@ export default function ProjectIssuesSection({
   const [selectedMemberToReport, setSelectedMemberToReport] = useState<string | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
 
+  // Only non-admin workers can be reported on for bugs (Admin cannot be assigned bugs)
+  const assignableMembers = teamMembers.filter(
+    (m) =>
+      !m.name.toLowerCase().includes("super admin") &&
+      !m.email.toLowerCase().includes("admin@")
+  );
+
   // Inline resolution state
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
@@ -165,7 +172,7 @@ export default function ProjectIssuesSection({
       </div>
 
       {/* Quick Bug Report Against Teammates */}
-      {teamMembers.length > 0 && (
+      {assignableMembers.length > 0 && (
         <div className="bg-slate-50/80 p-3 sm:p-4 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="space-y-0.5">
             <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -176,7 +183,7 @@ export default function ProjectIssuesSection({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {teamMembers.map((m) => (
+            {assignableMembers.map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -360,7 +367,7 @@ export default function ProjectIssuesSection({
           setSelectedMemberToReport(undefined);
         }}
         projects={[{ id: projectId, name: projectName }]}
-        teamMembers={teamMembers}
+        teamMembers={assignableMembers}
         defaultProjectId={projectId}
         defaultAssignedToId={selectedMemberToReport || ""}
         onSuccess={(created) => {

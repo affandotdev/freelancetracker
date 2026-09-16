@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import TaskCard, { TaskCardData } from "./TaskCard";
 import ReportBugModal from "./ReportBugModal";
@@ -51,6 +51,16 @@ export default function MemberDashboardClient({
   const [taskFilter, setTaskFilter] = useState<string>("All");
   const [issueFilter, setIssueFilter] = useState<string>("All");
 
+  // Only non-admin workers can be reported on for bugs (Admin cannot be assigned bugs)
+  const assignableMembers = useMemo(() => {
+    return teamMembers.filter(
+      (m) =>
+        m.role !== "SUPER_ADMIN" &&
+        !m.name.toLowerCase().includes("super admin") &&
+        !m.email.toLowerCase().includes("admin@")
+    );
+  }, [teamMembers]);
+
   const [issues, setIssues] = useState<MemberIssueData[]>(initialIssues);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [modalDefaults, setModalDefaults] = useState<{
@@ -77,7 +87,7 @@ export default function MemberDashboardClient({
   const blockedTasks = tasks.filter((t) => t.status === "Blocked");
 
   const filteredTasks = tasks.filter((t) => {
-    if (taskFilter === "All") return true;
+    if (taskFilter === "All" || taskFilter === "all") return true;
     return t.status === taskFilter;
   });
 
@@ -97,7 +107,7 @@ export default function MemberDashboardClient({
   );
 
   const filteredIssues = issues.filter((issue) => {
-    if (issueFilter === "All") return true;
+    if (issueFilter === "all" || issueFilter === "All") return true;
     if (issueFilter === "Assigned to Me") return issue.assignedTo?.id === currentUserId;
     if (issueFilter === "Reported by Me") return issue.raisedBy.id === currentUserId;
     return issue.status === issueFilter;
@@ -217,8 +227,8 @@ export default function MemberDashboardClient({
         </div>
       </div>
 
-      {/* QUICK REPORT BAR: DIRECT CLICK ON ANY TEAMMATE */}
-      {teamMembers.length > 0 && (
+      {/* QUICK BUG REPORT: CLICK ANY TEAM MEMBER */}
+      {assignableMembers.length > 0 && (
         <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -233,7 +243,7 @@ export default function MemberDashboardClient({
           </div>
 
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {teamMembers.map((m) => {
+            {assignableMembers.map((m) => {
               const isMe = m.id === currentUserId;
               const initials = m.name
                 .split(" ")
@@ -661,7 +671,7 @@ export default function MemberDashboardClient({
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         projects={projects}
-        teamMembers={teamMembers}
+        teamMembers={assignableMembers}
         defaultProjectId={modalDefaults.projectId}
         defaultAssignedToId={modalDefaults.assignedToId}
         defaultTitle={modalDefaults.title}
