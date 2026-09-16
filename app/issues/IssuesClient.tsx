@@ -3,8 +3,8 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
+import ReportBugModal from "@/components/ReportBugModal";
 import {
-  createIssueAction,
   updateIssueStatusAction,
   reassignIssueAction,
   deleteIssueAction,
@@ -68,12 +68,15 @@ export default function IssuesClient({
   const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
 
-  // New Issue Form State
-  const [newTitle, setNewTitle] = useState("");
-  const [newProjectId, setNewProjectId] = useState(projects[0]?.id || "");
-  const [newAssignedToId, setNewAssignedToId] = useState("");
-  const [newPriority, setNewPriority] = useState("Medium");
-  const [newDescription, setNewDescription] = useState("");
+  const [modalDefaults, setModalDefaults] = useState<{
+    projectId: string;
+    assignedToId: string;
+    title: string;
+  }>({
+    projectId: projects[0]?.id || "",
+    assignedToId: "",
+    title: "",
+  });
 
   const isSuperAdmin = currentUser.role === "SUPER_ADMIN";
 
@@ -128,57 +131,13 @@ export default function IssuesClient({
   const resolvedCount = issues.filter((i) => i.status === "Resolved" || i.status === "Closed").length;
 
   // Handlers
-  const handleCreateIssue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newProjectId) return;
-
-    const formData = new FormData();
-    formData.append("projectId", newProjectId);
-    formData.append("title", newTitle);
-    formData.append("description", newDescription);
-    formData.append("priority", newPriority);
-    formData.append("assignedToId", newAssignedToId || "none");
-
-    startTransition(async () => {
-      try {
-        const created = await createIssueAction(formData);
-        if (created) {
-          const formatted: IssueItem = {
-            id: created.id,
-            projectId: created.projectId,
-            projectName: created.project?.name || "Project",
-            title: created.title,
-            description: created.description,
-            priority: created.priority,
-            status: created.status,
-            resolution: created.resolution,
-            createdAt: new Date(created.createdAt).toISOString(),
-            updatedAt: new Date(created.updatedAt).toISOString(),
-            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
-            raisedBy: {
-              id: created.raisedBy.id,
-              name: created.raisedBy.name,
-              email: created.raisedBy.email,
-            },
-            assignedTo: created.assignedTo
-              ? {
-                  id: created.assignedTo.id,
-                  name: created.assignedTo.name,
-                  email: created.assignedTo.email,
-                }
-              : null,
-          };
-          setIssues((prev) => [formatted, ...prev]);
-        }
-        setIsReportModalOpen(false);
-        setNewTitle("");
-        setNewDescription("");
-        setNewAssignedToId("");
-        setNewPriority("Medium");
-      } catch (err: any) {
-        alert(err?.message || "Failed to create issue.");
-      }
+  const handleOpenReportModal = (memberId = "", projectId = "", title = "") => {
+    setModalDefaults({
+      projectId: projectId || projects[0]?.id || "",
+      assignedToId: memberId,
+      title: title || "",
     });
+    setIsReportModalOpen(true);
   };
 
   const handleUpdateStatus = (issueId: string, newStatus: string, resolution?: string) => {
@@ -291,7 +250,7 @@ export default function IssuesClient({
 
         <button
           type="button"
-          onClick={() => setIsReportModalOpen(true)}
+          onClick={() => handleOpenReportModal()}
           className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
         >
           <span>🐛</span>
@@ -328,6 +287,51 @@ export default function IssuesClient({
           </span>
         </div>
       </div>
+
+      {/* QUICK REPORT: CLICK ANY TEAM MEMBER */}
+      {teamMembers.length > 0 && (
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎯</span>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">
+                Quick Bug Report Against Team Members
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              Click any teammate to immediately file an issue against their deliverable:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {teamMembers.map((m) => {
+              const initials = m.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleOpenReportModal(m.id)}
+                  className="px-3 py-2 rounded-2xl border bg-rose-50/50 hover:bg-rose-100/80 border-rose-200 text-rose-900 shadow-2xs hover:border-rose-300 transition-all cursor-pointer flex items-center gap-2 shrink-0"
+                >
+                  <div className="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-[10px]">
+                    {initials}
+                  </div>
+                  <div className="text-left leading-tight">
+                    <p className="text-xs font-bold truncate">{m.name}</p>
+                    <p className="text-[9px] text-rose-600/80 font-semibold">Report bug →</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -732,135 +736,43 @@ export default function IssuesClient({
       )}
 
       {/* Report Bug / Issue Modal */}
-      {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🐛</span>
-                <h3 className="text-lg font-bold text-slate-900">Report a Bug / Issue</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsReportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-base font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Document the defect against the project and assign the responsible member who should resolve it.
-            </p>
-
-            <form onSubmit={handleCreateIssue} className="space-y-4">
-              {/* Issue Title */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Issue Title <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Navigation dropdown closes prematurely on mobile"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
-                />
-              </div>
-
-              {/* Project Selection */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Project <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={newProjectId}
-                  onChange={(e) => setNewProjectId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.client ? `(${p.client})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Assign to Team Member */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Assign To Member
-                  </label>
-                  <select
-                    value={newAssignedToId}
-                    onChange={(e) => setNewAssignedToId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Priority */}
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Priority / Severity
-                  </label>
-                  <select
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="Low">Low (Trivial / cosmetic)</option>
-                    <option value="Medium">Medium (Normal defect)</option>
-                    <option value="High">High (Major feature broken)</option>
-                    <option value="Critical">Critical (Blocker / crash)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Description / Steps */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Steps to Reproduce & Defect Details
-                </label>
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="1. Open user profile&#10;2. Click on change avatar button&#10;3. Observe 500 server error in console"
-                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
-                />
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsReportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending || !newTitle.trim() || !newProjectId}
-                  className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? "Submitting..." : "Submit Bug Report"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <ReportBugModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        projects={projects}
+        teamMembers={teamMembers}
+        defaultProjectId={modalDefaults.projectId}
+        defaultAssignedToId={modalDefaults.assignedToId}
+        defaultTitle={modalDefaults.title}
+        onSuccess={(created) => {
+          const formatted: IssueItem = {
+            id: created.id,
+            projectId: created.projectId,
+            projectName: created.project?.name || "Project",
+            title: created.title,
+            description: created.description,
+            priority: created.priority,
+            status: created.status,
+            resolution: created.resolution,
+            createdAt: new Date(created.createdAt).toISOString(),
+            updatedAt: new Date(created.updatedAt).toISOString(),
+            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
+            raisedBy: {
+              id: created.raisedBy.id,
+              name: created.raisedBy.name,
+              email: created.raisedBy.email,
+            },
+            assignedTo: created.assignedTo
+              ? {
+                  id: created.assignedTo.id,
+                  name: created.assignedTo.name,
+                  email: created.assignedTo.email,
+                }
+              : null,
+          };
+          setIssues((prev) => [formatted, ...prev]);
+        }}
+      />
     </div>
   );
 }

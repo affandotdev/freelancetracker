@@ -2,7 +2,8 @@
 
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
-import { createIssueAction, updateIssueStatusAction, deleteIssueAction } from "@/lib/actions";
+import { updateIssueStatusAction, deleteIssueAction } from "@/lib/actions";
+import ReportBugModal from "@/components/ReportBugModal";
 
 export interface ProjectIssueItem {
   id: string;
@@ -43,69 +44,12 @@ export default function ProjectIssuesSection({
 }: ProjectIssuesSectionProps) {
   const [issues, setIssues] = useState<ProjectIssueItem[]>(initialIssues);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedMemberToReport, setSelectedMemberToReport] = useState<string | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
-
-  // Form state
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
-  const [priority, setPriority] = useState("Medium");
 
   // Inline resolution state
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
-
-  const handleCreateIssue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    const formData = new FormData();
-    formData.append("projectId", projectId);
-    formData.append("title", title);
-    formData.append("description", description);
-    formData.append("priority", priority);
-    formData.append("assignedToId", assignedToId || "none");
-
-    startTransition(async () => {
-      try {
-        const created = await createIssueAction(formData);
-        if (created) {
-          const assignedMember = teamMembers.find((m) => m.id === assignedToId) || null;
-          setIssues((prev) => [
-            {
-              id: created.id,
-              projectId: created.projectId,
-              projectName,
-              title: created.title,
-              description: created.description,
-              priority: created.priority,
-              status: created.status,
-              resolution: created.resolution,
-              createdAt: new Date(created.createdAt).toISOString(),
-              updatedAt: new Date(created.updatedAt).toISOString(),
-              resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
-              raisedBy: {
-                id: created.raisedBy.id,
-                name: created.raisedBy.name,
-                email: created.raisedBy.email,
-              },
-              assignedTo: assignedMember
-                ? { id: assignedMember.id, name: assignedMember.name, email: assignedMember.email }
-                : null,
-            },
-            ...prev,
-          ]);
-        }
-        setIsModalOpen(false);
-        setTitle("");
-        setDescription("");
-        setAssignedToId("");
-        setPriority("Medium");
-      } catch (err: any) {
-        alert(err?.message || "Failed to create issue.");
-      }
-    });
-  };
 
   const handleUpdateStatus = (issueId: string, status: string, resolution?: string) => {
     const formData = new FormData();
@@ -209,13 +153,52 @@ export default function ProjectIssuesSection({
           </Link>
           <button
             type="button"
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setSelectedMemberToReport(undefined);
+              setIsModalOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
           >
-            <span>+ Report Bug</span>
+            <span>🐛 + Report Bug</span>
           </button>
         </div>
       </div>
+
+      {/* Quick Bug Report Against Teammates */}
+      {teamMembers.length > 0 && (
+        <div className="bg-slate-50/80 p-3 sm:p-4 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-0.5">
+            <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <span>⚡ Quick Bug Report Against Teammates:</span>
+            </p>
+            <p className="text-[11px] text-slate-500">
+              Click any teammate below to immediately report a defect on this project against them.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {teamMembers.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => {
+                  setSelectedMemberToReport(m.id);
+                  setIsModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-xl text-xs font-bold text-slate-700 hover:text-rose-700 shadow-2xs transition-all cursor-pointer group"
+                title={`Report bug against ${m.name}`}
+              >
+                <div className="w-5 h-5 rounded-md bg-indigo-100 group-hover:bg-rose-100 text-indigo-700 group-hover:text-rose-700 flex items-center justify-center text-[10px] font-black">
+                  {m.name.slice(0, 1).toUpperCase()}
+                </div>
+                <span>{m.name.split(" ")[0]}</span>
+                <span className="text-[10px] text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                  🐛
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Issues List */}
       {issues.length === 0 ? (
@@ -369,107 +352,49 @@ export default function ProjectIssuesSection({
         </div>
       )}
 
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>🐛 Report Bug for {projectName}</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateIssue} className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Issue Title <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. Header overlap on tablet screen"
-                  className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Assign To Member
-                  </label>
-                  <select
-                    value={assignedToId}
-                    onChange={(e) => setAssignedToId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Priority
-                  </label>
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Details / Steps to Reproduce
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Steps to trigger the bug..."
-                  className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending || !title.trim()}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? "Submitting..." : "Report Bug"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Unified Visual Report Bug Modal */}
+      <ReportBugModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedMemberToReport(undefined);
+        }}
+        projects={[{ id: projectId, name: projectName }]}
+        teamMembers={teamMembers}
+        defaultProjectId={projectId}
+        defaultAssignedToId={selectedMemberToReport || ""}
+        onSuccess={(created) => {
+          if (created) {
+            const assignedMember = teamMembers.find((m) => m.id === created.assignedToId) || null;
+            setIssues((prev) => [
+              {
+                id: created.id,
+                projectId: created.projectId,
+                projectName,
+                title: created.title,
+                description: created.description,
+                priority: created.priority,
+                status: created.status,
+                resolution: created.resolution,
+                createdAt: new Date(created.createdAt).toISOString(),
+                updatedAt: new Date(created.updatedAt).toISOString(),
+                resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
+                raisedBy: {
+                  id: created.raisedBy?.id || "",
+                  name: created.raisedBy?.name || "Member",
+                  email: created.raisedBy?.email || "",
+                },
+                assignedTo: assignedMember
+                  ? { id: assignedMember.id, name: assignedMember.name, email: assignedMember.email }
+                  : created.assignedTo
+                  ? { id: created.assignedTo.id, name: created.assignedTo.name, email: created.assignedTo.email }
+                  : null,
+              },
+              ...prev,
+            ]);
+          }
+        }}
+      />
     </div>
   );
 }

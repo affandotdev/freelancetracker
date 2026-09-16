@@ -24,9 +24,14 @@ export interface TaskCardData {
 interface TaskCardProps {
   task: TaskCardData;
   showProject?: boolean;
+  onReportBug?: (task: TaskCardData) => void;
 }
 
-export default function TaskCard({ task, showProject = true }: TaskCardProps) {
+export default function TaskCard({
+  task,
+  showProject = true,
+  onReportBug,
+}: TaskCardProps) {
   const duration = getProjectDuration(task.deadline, task.status);
 
   return (
@@ -92,6 +97,22 @@ export default function TaskCard({ task, showProject = true }: TaskCardProps) {
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onReportBug && (
+            <button
+              type="button"
+              title="Report bug against this task & member"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onReportBug(task);
+              }}
+              className="px-2 py-0.5 text-[11px] font-bold text-slate-500 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <span>🐛</span>
+              <span>Report Bug</span>
+            </button>
+          )}
+
           {task.openObjectionsCount && task.openObjectionsCount > 0 ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-bold border border-rose-200">
               ⚠️ {task.openObjectionsCount} blocker{task.openObjectionsCount > 1 ? "s" : ""}

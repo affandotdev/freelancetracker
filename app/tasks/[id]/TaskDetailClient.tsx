@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import TaskStatusBadge from "@/components/TaskStatusBadge";
 import BackButton from "@/components/BackButton";
+import ReportBugModal from "@/components/ReportBugModal";
 import {
   updateTaskAction,
   addTaskUpdateAction,
@@ -67,6 +68,7 @@ export default function TaskDetailClient({
   const [assignedToId, setAssignedToId] = useState(task.assignedTo?.id || "");
   const [updateText, setUpdateText] = useState("");
   const [isObjectionModalOpen, setIsObjectionModalOpen] = useState(false);
+  const [isBugModalOpen, setIsBugModalOpen] = useState(false);
   const [objectionMessage, setObjectionMessage] = useState("");
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
@@ -232,16 +234,27 @@ export default function TaskDetailClient({
           label={isSuperAdmin ? `Project: ${task.projectName}` : "Back to My Tasks"}
         />
 
-        {isSuperAdmin && (
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleDeleteTask}
-            disabled={isPending}
-            className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:underline"
+            onClick={() => setIsBugModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-xl text-xs font-bold transition-colors cursor-pointer"
           >
-            Delete Task
+            <span>🐛</span>
+            <span>Report Bug on this Task</span>
           </button>
-        )}
+
+          {isSuperAdmin && (
+            <button
+              type="button"
+              onClick={handleDeleteTask}
+              disabled={isPending}
+              className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:underline"
+            >
+              Delete Task
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Task Header Card */}
@@ -651,6 +664,19 @@ export default function TaskDetailClient({
           </div>
         </div>
       )}
+      {/* Report Bug Modal */}
+      <ReportBugModal
+        isOpen={isBugModalOpen}
+        onClose={() => setIsBugModalOpen(false)}
+        projects={[{ id: task.projectId, name: task.projectName }]}
+        teamMembers={teamMembers}
+        defaultProjectId={task.projectId}
+        defaultAssignedToId={task.assignedTo?.id || ""}
+        defaultTitle={`Defect on task: ${task.title}`}
+        onSuccess={() => {
+          alert("Bug report submitted against member successfully!");
+        }}
+      />
     </div>
   );
 }

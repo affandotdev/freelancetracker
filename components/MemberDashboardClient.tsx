@@ -3,7 +3,8 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import TaskCard, { TaskCardData } from "./TaskCard";
-import { createIssueAction, updateIssueStatusAction } from "@/lib/actions";
+import ReportBugModal from "./ReportBugModal";
+import { updateIssueStatusAction } from "@/lib/actions";
 
 export interface MemberIssueData {
   id: string;
@@ -35,7 +36,7 @@ interface MemberDashboardClientProps {
   tasks: TaskCardData[];
   issues?: MemberIssueData[];
   projects?: { id: string; name: string; client?: string | null }[];
-  teamMembers?: { id: string; name: string; email: string }[];
+  teamMembers?: { id: string; name: string; email: string; role?: string }[];
 }
 
 export default function MemberDashboardClient({
@@ -52,18 +53,21 @@ export default function MemberDashboardClient({
 
   const [issues, setIssues] = useState<MemberIssueData[]>(initialIssues);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [modalDefaults, setModalDefaults] = useState<{
+    projectId: string;
+    assignedToId: string;
+    title: string;
+  }>({
+    projectId: projects[0]?.id || "",
+    assignedToId: "",
+    title: "",
+  });
+
   const [isPending, startTransition] = useTransition();
 
   // Inline resolution state
   const [resolvingIssueId, setResolvingIssueId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
-
-  // Report issue form state
-  const [newTitle, setNewTitle] = useState("");
-  const [newProjectId, setNewProjectId] = useState(projects[0]?.id || "");
-  const [newAssignedToId, setNewAssignedToId] = useState(currentUserId);
-  const [newPriority, setNewPriority] = useState("Medium");
-  const [newDescription, setNewDescription] = useState("");
 
   // Task Stats
   const todoTasks = tasks.filter((t) => t.status === "To Do");
@@ -99,58 +103,13 @@ export default function MemberDashboardClient({
     return issue.status === issueFilter;
   });
 
-  // Issue Handlers
-  const handleCreateIssue = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newProjectId) return;
-
-    const formData = new FormData();
-    formData.append("projectId", newProjectId);
-    formData.append("title", newTitle);
-    formData.append("description", newDescription);
-    formData.append("priority", newPriority);
-    formData.append("assignedToId", newAssignedToId || "none");
-
-    startTransition(async () => {
-      try {
-        const created = await createIssueAction(formData);
-        if (created) {
-          const formatted: MemberIssueData = {
-            id: created.id,
-            projectId: created.projectId,
-            projectName: created.project?.name || "Project",
-            title: created.title,
-            description: created.description,
-            priority: created.priority,
-            status: created.status,
-            resolution: created.resolution,
-            createdAt: new Date(created.createdAt).toISOString(),
-            updatedAt: new Date(created.updatedAt).toISOString(),
-            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
-            raisedBy: {
-              id: created.raisedBy.id,
-              name: created.raisedBy.name,
-              email: created.raisedBy.email,
-            },
-            assignedTo: created.assignedTo
-              ? {
-                  id: created.assignedTo.id,
-                  name: created.assignedTo.name,
-                  email: created.assignedTo.email,
-                }
-              : null,
-          };
-          setIssues((prev) => [formatted, ...prev]);
-        }
-        setIsReportModalOpen(false);
-        setNewTitle("");
-        setNewDescription("");
-        setNewAssignedToId(currentUserId);
-        setNewPriority("Medium");
-      } catch (err: any) {
-        alert(err?.message || "Failed to submit bug report.");
-      }
+  const handleOpenReportModal = (memberId = "", projectId = "", title = "") => {
+    setModalDefaults({
+      projectId: projectId || projects[0]?.id || "",
+      assignedToId: memberId,
+      title: title || "",
     });
+    setIsReportModalOpen(true);
   };
 
   const handleUpdateStatus = (issueId: string, newStatus: string, resolution?: string) => {
@@ -230,23 +189,23 @@ export default function MemberDashboardClient({
             Welcome back, {memberName}!
           </h1>
           <p className="text-xs sm:text-sm text-blue-100/90 max-w-xl leading-relaxed">
-            Manage your assigned tasks, post progress updates, and track or report project bugs against team deliverables.
+            Track your assigned deliverables, post work logs, and report or resolve project bugs directly against teammates.
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => setIsReportModalOpen(true)}
-            className="px-4 py-2.5 bg-white text-indigo-700 hover:bg-blue-50 font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+            onClick={() => handleOpenReportModal()}
+            className="px-4 py-2.5 bg-white text-rose-700 hover:bg-rose-50 font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
           >
             <span>🐛</span>
-            <span>+ Report Bug</span>
+            <span>+ Report Bug Against Member</span>
           </button>
 
           <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 text-center min-w-[120px]">
             <span className="text-[10px] font-bold uppercase tracking-wider text-blue-200 block">
-              Task Done
+              Tasks Done
             </span>
             <span className="text-xl font-black">
               {totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0}%
@@ -257,6 +216,64 @@ export default function MemberDashboardClient({
           </div>
         </div>
       </div>
+
+      {/* QUICK REPORT BAR: DIRECT CLICK ON ANY TEAMMATE */}
+      {teamMembers.length > 0 && (
+        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🎯</span>
+              <h3 className="text-xs sm:text-sm font-bold text-slate-800">
+                Quick Bug Report Against Teammates
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">
+              Click any member to log a bug against their deliverables:
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {teamMembers.map((m) => {
+              const isMe = m.id === currentUserId;
+              const initials = m.name
+                .split(" ")
+                .map((w) => w[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2);
+
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleOpenReportModal(m.id)}
+                  className={`px-3 py-2 rounded-2xl border transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
+                    isMe
+                      ? "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+                      : "bg-rose-50/60 hover:bg-rose-100/80 border-rose-200 text-rose-900 shadow-2xs hover:border-rose-300"
+                  }`}
+                >
+                  <div
+                    className={`w-6 h-6 rounded-lg flex items-center justify-center font-bold text-[10px] ${
+                      isMe ? "bg-slate-200 text-slate-700" : "bg-rose-600 text-white"
+                    }`}
+                  >
+                    {initials}
+                  </div>
+                  <div className="text-left leading-tight">
+                    <p className="text-xs font-bold truncate">
+                      {m.name} {isMe ? "(You)" : ""}
+                    </p>
+                    <p className="text-[9px] text-rose-600/80 font-semibold">
+                      {isMe ? "Self-assign" : "Report bug →"}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Primary Workspace Navigation Tabs */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-2">
@@ -390,7 +407,18 @@ export default function MemberDashboardClient({
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredTasks.map((task) => (
-                <TaskCard key={task.id} task={task} showProject={true} />
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  showProject={true}
+                  onReportBug={(t) => {
+                    handleOpenReportModal(
+                      t.assignedTo?.id || "",
+                      t.projectId || "",
+                      `Defect on task: ${t.title}`
+                    );
+                  }}
+                />
               ))}
             </div>
           )}
@@ -469,7 +497,7 @@ export default function MemberDashboardClient({
               </p>
               <button
                 type="button"
-                onClick={() => setIsReportModalOpen(true)}
+                onClick={() => handleOpenReportModal()}
                 className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
               >
                 + Report a Defect
@@ -628,130 +656,44 @@ export default function MemberDashboardClient({
         </div>
       )}
 
-      {/* Quick Report Bug Modal */}
-      {isReportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xl">🐛</span>
-                <h3 className="text-lg font-bold text-slate-900">Report a Bug / Issue</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsReportModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-base font-bold"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-500">
-              Raise a bug against a project and select which member should complete / resolve it.
-            </p>
-
-            <form onSubmit={handleCreateIssue} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Issue Title <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  placeholder="e.g. Button alignment broken on mobile safari"
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Project <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  required
-                  value={newProjectId}
-                  onChange={(e) => setNewProjectId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                >
-                  {projects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.client ? `(${p.client})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Assign To Member
-                  </label>
-                  <select
-                    value={newAssignedToId}
-                    onChange={(e) => setNewAssignedToId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="">Unassigned</option>
-                    {teamMembers.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                    Priority / Severity
-                  </label>
-                  <select
-                    value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value)}
-                    className="w-full px-3 py-2 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
-                  >
-                    <option value="Low">Low (Trivial / cosmetic)</option>
-                    <option value="Medium">Medium (Normal defect)</option>
-                    <option value="High">High (Major feature broken)</option>
-                    <option value="Critical">Critical (Blocker / crash)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                  Steps to Reproduce / Details
-                </label>
-                <textarea
-                  rows={3}
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Describe the issue and how to reproduce it..."
-                  className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsReportModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isPending || !newTitle.trim() || !newProjectId}
-                  className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
-                >
-                  {isPending ? "Submitting..." : "Submit Bug Report"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Unified Intuitive Report Bug Modal */}
+      <ReportBugModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        projects={projects}
+        teamMembers={teamMembers}
+        defaultProjectId={modalDefaults.projectId}
+        defaultAssignedToId={modalDefaults.assignedToId}
+        defaultTitle={modalDefaults.title}
+        onSuccess={(created) => {
+          const formatted: MemberIssueData = {
+            id: created.id,
+            projectId: created.projectId,
+            projectName: created.project?.name || "Project",
+            title: created.title,
+            description: created.description,
+            priority: created.priority,
+            status: created.status,
+            resolution: created.resolution,
+            createdAt: new Date(created.createdAt).toISOString(),
+            updatedAt: new Date(created.updatedAt).toISOString(),
+            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
+            raisedBy: {
+              id: created.raisedBy.id,
+              name: created.raisedBy.name,
+              email: created.raisedBy.email,
+            },
+            assignedTo: created.assignedTo
+              ? {
+                  id: created.assignedTo.id,
+                  name: created.assignedTo.name,
+                  email: created.assignedTo.email,
+                }
+              : null,
+          };
+          setIssues((prev) => [formatted, ...prev]);
+        }}
+      />
     </div>
   );
 }

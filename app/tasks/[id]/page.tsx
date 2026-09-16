@@ -42,12 +42,10 @@ export default async function TaskDetailPage({ params }: TaskPageProps) {
       },
     });
 
-    if (session.role === "SUPER_ADMIN") {
-      teamMembers = await prisma.user.findMany({
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
-      });
-    }
+    teamMembers = await prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
+    });
   } catch (err) {
     console.warn("Database query error on task details (reconnecting):", err);
   }

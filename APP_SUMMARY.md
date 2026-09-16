@@ -303,6 +303,12 @@ All database modifications are executed via secure Next.js Server Actions with r
 - **Commissions**: `createCommissionAction`, `updateCommissionStatusAction`, `deleteCommissionAction`
 - **Attachments**: `uploadAttachmentAction`, `deleteAttachmentAction`
 
+### 🐛 Enhanced Member Bug Reporting UX
+- **1-Click Teammate Cards & Avatars**: On the Member Dashboard (`/`), `/issues`, and Project pages (`/projects/[id]`), a quick-action teammate bar displays all members as visual chips with initials. Clicking any teammate immediately opens the bug report modal pre-targeted against them.
+- **Direct Context from Task Cards**: Every task card (`TaskCard`) features a direct `🐛 Report Bug` button that pre-populates both the project and the assigned teammate automatically.
+- **Smart Visual Modal (`ReportBugModal`)**: Step-by-step visual selector with member search, project selection, quick idea tags (e.g. *API 500 error*, *Mobile layout broken*), 1-click priority pills (Critical, High, Medium, Low), and clear target confirmation buttons.
+- **Task Detail Integration**: Members viewing `/tasks/[id]` can click `🐛 Report Bug on this Task` from the top header or the roadblocks card to file bugs without leaving the task.
+
 ---
 
 ## 🔑 Pre-Configured Credentials
