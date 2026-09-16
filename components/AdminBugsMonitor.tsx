@@ -4,6 +4,7 @@ import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { updateIssueStatusAction, reassignIssueAction, deleteIssueAction } from "@/lib/actions";
 import ReportBugModal from "./ReportBugModal";
+import IssueAttachmentViewer from "./IssueAttachmentViewer";
 
 export interface IssueMonitoringItem {
   id: string;
@@ -14,6 +15,9 @@ export interface IssueMonitoringItem {
   priority: string;
   status: string;
   resolution?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string | null;
@@ -653,6 +657,15 @@ export default function AdminBugsMonitor({
                   <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed bg-slate-50/70 p-3 rounded-2xl border border-slate-100">
                     {issue.description}
                   </p>
+                )}
+
+                {/* Bug Evidence / Attachment (Screenshot, Video, Files) */}
+                {(issue.attachmentUrl || issue.attachmentName) && (
+                  <IssueAttachmentViewer
+                    attachmentUrl={issue.attachmentUrl}
+                    attachmentName={issue.attachmentName}
+                    attachmentType={issue.attachmentType}
+                  />
                 )}
 
                 {/* Bug Resolution note */}

@@ -1088,6 +1088,39 @@ export async function createIssueAction(formData: FormData) {
     }
   }
 
+  // Attachment handling: file, screenshot, video, or cloud link
+  let attachmentUrl = (formData.get("attachmentUrl") as string)?.trim() || null;
+  let attachmentName = (formData.get("attachmentName") as string)?.trim() || null;
+  let attachmentType = (formData.get("attachmentType") as string)?.trim() || null;
+
+  const linkUrl = (formData.get("linkUrl") as string)?.trim();
+  const linkName = (formData.get("linkName") as string)?.trim();
+
+  const file = formData.get("file") as File | null;
+  if (file && typeof file === "object" && file.size > 0 && !attachmentUrl) {
+    const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+    if (file.size > MAX_SIZE) {
+      throw new Error("Attached file exceeds the 15MB limit. Please attach a smaller file or link a video/cloud recording.");
+    }
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+    const mime = file.type || "application/octet-stream";
+    attachmentUrl = `data:${mime};base64,${buffer.toString("base64")}`;
+    attachmentName = file.name;
+    if (mime.startsWith("image/")) {
+      attachmentType = "image";
+    } else if (mime.startsWith("video/")) {
+      attachmentType = "video";
+    } else {
+      attachmentType = "file";
+    }
+  } else if (linkUrl && !attachmentUrl) {
+    attachmentUrl = linkUrl;
+    attachmentName = linkName || "Video / Cloud Recording";
+    const isVideoLink = /loom\.com|youtube\.com|youtu\.be|drive\.google\.com|vimeo\.com|\.mp4|\.webm/i.test(linkUrl);
+    attachmentType = isVideoLink ? "video" : "link";
+  }
+
   const issue = await (prisma as any).issue.create({
     data: {
       projectId,
@@ -1097,6 +1130,9 @@ export async function createIssueAction(formData: FormData) {
       status: "Open",
       raisedById: session.userId,
       assignedToId: targetAssigneeId,
+      attachmentUrl,
+      attachmentName,
+      attachmentType,
     },
     include: {
       project: { select: { id: true, name: true } },

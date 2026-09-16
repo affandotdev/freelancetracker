@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useEffect } from "react";
+import React, { useState, useTransition, useEffect, useRef } from "react";
 import { createIssueAction } from "@/lib/actions";
 
 interface TeamMemberOption {
@@ -46,6 +46,68 @@ export default function ReportBugModal({
   const [description, setDescription] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Attachment state (Screenshot, Video, File, or Cloud Link)
+  const [attachmentMode, setAttachmentMode] = useState<"file" | "link">("file");
+  const [attachedFile, setAttachedFile] = useState<{
+    file?: File;
+    name: string;
+    url: string;
+    type: "image" | "video" | "file";
+    size: number;
+  } | null>(null);
+  const [videoLinkUrl, setVideoLinkUrl] = useState("");
+  const [videoLinkTitle, setVideoLinkTitle] = useState("");
+  const [isConvertingFile, setIsConvertingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // File Processor
+  const processSelectedFile = (file: File) => {
+    const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+    if (file.size > MAX_SIZE) {
+      alert("File exceeds 15MB limit. Please upload a smaller video/file or paste a Loom/Drive link.");
+      return;
+    }
+
+    setIsConvertingFile(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      let detectedType: "image" | "video" | "file" = "file";
+      if (file.type.startsWith("image/")) detectedType = "image";
+      else if (file.type.startsWith("video/")) detectedType = "video";
+
+      setAttachedFile({
+        file,
+        name: file.name,
+        url: dataUrl,
+        type: detectedType,
+        size: file.size,
+      });
+      setIsConvertingFile(false);
+    };
+    reader.onerror = () => {
+      alert("Failed to read file.");
+      setIsConvertingFile(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Clipboard Paste Support (Ctrl+V screenshot directly into modal)
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      if (e.clipboardData && e.clipboardData.files.length > 0) {
+        const pastedFile = e.clipboardData.files[0];
+        if (pastedFile.type.startsWith("image/")) {
+          e.preventDefault();
+          processSelectedFile(pastedFile);
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [isOpen]);
 
   // Keep state in sync with incoming default props when opened
   useEffect(() => {
@@ -106,6 +168,15 @@ export default function ReportBugModal({
     formData.append("priority", priority);
     formData.append("assignedToId", selectedMemberId || "none");
 
+    if (attachedFile) {
+      formData.append("attachmentUrl", attachedFile.url);
+      formData.append("attachmentName", attachedFile.name);
+      formData.append("attachmentType", attachedFile.type);
+    } else if (videoLinkUrl.trim()) {
+      formData.append("linkUrl", videoLinkUrl.trim());
+      formData.append("linkName", videoLinkTitle.trim() || "Video Recording");
+    }
+
     startTransition(async () => {
       try {
         const created = await createIssueAction(formData);
@@ -116,6 +187,9 @@ export default function ReportBugModal({
         setTitle("");
         setDescription("");
         setMemberSearch("");
+        setAttachedFile(null);
+        setVideoLinkUrl("");
+        setVideoLinkTitle("");
       } catch (err: any) {
         alert(err?.message || "Failed to submit bug report.");
       }
@@ -349,6 +423,155 @@ export default function ReportBugModal({
               placeholder="1. Open product page&#10;2. Click checkout button&#10;3. Notice error dialog appears"
               className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
             />
+          </div>
+
+          {/* STEP 6: ATTACH SCREENSHOT, VIDEO, OR LOGS */}
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <span>📎 6. Attach Screenshot, Video or File (Optional)</span>
+              </label>
+              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setAttachmentMode("file")}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                    attachmentMode === "file"
+                      ? "bg-white text-rose-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  📁 File / Media
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttachmentMode("link")}
+                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
+                    attachmentMode === "link"
+                      ? "bg-white text-rose-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  📹 Video Link
+                </button>
+              </div>
+            </div>
+
+            {attachmentMode === "file" ? (
+              <div className="space-y-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*,.pdf,.txt,.log,.zip,.csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) processSelectedFile(file);
+                  }}
+                />
+
+                {!attachedFile ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) processSelectedFile(file);
+                    }}
+                    className="border-2 border-dashed border-slate-200 hover:border-rose-400 bg-slate-50 hover:bg-rose-50/30 rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition-all group"
+                  >
+                    <div className="w-10 h-10 mx-auto rounded-2xl bg-white shadow-2xs border border-slate-200/80 flex items-center justify-center text-lg text-slate-600 group-hover:scale-110 group-hover:text-rose-600 transition-all">
+                      📷
+                    </div>
+                    <p className="mt-2 text-xs font-bold text-slate-800">
+                      Click to upload screenshot, video recording, or logs
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Supports PNG, JPG, MP4, WebM, PDF, logs • Max 15MB • or paste screenshot (Ctrl+V)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-rose-50/70 border border-rose-200/90 rounded-2xl flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {attachedFile.type === "image" ? (
+                        <div className="w-14 h-14 rounded-xl overflow-hidden border border-rose-200 shrink-0 bg-white">
+                          <img
+                            src={attachedFile.url}
+                            alt="Screenshot preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : attachedFile.type === "video" ? (
+                        <div className="w-14 h-14 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xl shrink-0 font-bold">
+                          🎥
+                        </div>
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center text-xl shrink-0 font-bold">
+                          📄
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-rose-200 text-rose-800">
+                            {attachedFile.type === "image"
+                              ? "Screenshot"
+                              : attachedFile.type === "video"
+                              ? "Video"
+                              : "Document"}
+                          </span>
+                          <span className="text-[11px] text-slate-400">
+                            {(attachedFile.size / (1024 * 1024)).toFixed(2)} MB
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-slate-800 truncate mt-0.5">
+                          {attachedFile.name}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachedFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      className="px-2.5 py-1.5 bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
+                    >
+                      ✕ Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Video or Cloud Recording Link (Loom, YouTube, Drive)
+                  </label>
+                  <input
+                    type="url"
+                    value={videoLinkUrl}
+                    onChange={(e) => setVideoLinkUrl(e.target.value)}
+                    placeholder="https://www.loom.com/share/... or Google Drive URL"
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    Video Title (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={videoLinkTitle}
+                    onChange={(e) => setVideoLinkTitle(e.target.value)}
+                    placeholder="e.g. Loom video showing checkout error"
+                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Modal Footer */}

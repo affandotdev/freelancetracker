@@ -3,7 +3,8 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { updateIssueStatusAction, deleteIssueAction } from "@/lib/actions";
-import ReportBugModal from "@/components/ReportBugModal";
+import ReportBugModal from "./ReportBugModal";
+import IssueAttachmentViewer from "./IssueAttachmentViewer";
 
 export interface ProjectIssueItem {
   id: string;
@@ -14,6 +15,9 @@ export interface ProjectIssueItem {
   priority: string;
   status: string;
   resolution?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string | null;
@@ -270,6 +274,16 @@ export default function ProjectIssuesSection({
                   <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed bg-white/70 p-2.5 rounded-xl border border-slate-100">
                     {issue.description}
                   </p>
+                )}
+
+                {/* Bug Evidence / Attachment */}
+                {(issue.attachmentUrl || issue.attachmentName) && (
+                  <IssueAttachmentViewer
+                    attachmentUrl={issue.attachmentUrl}
+                    attachmentName={issue.attachmentName}
+                    attachmentType={issue.attachmentType}
+                    compact
+                  />
                 )}
 
                 {issue.resolution && (

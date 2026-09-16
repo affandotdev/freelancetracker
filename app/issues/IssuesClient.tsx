@@ -4,6 +4,7 @@ import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import BackButton from "@/components/BackButton";
 import ReportBugModal from "@/components/ReportBugModal";
+import IssueAttachmentViewer from "@/components/IssueAttachmentViewer";
 import {
   updateIssueStatusAction,
   reassignIssueAction,
@@ -20,6 +21,9 @@ export interface IssueItem {
   priority: string;
   status: string;
   resolution?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string | null;
@@ -601,6 +605,15 @@ export default function IssuesClient({
                     <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
                       {issue.description}
                     </p>
+                  )}
+
+                  {/* Bug Evidence / Attachments */}
+                  {(issue.attachmentUrl || issue.attachmentName) && (
+                    <IssueAttachmentViewer
+                      attachmentUrl={issue.attachmentUrl}
+                      attachmentName={issue.attachmentName}
+                      attachmentType={issue.attachmentType}
+                    />
                   )}
                 </div>
 

@@ -4,6 +4,7 @@ import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import TaskCard, { TaskCardData } from "./TaskCard";
 import ReportBugModal from "./ReportBugModal";
+import IssueAttachmentViewer from "./IssueAttachmentViewer";
 import { updateIssueStatusAction } from "@/lib/actions";
 
 export interface MemberIssueData {
@@ -15,6 +16,9 @@ export interface MemberIssueData {
   priority: string;
   status: string;
   resolution?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string | null;
@@ -569,6 +573,15 @@ export default function MemberDashboardClient({
                         <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50 p-3 rounded-2xl border border-slate-100">
                           {issue.description}
                         </p>
+                      )}
+
+                      {/* Bug Evidence / Attachment */}
+                      {(issue.attachmentUrl || issue.attachmentName) && (
+                        <IssueAttachmentViewer
+                          attachmentUrl={issue.attachmentUrl}
+                          attachmentName={issue.attachmentName}
+                          attachmentType={issue.attachmentType}
+                        />
                       )}
                     </div>
 
