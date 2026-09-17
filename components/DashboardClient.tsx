@@ -31,6 +31,7 @@ import ActivityFeed, { ActivityItem } from "./ActivityFeed";
 import AdminWorksMonitor, { TaskMonitoringItem } from "./AdminWorksMonitor";
 import AdminBugsMonitor, { IssueMonitoringItem } from "./AdminBugsMonitor";
 import AdminMeetingsMonitor, { MeetingMonitoringItem } from "./AdminMeetingsMonitor";
+import EditProjectModal, { EditableProjectData } from "./EditProjectModal";
 
 export interface TeamStats {
   totalMembers: number;
@@ -72,6 +73,7 @@ export default function DashboardClient({
   // Deletion modal state
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<EditableProjectData | null>(null);
 
   // Quick updating state
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -1049,17 +1051,30 @@ export default function DashboardClient({
                       ) : null}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setProjectToDelete(p);
-                      }}
-                      title="Delete project"
-                      className="p-1 text-gray-300 hover:text-signal-red rounded transition-colors cursor-pointer text-[13px]"
-                    >
-                      ×
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToEdit(p);
+                        }}
+                        title="Edit project specifications"
+                        className="px-1.5 py-0.5 text-[10px] font-medium text-accent hover:bg-blue-50 border border-blue-200 rounded transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(p);
+                        }}
+                        title="Delete project"
+                        className="p-1 text-gray-300 hover:text-signal-red rounded transition-colors cursor-pointer text-[13px]"
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
 
                   {/* Title */}
@@ -1435,6 +1450,8 @@ export default function DashboardClient({
           </div>
         </div>
       )}
+        </div>
+      )}
 
       {/* Delete Confirmation Modal */}
       {projectToDelete && (
@@ -1467,7 +1484,35 @@ export default function DashboardClient({
           </div>
         </div>
       )}
-        </div>
+      {/* Edit Project Modal */}
+      {projectToEdit && (
+        <EditProjectModal
+          isOpen={!!projectToEdit}
+          onClose={() => setProjectToEdit(null)}
+          project={projectToEdit}
+          onProjectUpdated={(updated) => {
+            setProjects((prev) =>
+              prev.map((p) =>
+                p.id === updated.id
+                  ? {
+                      ...p,
+                      name: updated.name,
+                      client: updated.client || null,
+                      clientEmail: updated.clientEmail || null,
+                      category: updated.category || null,
+                      priority: updated.priority || p.priority,
+                      status: updated.status,
+                      progress: updated.progress,
+                      totalAmount: updated.totalAmount !== undefined ? updated.totalAmount : p.totalAmount,
+                      receivedAmount: updated.receivedAmount !== undefined ? updated.receivedAmount : p.receivedAmount,
+                      deadline: updated.deadline || null,
+                      description: updated.description || null,
+                    }
+                  : p
+              )
+            );
+          }}
+        />
       )}
     </div>
   );

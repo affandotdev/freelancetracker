@@ -21,6 +21,8 @@ import ProjectIssuesSection, { ProjectIssueItem } from "@/components/ProjectIssu
 import ScheduleMeetingModal from "@/components/ScheduleMeetingModal";
 import LogMeetingFollowUpModal from "@/components/LogMeetingFollowUpModal";
 import LogDirectMeetingModal from "@/components/LogDirectMeetingModal";
+import EditProjectModal, { EditableProjectData } from "@/components/EditProjectModal";
+import EditTaskModal, { EditableTaskData } from "@/components/EditTaskModal";
 
 export interface AttachmentItem {
   id: string;
@@ -189,11 +191,21 @@ export default function ProjectDetailClient({
   // Tasks State & Handler
   const [tasks, setTasks] = useState<ProjectTaskItem[]>(initialTasks);
   const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false);
+  const [isEditProjectModalOpen, setIsEditProjectModalOpen] = useState(false);
+  const [taskToEditForProject, setTaskToEditForProject] = useState<EditableTaskData | null>(null);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskAssignedToId, setTaskAssignedToId] = useState("");
-  const [taskDeadline, setTaskDeadline] = useState("");
+  const [taskDeadline, setTaskDeadline] = useState(deadline || (project.deadline ? project.deadline.split("T")[0] : ""));
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+
+  const handleOpenAddTaskModal = () => {
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskAssignedToId("");
+    setTaskDeadline(deadline || (project.deadline ? project.deadline.split("T")[0] : ""));
+    setIsAddTaskModalOpen(true);
+  };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -504,13 +516,22 @@ export default function ProjectDetailClient({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsDeleteModalOpen(true)}
-          className="text-xs font-medium text-signal-red hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
-        >
-          Delete Project
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsEditProjectModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors cursor-pointer"
+          >
+            <span>✏️ Edit Project</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsDeleteModalOpen(true)}
+            className="text-xs font-medium text-signal-red hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
+          >
+            Delete Project
+          </button>
+        </div>
       </div>
 
       {/* Main Hero Header Card */}
@@ -717,7 +738,7 @@ export default function ProjectDetailClient({
 
           <button
             type="button"
-            onClick={() => setIsAddTaskModalOpen(true)}
+            onClick={handleOpenAddTaskModal}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
           >
             + Add Task
@@ -786,6 +807,30 @@ export default function ProjectDetailClient({
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      title="Edit task details"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setTaskToEditForProject({
+                          id: task.id,
+                          title: task.title,
+                          description: task.description,
+                          status: task.status,
+                          progress: task.progress,
+                          deadline: task.deadline,
+                          projectId: project.id,
+                          projectName: name,
+                          projectDeadline: deadline || project.deadline,
+                          assignedTo: task.assignedTo,
+                          assignedToId: task.assignedTo?.id,
+                        });
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-semibold text-accent hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
+                    >
+                      Edit
+                    </button>
                     {task.openObjectionsCount && task.openObjectionsCount > 0 ? (
                       <span className="text-[10px] font-semibold text-signal-red bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
                         Blocker
@@ -869,15 +914,25 @@ export default function ProjectDetailClient({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Deadline (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Task Deadline
+                    </label>
+                    {deadline && (
+                      <span className="text-[10px] text-slate-400">
+                        Project due: {formatDeadlineDate(deadline)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="date"
                     value={taskDeadline}
                     onChange={(e) => setTaskDeadline(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink font-medium cursor-pointer tabular-nums"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Defaults to parent project deadline ({deadline ? formatDeadlineDate(deadline) : "none"}).
+                  </p>
                 </div>
               </div>
 
@@ -2015,6 +2070,69 @@ export default function ProjectDetailClient({
           }}
         />
       )}
+
+      {/* Edit Project Modal */}
+      <EditProjectModal
+        isOpen={isEditProjectModalOpen}
+        onClose={() => setIsEditProjectModalOpen(false)}
+        project={{
+          id: project.id,
+          name,
+          client,
+          clientEmail,
+          category,
+          priority,
+          status,
+          progress,
+          totalAmount,
+          receivedAmount,
+          deadline,
+          description,
+        }}
+        onProjectUpdated={(updated) => {
+          setName(updated.name);
+          setClient(updated.client || "");
+          setClientEmail(updated.clientEmail || "");
+          setCategory(updated.category || "Web Development");
+          setPriority(updated.priority || "Medium");
+          setStatus(updated.status);
+          setProgress(updated.progress);
+          setTotalAmount(updated.totalAmount || 0);
+          setReceivedAmount(updated.receivedAmount || 0);
+          setDeadline(updated.deadline ? updated.deadline.split("T")[0] : "");
+          setDescription(updated.description || "");
+          setToastMessage("Project updated successfully");
+          setTimeout(() => setToastMessage(""), 3000);
+        }}
+      />
+
+      {/* Edit Task Modal for Project Deliverables */}
+      <EditTaskModal
+        isOpen={!!taskToEditForProject}
+        onClose={() => setTaskToEditForProject(null)}
+        task={taskToEditForProject}
+        teamMembers={teamMembers}
+        isSuperAdmin={true}
+        onTaskUpdated={(updated) => {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === updated.id
+                ? {
+                    ...t,
+                    title: updated.title,
+                    description: updated.description,
+                    status: updated.status,
+                    progress: updated.progress,
+                    deadline: updated.deadline,
+                    assignedTo: updated.assignedTo,
+                  }
+                : t
+            )
+          );
+          setToastMessage("Task updated successfully");
+          setTimeout(() => setToastMessage(""), 3000);
+        }}
+      />
     </div>
   );
 }

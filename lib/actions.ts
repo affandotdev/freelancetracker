@@ -339,13 +339,30 @@ export async function createTaskAction(formData: FormData) {
     throw new Error("Project ID and Task Title are required.");
   }
 
+  let taskDeadline: Date | null = null;
+  if (deadlineVal) {
+    const parsed = new Date(deadlineVal);
+    if (!isNaN(parsed.getTime())) {
+      taskDeadline = parsed;
+    }
+  }
+
+  // If no deadline was explicitly specified for the task, inherit the parent project's deadline
+  if (!taskDeadline) {
+    const parentProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { deadline: true },
+    });
+    taskDeadline = parentProject?.deadline || null;
+  }
+
   const created = await prisma.task.create({
     data: {
       projectId,
       title,
       description,
       assignedToId: assignedToId && assignedToId !== "unassigned" ? assignedToId : null,
-      deadline: deadlineVal ? new Date(deadlineVal) : null,
+      deadline: taskDeadline,
       status: "To Do",
       progress: 0,
     },
@@ -407,10 +424,14 @@ export async function updateTaskAction(
     }
   }
 
+  // Description update (allowed for both Super Admin and assigned Member)
+  if (data.description !== undefined) {
+    updateData.description = data.description?.trim() || null;
+  }
+
   // Super Admin only fields
   if (isSuperAdmin) {
     if (data.title !== undefined) updateData.title = data.title.trim();
-    if (data.description !== undefined) updateData.description = data.description?.trim() || null;
     if (data.assignedToId !== undefined) {
       updateData.assignedToId = data.assignedToId && data.assignedToId !== "unassigned" ? data.assignedToId : null;
     }

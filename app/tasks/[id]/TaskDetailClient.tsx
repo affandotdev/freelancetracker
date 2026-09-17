@@ -8,6 +8,7 @@ import ReportBugModal from "@/components/ReportBugModal";
 import ScheduleMeetingModal from "@/components/ScheduleMeetingModal";
 import LogMeetingFollowUpModal from "@/components/LogMeetingFollowUpModal";
 import LogDirectMeetingModal from "@/components/LogDirectMeetingModal";
+import EditTaskModal, { EditableTaskData } from "@/components/EditTaskModal";
 import {
   updateTaskAction,
   addTaskUpdateAction,
@@ -58,6 +59,7 @@ export interface TaskDetailData {
   projectId: string;
   projectName: string;
   projectClient?: string | null;
+  projectDeadline?: string | null;
   title: string;
   description?: string | null;
   status: string;
@@ -104,9 +106,12 @@ export default function TaskDetailClient({
   teamMembers = [],
   initialMeetings = [],
 }: TaskDetailClientProps) {
+  const [taskTitle, setTaskTitle] = useState(task.title);
+  const [taskDescription, setTaskDescription] = useState(task.description || "");
   const [status, setStatus] = useState(task.status);
   const [progress, setProgress] = useState(task.progress);
   const [assignedToId, setAssignedToId] = useState(task.assignedTo?.id || "");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [updateText, setUpdateText] = useState("");
   const [isObjectionModalOpen, setIsObjectionModalOpen] = useState(false);
   const [isBugModalOpen, setIsBugModalOpen] = useState(false);
@@ -134,6 +139,12 @@ export default function TaskDetailClient({
   const [updates, setUpdates] = useState(task.updates);
   const [deletingUpdateId, setDeletingUpdateId] = useState<string | null>(null);
 
+  // Deadline state
+  const [taskDeadline, setTaskDeadline] = useState(
+    task.deadline ? task.deadline.split("T")[0] : ""
+  );
+  const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+
   React.useEffect(() => {
     setUpdates(task.updates);
   }, [task.updates]);
@@ -149,7 +160,19 @@ export default function TaskDetailClient({
     });
   };
 
-  const duration = getProjectDuration(task.deadline, status);
+  const handleDeadlineChange = (newDate: string) => {
+    setTaskDeadline(newDate);
+    startTransition(async () => {
+      try {
+        await updateTaskAction(task.id, { deadline: newDate || null });
+        setIsEditingDeadline(false);
+      } catch (err: any) {
+        alert(err?.message || "Failed to update deadline.");
+      }
+    });
+  };
+
+  const duration = getProjectDuration(taskDeadline, status);
 
   // Handle instant status / progress updates
   const handleStatusChange = (newStatus: string) => {
@@ -300,6 +323,14 @@ export default function TaskDetailClient({
             Report Defect on Task
           </button>
 
+          <button
+            type="button"
+            onClick={() => setIsEditModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors cursor-pointer"
+          >
+            <span>✏️ Edit Task</span>
+          </button>
+
           {isSuperAdmin && (
             <button
               type="button"
@@ -321,7 +352,7 @@ export default function TaskDetailClient({
               {task.projectName}
             </span>
             <h1 className="text-xl font-bold text-ink tracking-tight">
-              {task.title}
+              {taskTitle}
             </h1>
           </div>
 
@@ -335,9 +366,9 @@ export default function TaskDetailClient({
           </div>
         </div>
 
-        {task.description && (
+        {taskDescription && (
           <div className="bg-surface p-4 rounded-lg border border-border text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-            {task.description}
+            {taskDescription}
           </div>
         )}
 
@@ -410,12 +441,57 @@ export default function TaskDetailClient({
             )}
           </div>
 
-          {task.deadline && (
-            <div className="flex items-center gap-2">
-              <span className="text-slate-500 font-medium">Target Deadline:</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-slate-500 font-medium">Target Deadline:</span>
+            {isSuperAdmin ? (
+              isEditingDeadline ? (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={taskDeadline}
+                    disabled={isPending}
+                    onChange={(e) => handleDeadlineChange(e.target.value)}
+                    className="px-2 py-0.5 text-xs bg-white border border-border rounded focus:outline-none focus:ring-1 focus:ring-accent tabular-nums"
+                  />
+                  {task.projectDeadline && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeadlineChange(task.projectDeadline!.split("T")[0])}
+                      className="text-[10px] font-semibold text-accent hover:underline cursor-pointer bg-blue-50 px-2 py-0.5 rounded border border-blue-200"
+                      title="Sync with parent project contract deadline"
+                    >
+                      Use Project Due ({formatDeadlineDate(task.projectDeadline)})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDeadline(false)}
+                    className="text-[11px] text-slate-400 hover:text-ink cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <span className="font-semibold text-ink tabular-nums">
+                    {taskDeadline ? formatDeadlineDate(taskDeadline) : "No deadline"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDeadline(true)}
+                    className="text-[10px] text-accent hover:underline cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+              )
+            ) : (
               <span className="font-semibold text-ink tabular-nums">
-                {formatDeadlineDate(task.deadline)}
+                {taskDeadline ? formatDeadlineDate(taskDeadline) : "No deadline"}
               </span>
+            )}
+
+            {taskDeadline && (
               <span
                 className={`text-[11px] font-medium px-2 py-0.5 rounded border ${
                   duration.statusType === "overdue"
@@ -425,8 +501,20 @@ export default function TaskDetailClient({
               >
                 {duration.label}
               </span>
-            </div>
-          )}
+            )}
+
+            {task.projectDeadline && (
+              <span className="text-[11px] text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 tabular-nums">
+                Project delivery: <span className="font-medium text-slate-700">{formatDeadlineDate(task.projectDeadline)}</span>
+              </span>
+            )}
+
+            {task.projectDeadline && taskDeadline && taskDeadline > task.projectDeadline.split("T")[0] && (
+              <span className="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                ⚠️ Exceeds project delivery ({formatDeadlineDate(task.projectDeadline)})
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -994,6 +1082,41 @@ export default function TaskDetailClient({
           }}
         />
       )}
+
+      {/* Edit Task Modal */}
+      <EditTaskModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        task={{
+          id: task.id,
+          title: taskTitle,
+          description: taskDescription,
+          status,
+          progress,
+          deadline: taskDeadline,
+          projectId: task.projectId,
+          projectName: task.projectName,
+          projectDeadline: task.projectDeadline,
+          assignedTo: task.assignedTo,
+          assignedToId,
+        }}
+        teamMembers={teamMembers}
+        isSuperAdmin={isSuperAdmin}
+        onTaskUpdated={(updated) => {
+          setTaskTitle(updated.title);
+          setTaskDescription(updated.description || "");
+          setStatus(updated.status);
+          setProgress(updated.progress);
+          if (updated.deadline) {
+            setTaskDeadline(updated.deadline.split("T")[0]);
+          } else if (isSuperAdmin && updated.deadline === null) {
+            setTaskDeadline("");
+          }
+          if (updated.assignedToId !== undefined) {
+            setAssignedToId(updated.assignedToId || "");
+          }
+        }}
+      />
     </div>
   );
 }

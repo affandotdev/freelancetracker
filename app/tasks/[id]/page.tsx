@@ -24,7 +24,7 @@ export default async function TaskDetailPage({ params }: TaskPageProps) {
       where: { id },
       include: {
         project: {
-          select: { id: true, name: true, client: true, clientEmail: true },
+          select: { id: true, name: true, client: true, clientEmail: true, deadline: true },
         },
         assignedTo: {
           select: { id: true, name: true, email: true },
@@ -91,6 +91,7 @@ export default async function TaskDetailPage({ params }: TaskPageProps) {
     projectId: task.projectId,
     projectName: task.project.name,
     projectClient: task.project.client || null,
+    projectDeadline: task.project.deadline ? task.project.deadline.toISOString() : null,
     title: task.title,
     description: task.description,
     status: task.status,

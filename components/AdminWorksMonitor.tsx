@@ -5,6 +5,7 @@ import Link from "next/link";
 import { updateTaskAction } from "@/lib/actions";
 import { getProjectDuration } from "@/lib/dateUtils";
 import ReportBugModal from "./ReportBugModal";
+import EditTaskModal, { EditableTaskData } from "./EditTaskModal";
 
 export interface TaskMonitoringItem {
   id: string;
@@ -72,6 +73,7 @@ export default function AdminWorksMonitor({
   // Bug reporting modal state
   const [bugModalOpen, setBugModalOpen] = useState(false);
   const [bugTargetTask, setBugTargetTask] = useState<TaskMonitoringItem | null>(null);
+  const [taskToEdit, setTaskToEdit] = useState<EditableTaskData | null>(null);
 
   // Compute Task KPIs
   const stats = useMemo(() => {
@@ -673,6 +675,27 @@ export default function AdminWorksMonitor({
                       <button
                         type="button"
                         onClick={() => {
+                          setTaskToEdit({
+                            id: task.id,
+                            title: task.title,
+                            description: task.description,
+                            status: task.status,
+                            progress: task.progress,
+                            deadline: task.deadline,
+                            projectId: task.projectId,
+                            projectName: task.projectName,
+                            assignedTo: task.assignedTo,
+                            assignedToId: task.assignedTo?.id,
+                          });
+                        }}
+                        className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
                           setBugTargetTask(task);
                           setBugModalOpen(true);
                         }}
@@ -683,7 +706,7 @@ export default function AdminWorksMonitor({
 
                       <Link
                         href={`/tasks/${task.id}`}
-                        className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                        className="px-2 py-0.5 text-[11px] font-medium text-slate-700 bg-surface hover:bg-slate-200 border border-border rounded transition-colors"
                       >
                         View
                       </Link>
@@ -815,6 +838,26 @@ export default function AdminWorksMonitor({
                         <button
                           type="button"
                           onClick={() => {
+                            setTaskToEdit({
+                              id: task.id,
+                              title: task.title,
+                              description: task.description,
+                              status: task.status,
+                              progress: task.progress,
+                              deadline: task.deadline,
+                              projectId: task.projectId,
+                              projectName: task.projectName,
+                              assignedTo: task.assignedTo,
+                              assignedToId: task.assignedTo?.id,
+                            });
+                          }}
+                          className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
                             setBugTargetTask(task);
                             setBugModalOpen(true);
                           }}
@@ -824,7 +867,7 @@ export default function AdminWorksMonitor({
                         </button>
                         <Link
                           href={`/tasks/${task.id}`}
-                          className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                          className="px-2 py-0.5 text-[11px] font-medium text-slate-700 bg-surface hover:bg-slate-200 border border-border rounded transition-colors"
                         >
                           View
                         </Link>
@@ -856,6 +899,38 @@ export default function AdminWorksMonitor({
           }}
         />
       )}
+
+      {/* Edit Task Modal */}
+      <EditTaskModal
+        isOpen={!!taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        task={taskToEdit}
+        teamMembers={teamMembers}
+        isSuperAdmin={true}
+        onTaskUpdated={(updated) => {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === updated.id
+                ? {
+                    ...t,
+                    title: updated.title,
+                    description: updated.description || null,
+                    status: updated.status,
+                    progress: updated.progress,
+                    deadline: updated.deadline || null,
+                    assignedTo: updated.assignedTo
+                      ? {
+                          id: updated.assignedTo.id,
+                          name: updated.assignedTo.name,
+                          email: updated.assignedTo.email,
+                        }
+                      : null,
+                  }
+                : t
+            )
+          );
+        }}
+      />
     </div>
   );
 }

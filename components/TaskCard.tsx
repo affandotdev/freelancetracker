@@ -26,6 +26,7 @@ interface TaskCardProps {
   showProject?: boolean;
   onReportBug?: (task: TaskCardData) => void;
   onLogMeeting?: (task: TaskCardData) => void;
+  onEditTask?: (task: TaskCardData) => void;
 }
 
 export default function TaskCard({
@@ -33,6 +34,7 @@ export default function TaskCard({
   showProject = true,
   onReportBug,
   onLogMeeting,
+  onEditTask,
 }: TaskCardProps) {
   const duration = getProjectDuration(task.deadline, task.status);
 
@@ -94,6 +96,21 @@ export default function TaskCard({
         </div>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          {onEditTask && (
+            <button
+              type="button"
+              title="Edit task details, progress, or status"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEditTask(task);
+              }}
+              className="px-2 py-0.5 text-[11px] font-medium text-accent hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors cursor-pointer"
+            >
+              Edit
+            </button>
+          )}
+
           {onLogMeeting && (
             <button
               type="button"

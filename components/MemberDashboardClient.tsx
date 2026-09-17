@@ -8,6 +8,7 @@ import IssueAttachmentViewer from "./IssueAttachmentViewer";
 import ScheduleMeetingModal from "./ScheduleMeetingModal";
 import LogMeetingFollowUpModal from "./LogMeetingFollowUpModal";
 import LogDirectMeetingModal from "./LogDirectMeetingModal";
+import EditTaskModal, { EditableTaskData } from "./EditTaskModal";
 import { updateIssueStatusAction, updateMeetingStatusAction } from "@/lib/actions";
 
 export interface MemberIssueData {
@@ -78,12 +79,13 @@ interface MemberDashboardClientProps {
 export default function MemberDashboardClient({
   memberName,
   currentUserId,
-  tasks,
+  tasks: initialTasks = [],
   issues: initialIssues = [],
   meetings: initialMeetings = [],
   projects = [],
   teamMembers = [],
 }: MemberDashboardClientProps) {
+  const [tasks, setTasks] = useState<TaskCardData[]>(initialTasks);
   const [activeTab, setActiveTab] = useState<"tasks" | "issues" | "meetings">("tasks");
   const [taskFilter, setTaskFilter] = useState<string>("All");
   const [issueFilter, setIssueFilter] = useState<string>("All");
@@ -134,6 +136,7 @@ export default function MemberDashboardClient({
     title: "",
   });
 
+  const [taskToEdit, setTaskToEdit] = useState<EditableTaskData | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Inline resolution state
@@ -565,6 +568,20 @@ export default function MemberDashboardClient({
                   key={task.id}
                   task={task}
                   showProject={true}
+                  onEditTask={(t) => {
+                    setTaskToEdit({
+                      id: t.id,
+                      title: t.title,
+                      description: t.description,
+                      status: t.status,
+                      progress: t.progress,
+                      deadline: t.deadline,
+                      projectId: t.projectId,
+                      projectName: t.projectName,
+                      assignedTo: t.assignedTo,
+                      assignedToId: t.assignedTo?.id,
+                    });
+                  }}
                   onLogMeeting={(t) => {
                     handleOpenDirectMeetingModal(
                       t.projectId || "",
@@ -1547,6 +1564,29 @@ export default function MemberDashboardClient({
               : null,
           };
           setMeetings((prev) => [formatted, ...prev]);
+        }}
+      />
+
+      {/* Edit Assigned Task Modal for Members */}
+      <EditTaskModal
+        isOpen={!!taskToEdit}
+        onClose={() => setTaskToEdit(null)}
+        task={taskToEdit}
+        teamMembers={teamMembers}
+        isSuperAdmin={false}
+        onTaskUpdated={(updated) => {
+          setTasks((prev) =>
+            prev.map((t) =>
+              t.id === updated.id
+                ? {
+                    ...t,
+                    status: updated.status,
+                    progress: updated.progress,
+                    description: updated.description,
+                  }
+                : t
+            )
+          );
         }}
       />
     </div>
