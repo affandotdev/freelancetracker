@@ -458,8 +458,8 @@ export default function AdminBugsMonitor({
             onClick={() => setSelectedMemberId("all")}
             className={`px-2.5 py-1 rounded-md border text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               selectedMemberId === "all"
-                ? "bg-ink text-white border-ink font-semibold"
-                : "bg-surface text-slate-700 border-border hover:bg-slate-100"
+                ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-semibold shadow-xs"
+                : "bg-surface dark:bg-[#0a0a0a] text-slate-700 dark:text-slate-300 border-border dark:border-[#262626] hover:bg-neutral-100 dark:hover:bg-neutral-900"
             }`}
           >
             <span>All Members</span>

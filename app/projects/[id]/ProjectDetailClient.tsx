@@ -498,7 +498,7 @@ export default function ProjectDetailClient({
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 bg-ink text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 text-xs font-medium">
+        <div className="fixed top-20 right-6 z-50 bg-black text-white dark:bg-white dark:text-black border border-white/20 dark:border-black/20 px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 text-xs font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-signal-green"></span>
           <span>{toastMessage}</span>
         </div>
@@ -1156,8 +1156,8 @@ export default function ProjectDetailClient({
                   onClick={() => setUploadCategory(cat.id)}
                   className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer whitespace-nowrap text-xs ${
                     uploadCategory === cat.id
-                      ? "bg-ink text-white font-semibold"
-                      : "bg-white text-slate-600 hover:text-ink border border-border"
+                      ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                      : "bg-white dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
                   }`}
                 >
                   {cat.label}
@@ -1363,8 +1363,8 @@ export default function ProjectDetailClient({
                   onClick={() => setAttachmentFilter(tab.id)}
                   className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer whitespace-nowrap tabular-nums ${
                     attachmentFilter === tab.id
-                      ? "bg-ink text-white font-semibold"
-                      : "bg-surface text-slate-600 hover:text-ink border border-border"
+                      ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                      : "bg-surface dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
                   }`}
                 >
                   <span>{tab.label}</span>

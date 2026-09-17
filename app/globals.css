@@ -1,19 +1,66 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --color-ink: #1a1d23;
-  --color-slate: #6b7280;
-  --color-border: #e2e5ea;
-  --color-surface: #f7f8fa;
-  --color-accent: #2563eb;
-  --color-signal-red: #dc2626;
-  --color-signal-green: #16a34a;
-  --color-signal-amber: #d97706;
+  /* ==========================================================================
+     LIGHT MODE (Crisp White & Solid Black High-Contrast Monochrome Theme)
+     ========================================================================== */
+  --color-surface: #ffffff;        /* Pure crisp white canvas */
+  --color-card: #ffffff;           /* Pure white card surface */
+  --color-ink: #000000;            /* Pure solid black typography */
+  --color-slate: #525252;          /* Deep neutral gray secondary text */
+  --color-muted: #737373;          /* Neutral gray subtle metadata */
+  --color-border: #e5e5e5;         /* Crisp light gray border */
+  --color-border-subtle: #f5f5f5;  /* Soft divider */
+  --color-accent: #000000;         /* Solid black primary accent */
+  --color-accent-hover: #262626;   /* Dark charcoal hover */
+  --color-accent-text: #ffffff;    /* White text on accent */
+  --color-primary: #000000;        /* Pure black primary brand */
+  
+  /* Status Signals */
+  --color-signal-red: #dc2626;     /* Red-600 */
+  --color-signal-green: #16a34a;   /* Green-600 */
+  --color-signal-amber: #d97706;   /* Amber-600 */
+  
+  /* Soft Layered Shadows */
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 4px 8px -1px rgba(0, 0, 0, 0.09), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-dropdown: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ==========================================================================
+   DARK MODE (Pure OLED Black & Crisp Solid White High-Contrast Theme)
+   ========================================================================== */
+.dark {
+  --color-surface: #000000;        /* Pure OLED black canvas */
+  --color-card: #0a0a0a;           /* Elevated deep black card */
+  --color-ink: #ffffff;            /* Pure crisp solid white typography */
+  --color-slate: #d4d4d4;          /* Bright silver/light gray secondary text */
+  --color-muted: #a3a3a3;          /* Light gray metadata */
+  --color-border: #262626;         /* Refined dark border */
+  --color-border-subtle: #171717;  /* Deep dark divider */
+  --color-accent: #ffffff;         /* Pure white primary accent */
+  --color-accent-hover: #f0f0f0;   /* Light silver hover */
+  --color-accent-text: #000000;    /* Solid black text on accent */
+  --color-primary: #ffffff;        /* Pure white primary brand */
+
+  --color-signal-red: #f87171;     /* Light red */
+  --color-signal-green: #4ade80;   /* Light emerald */
+  --color-signal-amber: #fbbf24;   /* Light amber */
+
+  --shadow-subtle: 0 1px 2px 0 rgba(255, 255, 255, 0.05);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.8), 0 0 0 1px #262626;
+  --shadow-card-hover: 0 4px 12px 0 rgba(0, 0, 0, 0.9), 0 0 0 1px #404040;
+  --shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.9), 0 0 0 1px #262626;
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.95), 0 0 0 1px #333333;
 }
 
 body {
@@ -22,36 +69,411 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-/* Tabular numerals for financial data */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+  transition: color 0.2s ease;
+}
+
+/* ==========================================================================
+   DYNAMIC FONT COLOR SYSTEM (Changes per Active Theme)
+   ========================================================================== */
+/* Light Mode Font Colors */
+.text-ink {
+  color: #000000 !important;
+}
+
+.text-slate-900,
+.text-slate-800,
+.text-slate-700,
+.text-gray-900,
+.text-gray-800,
+.text-gray-700,
+.text-zinc-900,
+.text-zinc-800,
+.text-zinc-700 {
+  color: #000000 !important;
+}
+
+.text-slate-600,
+.text-slate-500,
+.text-gray-600,
+.text-gray-500,
+.text-zinc-600,
+.text-zinc-500 {
+  color: #525252 !important;
+}
+
+.text-slate-400,
+.text-gray-400,
+.text-zinc-400 {
+  color: #737373 !important;
+}
+
+/* Dark Mode Dynamic Font Inversion */
+.dark h1, .dark h2, .dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #ffffff !important;
+}
+
+.dark p, .dark label, .dark th {
+  color: #ffffff !important;
+}
+
+.dark .text-ink {
+  color: #ffffff !important;
+}
+
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-slate-700,
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-zinc-900,
+.dark .text-zinc-800,
+.dark .text-zinc-700 {
+  color: #ffffff !important;
+}
+
+.dark .text-slate-600,
+.dark .text-slate-500,
+.dark .text-gray-600,
+.dark .text-gray-500,
+.dark .text-zinc-600,
+.dark .text-zinc-500 {
+  color: #d4d4d4 !important;
+}
+
+.dark .text-slate-400,
+.dark .text-gray-400,
+.dark .text-zinc-400 {
+  color: #a3a3a3 !important;
+}
+
+.dark .text-slate-300,
+.dark .text-gray-300 {
+  color: #737373 !important;
+}
+
+.dark .text-accent {
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   HEADER & NAVIGATION BAR (Monochrome)
+   ========================================================================== */
+header {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.dark header {
+  background-color: #000000 !important;
+  border-color: #262626 !important;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.8);
+}
+
+footer {
+  background-color: transparent !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-muted) !important;
+}
+
+.dark footer {
+  border-color: #262626 !important;
+  color: #737373 !important;
+}
+
+/* ==========================================================================
+   CARDS & CONTAINERS (Black & White Theme)
+   ========================================================================== */
+.bg-white {
+  background-color: #ffffff;
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+.dark .bg-white {
+  background-color: #0a0a0a !important;
+  border-color: #262626 !important;
+  box-shadow: var(--shadow-card);
+}
+
+.dark .bg-surface {
+  background-color: #000000 !important;
+}
+
+.dark .bg-slate-50,
+.dark .bg-gray-50 {
+  background-color: #0d0d0d !important;
+}
+
+.dark .bg-gray-100,
+.dark .bg-slate-100 {
+  background-color: #171717 !important;
+}
+
+.dark .bg-slate-200,
+.dark .bg-gray-200 {
+  background-color: #262626 !important;
+}
+
+/* ==========================================================================
+   BORDER PALETTE
+   ========================================================================== */
+.border-border {
+  border-color: var(--color-border) !important;
+}
+
+.dark .border-border,
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-gray-300,
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-300 {
+  border-color: #262626 !important;
+}
+
+/* ==========================================================================
+   BUTTONS & ACCENT INVERSION (Black/White Inversion)
+   ========================================================================== */
+.bg-accent,
+.bg-ink {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+.bg-accent:hover,
+.bg-ink:hover {
+  background-color: #262626 !important;
+}
+
+.bg-accent *,
+.bg-ink * {
+  color: #ffffff !important;
+}
+
+.dark .bg-accent,
+.dark .bg-ink,
+.dark button.bg-accent,
+.dark button.bg-ink,
+.dark a.bg-accent,
+.dark a.bg-ink {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.dark .bg-accent:hover,
+.dark .bg-ink:hover,
+.dark button.bg-accent:hover,
+.dark button.bg-ink:hover,
+.dark a.bg-accent:hover,
+.dark a.bg-ink:hover {
+  background-color: #e5e5e5 !important;
+}
+
+.dark .bg-accent *,
+.dark .bg-ink *,
+.dark button.bg-accent *,
+.dark button.bg-ink *,
+.dark a.bg-accent *,
+.dark a.bg-ink * {
+  color: #000000 !important;
+}
+
+.dark .bg-accent span,
+.dark .bg-ink span {
+  color: #000000 !important;
+}
+
+.dark .bg-accent .bg-white\/20,
+.dark .bg-ink .bg-white\/20 {
+  background-color: rgba(0, 0, 0, 0.15) !important;
+  color: #000000 !important;
+}
+
+/* Modal Backdrops (Always dark in both light & dark mode) */
+.fixed.inset-0[class*="bg-ink/"] {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dark .fixed.inset-0[class*="bg-ink/"] {
+  background-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* ==========================================================================
+   FORM CONTROLS & INPUTS (High Contrast)
+   ========================================================================== */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea {
+  background-color: #ffffff !important;
+  border: 1px solid #d4d4d4 !important;
+  color: #000000 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease-in-out;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus,
+select:focus,
+textarea:focus {
+  border-color: #000000 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark select,
+.dark textarea {
+  background-color: #050505 !important;
+  border-color: #262626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #ffffff !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25) !important;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #525252 !important;
+}
+
+.dark input option,
+.dark select option {
+  background-color: #0a0a0a !important;
+  color: #ffffff !important;
+}
+
+/* ==========================================================================
+   STATUS BADGES & PILLS
+   ========================================================================== */
+.dark .bg-blue-50 {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: #333333 !important;
+  color: #ffffff !important;
+}
+
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/50,
+.dark .bg-emerald-100 {
+  background-color: rgba(74, 222, 128, 0.12) !important;
+  border-color: rgba(74, 222, 128, 0.3) !important;
+  color: #4ade80 !important;
+}
+
+.dark .bg-amber-50,
+.dark .bg-amber-50\/50,
+.dark .bg-amber-100 {
+  background-color: rgba(251, 191, 36, 0.12) !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+  color: #fbbf24 !important;
+}
+
+.dark .bg-red-50,
+.dark .bg-rose-50,
+.dark .bg-rose-100 {
+  background-color: rgba(248, 113, 113, 0.12) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+  color: #f87171 !important;
+}
+
+.dark .bg-purple-50,
+.dark .bg-purple-50\/30,
+.dark .bg-purple-100 {
+  background-color: rgba(192, 132, 252, 0.12) !important;
+  border-color: rgba(192, 132, 252, 0.3) !important;
+  color: #c084fc !important;
+}
+
+.dark .bg-cyan-50,
+.dark .bg-cyan-100 {
+  background-color: rgba(34, 211, 238, 0.12) !important;
+  border-color: rgba(34, 211, 238, 0.3) !important;
+  color: #22d3ee !important;
+}
+
+.dark .bg-indigo-50,
+.dark .bg-indigo-100 {
+  background-color: rgba(129, 140, 248, 0.12) !important;
+  border-color: rgba(129, 140, 248, 0.3) !important;
+  color: #818cf8 !important;
+}
+
+/* ==========================================================================
+   HOVER & INTERACTION STATES
+   ========================================================================== */
+.dark .hover\:bg-surface:hover {
+  background-color: #121212 !important;
+}
+
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: #171717 !important;
+}
+
+.dark .hover\:border-gray-300:hover,
+.dark .hover\:border-slate-400:hover {
+  border-color: #404040 !important;
+}
+
+/* Tabular numerals for clean financial & metric alignment */
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-/* Subtle scrollbar */
+/* ==========================================================================
+   SCROLLBAR
+   ========================================================================== */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #d4d4d4;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #a3a3a3;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #262626;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #404040;
 }
 
 /* Clean focus rings */
 input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+  outline-offset: 2px;
 }
 
-/* Zebra striping for tables */
+/* Tables */
 .table-zebra tbody tr:nth-child(even) {
-  background-color: var(--color-surface);
+  background-color: #fafafa;
+}
+
+.dark .table-zebra tbody tr:nth-child(even) {
+  background-color: #050505 !important;
+}
+
+.dark .table-zebra tbody tr:hover {
+  background-color: #121212 !important;
 }

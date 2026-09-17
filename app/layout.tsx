@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getSession } from "@/lib/session";
 import { logoutAction } from "@/lib/actions";
 import NotificationDropdown from "@/components/NotificationDropdown";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "WorkPlan — Deliverables & Revenue Tracker",
@@ -21,6 +22,22 @@ export default async function RootLayout({
 
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('workplan_theme');
+                if (theme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body
         className="min-h-full flex flex-col bg-surface text-ink antialiased selection:bg-accent selection:text-white"
         suppressHydrationWarning
@@ -101,33 +118,37 @@ export default async function RootLayout({
               )}
             </div>
 
-            {/* Notifications & User Info */}
-            {session && (
-              <div className="flex items-center gap-3 sm:gap-4">
-                <NotificationDropdown userRole={session.role} />
+            {/* Theme Toggle & User Info */}
+            <div className="flex items-center gap-3 sm:gap-4">
+              <ThemeToggle />
 
-                <div className="h-4 w-px bg-border hidden sm:block" />
+              {session && (
+                <>
+                  <NotificationDropdown userRole={session.role} />
 
-                <div className="flex items-center gap-2 text-[13px] text-gray-600">
-                  <span className="font-medium text-ink">
-                    {session.name || session.email}
-                  </span>
-                  <span className="text-gray-300">·</span>
-                  <span className="text-[12px] text-gray-400 font-medium">
-                    {isSuperAdmin ? "Admin" : "Member"}
-                  </span>
-                </div>
+                  <div className="h-4 w-px bg-border hidden sm:block" />
 
-                <form action={logoutAction}>
-                  <button
-                    type="submit"
-                    className="text-[13px] font-medium text-gray-500 hover:text-signal-red transition-colors cursor-pointer"
-                  >
-                    Log out
-                  </button>
-                </form>
-              </div>
-            )}
+                  <div className="flex items-center gap-2 text-[13px] text-gray-600">
+                    <span className="font-medium text-ink">
+                      {session.name || session.email}
+                    </span>
+                    <span className="text-gray-300">·</span>
+                    <span className="text-[12px] text-gray-400 font-medium">
+                      {isSuperAdmin ? "Admin" : "Member"}
+                    </span>
+                  </div>
+
+                  <form action={logoutAction}>
+                    <button
+                      type="submit"
+                      className="text-[13px] font-medium text-gray-500 hover:text-signal-red transition-colors cursor-pointer"
+                    >
+                      Log out
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
           </div>
         </header>
 

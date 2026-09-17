@@ -345,8 +345,8 @@ export default function ReportBugModal({
                     onClick={() => setPriority(p)}
                     className={`p-2 rounded-md border text-center transition-colors cursor-pointer text-[12px] ${
                       isSelected
-                        ? "bg-ink text-white font-medium border-ink"
-                        : "bg-surface border-border text-gray-600 hover:bg-gray-100"
+                        ? "bg-black text-white dark:bg-white dark:text-black font-medium border-black dark:border-white shadow-xs"
+                        : "bg-surface dark:bg-[#0a0a0a] border-border dark:border-[#262626] text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
                     }`}
                   >
                     {p}

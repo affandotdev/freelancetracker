@@ -418,8 +418,8 @@ export default function IssuesClient({
                 onClick={() => setStatusFilter(tab.key)}
                 className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer tabular-nums ${
                   statusFilter === tab.key
-                    ? "bg-ink text-white font-semibold"
-                    : "text-slate-600 hover:bg-surface border border-transparent"
+                    ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 border border-transparent"
                 }`}
               >
                 {tab.label}

@@ -213,8 +213,8 @@ export default function NotificationDropdown({ userRole }: NotificationDropdownP
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-2.5 py-1 rounded-md font-medium transition-colors cursor-pointer text-[11px] ${
                   activeTab === tab.id
-                    ? "bg-ink text-white font-semibold"
-                    : "text-gray-500 hover:text-ink hover:bg-surface"
+                    ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                    : "text-gray-500 hover:text-black dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900"
                 }`}
               >
                 {tab.label}

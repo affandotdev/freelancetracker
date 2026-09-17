@@ -371,8 +371,8 @@ export default function AdminMeetingsMonitor({
             onClick={() => setSelectedMemberId("all")}
             className={`px-3 py-1 rounded-md font-medium transition-colors shrink-0 cursor-pointer ${
               selectedMemberId === "all"
-                ? "bg-ink text-white font-semibold"
-                : "bg-surface text-slate-600 hover:text-ink border border-border"
+                ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                : "bg-surface dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
             }`}
           >
             All Members ({meetings.length})
@@ -387,14 +387,16 @@ export default function AdminMeetingsMonitor({
                 onClick={() => setSelectedMemberId(member.id)}
                 className={`px-3 py-1 rounded-md font-medium transition-colors shrink-0 cursor-pointer flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-ink text-white font-semibold"
-                    : "bg-surface text-slate-600 hover:text-ink border border-border"
+                    ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                    : "bg-surface dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
                 }`}
               >
                 <span>{member.name}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded tabular-nums ${
-                    isSelected ? "bg-white/20 text-white" : "bg-white text-slate-600 border border-border"
+                  className={`text-[10px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                    isSelected
+                      ? "bg-white/20 text-white dark:bg-black/15 dark:text-black"
+                      : "bg-white dark:bg-[#141414] text-slate-600 dark:text-slate-300 border border-border dark:border-[#262626]"
                   }`}
                 >
                   {memberCount}

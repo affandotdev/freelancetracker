@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -11,13 +12,13 @@ const config: Config = {
         sans: ["'Inter'", "system-ui", "-apple-system", "BlinkMacSystemFont", "'Segoe UI'", "Roboto", "sans-serif"],
       },
       colors: {
-        ink: "#1a1d23",
-        surface: "#f7f8fa",
-        border: "#e2e5ea",
-        accent: "#2563eb",
-        "signal-red": "#dc2626",
-        "signal-green": "#16a34a",
-        "signal-amber": "#d97706",
+        ink: "var(--color-ink)",
+        surface: "var(--color-surface)",
+        border: "var(--color-border)",
+        accent: "var(--color-accent)",
+        "signal-red": "var(--color-signal-red)",
+        "signal-green": "var(--color-signal-green)",
+        "signal-amber": "var(--color-signal-amber)",
       },
     },
   },

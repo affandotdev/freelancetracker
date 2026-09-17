@@ -395,8 +395,8 @@ export default function AdminWorksMonitor({
             onClick={() => setSelectedMemberId("all")}
             className={`px-2.5 py-1 rounded-md border text-[12px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               selectedMemberId === "all"
-                ? "bg-ink text-white border-ink"
-                : "bg-surface text-gray-700 border-border hover:bg-gray-100"
+                ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs"
+                : "bg-surface dark:bg-[#0a0a0a] text-gray-700 dark:text-gray-300 border-border dark:border-[#262626] hover:bg-neutral-100 dark:hover:bg-neutral-900"
             }`}
           >
             <span>All Members</span>
@@ -575,8 +575,8 @@ export default function AdminWorksMonitor({
                           onClick={() => handleProgressChange(task.id, p)}
                           className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer tabular-nums ${
                             task.progress === p
-                              ? "bg-ink text-white border-ink font-medium"
-                              : "bg-surface text-gray-600 border-border hover:bg-gray-100"
+                              ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white font-medium shadow-xs"
+                              : "bg-surface dark:bg-[#0a0a0a] text-gray-600 dark:text-gray-300 border-border dark:border-[#262626] hover:bg-neutral-100 dark:hover:bg-neutral-900"
                           }`}
                         >
                           {p}%

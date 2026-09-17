@@ -410,14 +410,16 @@ export default function MemberDashboardClient({
             onClick={() => setActiveTab("tasks")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === "tasks"
-                ? "bg-ink text-white font-semibold"
-                : "bg-white text-slate-600 hover:text-ink border border-border"
+                ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                : "bg-white dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
             }`}
           >
             <span>Deliverables & Tasks</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded tabular-nums ${
-                activeTab === "tasks" ? "bg-white/20 text-white" : "bg-surface text-slate-600 border border-border"
+              className={`text-[10px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                activeTab === "tasks"
+                  ? "bg-white/20 text-white dark:bg-black/15 dark:text-black"
+                  : "bg-surface dark:bg-[#141414] text-slate-600 dark:text-slate-300 border border-border dark:border-[#262626]"
               }`}
             >
               {tasks.length}
@@ -429,14 +431,16 @@ export default function MemberDashboardClient({
             onClick={() => setActiveTab("issues")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === "issues"
-                ? "bg-ink text-white font-semibold"
-                : "bg-white text-slate-600 hover:text-ink border border-border"
+                ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                : "bg-white dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
             }`}
           >
             <span>Bugs & Issues</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded tabular-nums ${
-                activeTab === "issues" ? "bg-white/20 text-white" : "bg-surface text-slate-600 border border-border"
+              className={`text-[10px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                activeTab === "issues"
+                  ? "bg-white/20 text-white dark:bg-black/15 dark:text-black"
+                  : "bg-surface dark:bg-[#141414] text-slate-600 dark:text-slate-300 border border-border dark:border-[#262626]"
               }`}
             >
               {issues.length}
@@ -448,14 +452,16 @@ export default function MemberDashboardClient({
             onClick={() => setActiveTab("meetings")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === "meetings"
-                ? "bg-ink text-white font-semibold"
-                : "bg-white text-slate-600 hover:text-ink border border-border"
+                ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                : "bg-white dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
             }`}
           >
             <span>Meetings & Follow-ups</span>
             <span
-              className={`text-[10px] px-1.5 py-0.2 rounded tabular-nums ${
-                activeTab === "meetings" ? "bg-white/20 text-white" : "bg-surface text-slate-600 border border-border"
+              className={`text-[10px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                activeTab === "meetings"
+                  ? "bg-white/20 text-white dark:bg-black/15 dark:text-black"
+                  : "bg-surface dark:bg-[#141414] text-slate-600 dark:text-slate-300 border border-border dark:border-[#262626]"
               }`}
             >
               {meetings.length}
@@ -1210,8 +1216,8 @@ export default function MemberDashboardClient({
                 onClick={() => setMeetingFilter(filter)}
                 className={`px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
                   meetingFilter === filter
-                    ? "bg-ink text-white font-semibold"
-                    : "bg-surface text-gray-600 hover:text-ink border border-border"
+                    ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                    : "bg-surface dark:bg-[#0a0a0a] text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
                 }`}
               >
                 {filter}

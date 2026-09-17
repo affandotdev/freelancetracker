@@ -270,8 +270,8 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
               onClick={() => setFilterTab(tab)}
               className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 filterTab === tab
-                  ? "bg-ink text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                  ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
               }`}
             >
               {tab === "All" && `All (${projects.length})`}

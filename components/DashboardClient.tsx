@@ -463,20 +463,22 @@ export default function DashboardClient({
               onClick={() => setActiveSection(tab.id)}
               className={`flex items-center gap-2 px-3 py-2 text-[13px] transition-all cursor-pointer border-b-2 ${
                 activeSection === tab.id
-                  ? "border-accent text-accent font-semibold"
-                  : "border-transparent text-gray-500 hover:text-ink font-medium"
+                  ? "border-black text-black dark:border-white dark:text-white font-semibold"
+                  : "border-transparent text-gray-500 hover:text-black dark:text-neutral-400 dark:hover:text-white font-medium"
               }`}
             >
               <span>{tab.label}</span>
               <span
-                className={`text-[11px] px-1.5 py-0.5 rounded-full font-medium ${
-                  activeSection === tab.id ? "bg-blue-100 text-accent" : "bg-gray-100 text-gray-600"
+                className={`text-[11px] px-2 py-0.5 rounded-full font-semibold tabular-nums ${
+                  activeSection === tab.id
+                    ? "bg-black text-white dark:bg-white dark:text-black shadow-xs"
+                    : "bg-neutral-100 text-neutral-600 dark:bg-[#1f1f1f] dark:text-neutral-300 dark:border dark:border-[#333333]"
                 }`}
               >
                 {tab.count}
               </span>
               {tab.alert && tab.alert > 0 && (
-                <span className="w-2 h-2 rounded-full bg-signal-red" />
+                <span className="w-2 h-2 rounded-full bg-signal-red shrink-0" />
               )}
             </button>
           ))}
@@ -486,7 +488,7 @@ export default function DashboardClient({
           {activeSection === "projects" && (
             <Link
               href="/projects/new"
-              className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors"
+              className="px-3.5 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white text-[13px] font-semibold rounded-md transition-colors shadow-xs"
             >
               + Add Project
             </Link>
@@ -494,7 +496,7 @@ export default function DashboardClient({
           {activeSection === "works" && (
             <Link
               href="/team"
-              className="px-3.5 py-1.5 bg-ink hover:bg-black text-white text-[13px] font-medium rounded-md transition-colors"
+              className="px-3.5 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white text-[13px] font-semibold rounded-md transition-colors shadow-xs"
             >
               Manage Team
             </Link>
@@ -502,7 +504,7 @@ export default function DashboardClient({
           {activeSection === "bugs" && (
             <Link
               href="/issues"
-              className="px-3.5 py-1.5 bg-signal-red hover:bg-red-700 text-white text-[13px] font-medium rounded-md transition-colors"
+              className="px-3.5 py-1.5 bg-signal-red hover:bg-red-700 text-white text-[13px] font-semibold rounded-md transition-colors shadow-xs"
             >
               Issues Hub
             </Link>
@@ -510,7 +512,7 @@ export default function DashboardClient({
           {activeSection === "meetings" && (
             <Link
               href="/meetings"
-              className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors"
+              className="px-3.5 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white text-[13px] font-semibold rounded-md transition-colors shadow-xs"
             >
               Full Meetings Hub ↗
             </Link>
@@ -879,14 +881,16 @@ export default function DashboardClient({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-1.5 px-3 py-2 text-[12px] transition-all whitespace-nowrap cursor-pointer border-b-2 -mb-[1px] ${
                   isActive
-                    ? "border-accent text-accent font-semibold"
-                    : "border-transparent text-gray-500 hover:text-ink font-medium"
+                    ? "border-black text-black dark:border-white dark:text-white font-semibold"
+                    : "border-transparent text-gray-500 hover:text-black dark:text-neutral-400 dark:hover:text-white font-medium"
                 }`}
               >
                 <span>{tab.label}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                    isActive ? "bg-blue-100 text-accent" : "bg-gray-100 text-gray-500"
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold tabular-nums ${
+                    isActive
+                      ? "bg-black text-white dark:bg-white dark:text-black shadow-xs"
+                      : "bg-neutral-100 text-neutral-600 dark:bg-[#1f1f1f] dark:text-neutral-300 dark:border dark:border-[#333333]"
                   }`}
                 >
                   {tab.count}
