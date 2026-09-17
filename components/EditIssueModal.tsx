@@ -9,6 +9,7 @@ export interface EditIssueData {
   projectName?: string;
   title: string;
   description?: string | null;
+  path?: string | null;
   priority: string;
   status: string;
   resolution?: string | null;
@@ -51,6 +52,7 @@ export default function EditIssueModal({
   onDelete,
 }: EditIssueModalProps) {
   const [title, setTitle] = useState("");
+  const [path, setPath] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Critical">("Medium");
   const [status, setStatus] = useState<"Open" | "In Progress" | "Resolved" | "Closed">("Open");
@@ -63,6 +65,7 @@ export default function EditIssueModal({
   useEffect(() => {
     if (issue && isOpen) {
       setTitle(issue.title || "");
+      setPath(issue.path || "");
       setDescription(issue.description || "");
       setPriority((issue.priority as any) || "Medium");
       setStatus((issue.status as any) || "Open");
@@ -90,15 +93,24 @@ export default function EditIssueModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      alert("Please enter an issue title.");
+      return;
+    }
+
+    if (!assignedToId) {
+      alert("Please select an assigned worker for this bug.");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("issueId", issue.id);
     formData.append("title", title.trim());
+    formData.append("path", path.trim());
     formData.append("description", description.trim());
     formData.append("priority", priority);
     formData.append("status", status);
-    formData.append("assignedToId", assignedToId || "none");
+    formData.append("assignedToId", assignedToId);
     if (resolution.trim()) {
       formData.append("resolution", resolution.trim());
     }
@@ -189,6 +201,24 @@ export default function EditIssueModal({
             />
           </div>
 
+          {/* Route / Screen / File Path (Optional) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <span>📍</span>
+                <span>Route / Screen / File Path</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Optional</span>
+            </div>
+            <input
+              type="text"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="e.g. /dashboard/settings, components/TaskCard.tsx, or /api/auth"
+              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white font-medium text-xs placeholder:text-slate-400"
+            />
+          </div>
+
           {/* Project & Assigned Worker (2-column layout) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Project */}
@@ -220,17 +250,18 @@ export default function EditIssueModal({
               </div>
             )}
 
-            {/* Assigned Member */}
+            {/* Assigned Member (Required) */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 dark:text-slate-200 block">
-                Assigned Worker
+                Assigned Worker <span className="text-signal-red">*</span>
               </label>
               <select
+                required
                 value={assignedToId}
                 onChange={(e) => setAssignedToId(e.target.value)}
                 className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
               >
-                <option value="">-- Unassigned --</option>
+                <option value="">-- Select Worker (Required) --</option>
                 {assignableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} ({m.email})

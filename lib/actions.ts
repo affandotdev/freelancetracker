@@ -1086,11 +1086,16 @@ export async function createIssueAction(formData: FormData) {
   const projectId = (formData.get("projectId") as string)?.trim();
   const title = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
+  const path = (formData.get("path") as string)?.trim() || null;
   const priority = (formData.get("priority") as string)?.trim() || "Medium";
   const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
 
   if (!projectId || !title) {
     throw new Error("Project and issue title are required.");
+  }
+
+  if (!assignedToId || assignedToId === "none") {
+    throw new Error("Assigned worker is required. Please select a team member to assign this bug.");
   }
 
   const project = await prisma.project.findUnique({
@@ -1101,13 +1106,11 @@ export async function createIssueAction(formData: FormData) {
     throw new Error("Project not found.");
   }
 
-  let targetAssigneeId = assignedToId && assignedToId !== "none" ? assignedToId : null;
-  if (targetAssigneeId) {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetAssigneeId } });
-    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
-      targetAssigneeId = null; // Bugs cannot be assigned to an Admin
-    }
+  const targetUser = await prisma.user.findUnique({ where: { id: assignedToId } });
+  if (!targetUser || targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@")) {
+    throw new Error("Bugs must be assigned to a valid team member (cannot be assigned to an Admin).");
   }
+  const targetAssigneeId = targetUser.id;
 
   // Attachment handling: file, screenshot, video, or cloud link
   let attachmentUrl = (formData.get("attachmentUrl") as string)?.trim() || null;
@@ -1147,6 +1150,7 @@ export async function createIssueAction(formData: FormData) {
       projectId,
       title,
       description,
+      path,
       priority,
       status: "Open",
       raisedById: session.userId,
@@ -1265,13 +1269,15 @@ export async function reassignIssueAction(formData: FormData) {
     throw new Error("Unauthorized: Only Super Admin, reporter, or assigned member can reassign this issue.");
   }
 
-  const targetUserId = assignedToId && assignedToId !== "none" ? assignedToId : null;
-  if (targetUserId) {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetUserId } });
-    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
-      throw new Error("Bugs cannot be assigned to an Admin. Please assign to a team member.");
-    }
+  if (!assignedToId || assignedToId === "none") {
+    throw new Error("Assigned worker is required. Please select a team member.");
   }
+
+  const targetUser = await prisma.user.findUnique({ where: { id: assignedToId } });
+  if (!targetUser || targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@")) {
+    throw new Error("Bugs must be assigned to a valid team member (cannot be assigned to an Admin).");
+  }
+  const targetUserId = targetUser.id;
 
   const updated = await (prisma as any).issue.update({
     where: { id: issueId },
@@ -1300,6 +1306,7 @@ export async function updateIssueAction(formData: FormData) {
   const issueId = (formData.get("issueId") as string)?.trim();
   const title = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
+  const path = (formData.get("path") as string)?.trim() || null;
   const priority = (formData.get("priority") as string)?.trim() || "Medium";
   const status = (formData.get("status") as string)?.trim() || "Open";
   const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
@@ -1308,6 +1315,10 @@ export async function updateIssueAction(formData: FormData) {
 
   if (!issueId || !title) {
     throw new Error("Issue ID and title are required.");
+  }
+
+  if (!assignedToId || assignedToId === "none") {
+    throw new Error("Assigned worker is required. Please select a team member.");
   }
 
   const issue = await (prisma as any).issue.findUnique({
@@ -1326,13 +1337,11 @@ export async function updateIssueAction(formData: FormData) {
     throw new Error("Unauthorized: Only the assigned member, reporter, or Super Admin can edit this issue.");
   }
 
-  let targetAssigneeId = assignedToId && assignedToId !== "none" ? assignedToId : null;
-  if (targetAssigneeId) {
-    const targetUser = await prisma.user.findUnique({ where: { id: targetAssigneeId } });
-    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
-      targetAssigneeId = null; // Cannot be assigned to admin
-    }
+  const targetUser = await prisma.user.findUnique({ where: { id: assignedToId } });
+  if (!targetUser || targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@")) {
+    throw new Error("Bugs must be assigned to a valid team member (cannot be assigned to an Admin).");
   }
+  const targetAssigneeId = targetUser.id;
 
   const isResolvedOrClosed = status === "Resolved" || status === "Closed";
 
@@ -1341,6 +1350,7 @@ export async function updateIssueAction(formData: FormData) {
     data: {
       title,
       description,
+      path,
       priority,
       status,
       assignedToId: targetAssigneeId,

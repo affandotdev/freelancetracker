@@ -40,6 +40,7 @@ export default function ReportBugModal({
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId || "");
   const [selectedMemberId, setSelectedMemberId] = useState(defaultAssignedToId || "");
   const [title, setTitle] = useState(defaultTitle || "");
+  const [path, setPath] = useState("");
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Critical">("Medium");
   const [description, setDescription] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -106,13 +107,7 @@ export default function ReportBugModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (defaultProjectId) {
-        setSelectedProjectId(defaultProjectId);
-      } else if (projects.length === 1) {
-        setSelectedProjectId(projects[0].id);
-      } else {
-        setSelectedProjectId("");
-      }
+      setSelectedProjectId(defaultProjectId || "");
 
       if (defaultAssignedToId) {
         const isTargetAdmin = teamMembers.find(
@@ -128,6 +123,7 @@ export default function ReportBugModal({
       }
 
       if (defaultTitle) setTitle(defaultTitle);
+      setPath("");
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
 
@@ -147,12 +143,18 @@ export default function ReportBugModal({
       return;
     }
 
+    if (!selectedMemberId) {
+      alert("Please select a team member to assign this bug to.");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("projectId", selectedProjectId);
     formData.append("title", title.trim());
+    if (path.trim()) formData.append("path", path.trim());
     formData.append("description", description.trim());
     formData.append("priority", priority);
-    formData.append("assignedToId", selectedMemberId || "none");
+    formData.append("assignedToId", selectedMemberId);
 
     if (attachedFile) {
       formData.append("attachmentUrl", attachedFile.url);
@@ -171,6 +173,8 @@ export default function ReportBugModal({
         }
         onClose();
         setTitle("");
+        setPath("");
+        setSelectedMemberId("");
         setDescription("");
         setAttachedFile(null);
         setVideoLinkUrl("");
@@ -197,7 +201,7 @@ export default function ReportBugModal({
               🐛 Report Issue / Defect
             </h3>
             <p className="text-[12px] text-slate-500 dark:text-slate-400">
-              Only required fields: select project and enter issue title.
+              Select project, enter issue title, and assign a worker.
             </p>
           </div>
 
@@ -247,19 +251,38 @@ export default function ReportBugModal({
             />
           </div>
 
-          {/* Assign Worker (Optional) & Priority */}
+          {/* Route / Screen / File Path (Optional) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <span>📍</span>
+                <span>Route / Screen / File Path</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Optional</span>
+            </div>
+            <input
+              type="text"
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              placeholder="e.g. /dashboard/settings, components/TaskCard.tsx, or /api/auth"
+              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white font-medium text-xs placeholder:text-slate-400"
+            />
+          </div>
+
+          {/* Assign Worker (Required) & Priority */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Assign Member */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 dark:text-slate-200 block">
-                Assign Worker (Optional)
+                Assign Worker <span className="text-signal-red">*</span>
               </label>
               <select
+                required
                 value={selectedMemberId}
                 onChange={(e) => setSelectedMemberId(e.target.value)}
                 className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
               >
-                <option value="">-- Unassigned --</option>
+                <option value="">-- Select Worker (Required) --</option>
                 {nonAdminMembers.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} ({m.email})
