@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition, useEffect, useRef } from "react";
 import { createIssueAction } from "@/lib/actions";
+import SearchableSelect from "./SearchableSelect";
 
 interface TeamMemberOption {
   id: string;
@@ -207,14 +208,34 @@ export default function ReportBugModal({
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
 
-  if (!isOpen) return null;
+  const nonAdminMembers = React.useMemo(() => {
+    return teamMembers.filter(
+      (m) =>
+        m.role !== "SUPER_ADMIN" &&
+        !m.name.toLowerCase().includes("super admin") &&
+        !m.email.toLowerCase().includes("admin@")
+    );
+  }, [teamMembers]);
 
-  const nonAdminMembers = teamMembers.filter(
-    (m) =>
-      m.role !== "SUPER_ADMIN" &&
-      !m.name.toLowerCase().includes("super admin") &&
-      !m.email.toLowerCase().includes("admin@")
-  );
+  // Options for SearchableSelect
+  const projectOptions = React.useMemo(() => {
+    return projects.map((p) => ({
+      value: p.id,
+      label: p.name,
+      subLabel: p.client ? `Client: ${p.client}` : undefined,
+    }));
+  }, [projects]);
+
+  const workerOptions = React.useMemo(() => {
+    return nonAdminMembers.map((m) => ({
+      value: m.id,
+      label: m.name,
+      subLabel: m.email || undefined,
+      badge: m.role && m.role !== "MEMBER" ? m.role : undefined,
+    }));
+  }, [nonAdminMembers]);
+
+  if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -303,19 +324,15 @@ export default function ReportBugModal({
             <label className="font-semibold text-slate-700 dark:text-slate-200 block">
               Project <span className="text-signal-red">*</span>
             </label>
-            <select
+            <SearchableSelect
               required
               value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
-            >
-              <option value="">-- Select Project (Required) --</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} {p.client ? `(${p.client})` : ""}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedProjectId(val)}
+              options={projectOptions}
+              placeholder="-- Select Project (Required) --"
+              searchPlaceholder="Search project by name or client..."
+              emptyMessage="No matching projects found"
+            />
           </div>
 
           {/* Issue Title (Required) */}
@@ -393,19 +410,15 @@ export default function ReportBugModal({
               <label className="font-semibold text-slate-700 dark:text-slate-200 block">
                 Assign Worker <span className="text-signal-red">*</span>
               </label>
-              <select
+              <SearchableSelect
                 required
                 value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
-              >
-                <option value="">-- Select Worker (Required) --</option>
-                {nonAdminMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.email})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSelectedMemberId(val)}
+                options={workerOptions}
+                placeholder="-- Select Worker (Required) --"
+                searchPlaceholder="Search worker by name or email..."
+                emptyMessage="No matching workers found"
+              />
             </div>
 
             {/* Priority */}

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import { updateIssueAction, deleteIssueAction } from "@/lib/actions";
+import SearchableSelect from "./SearchableSelect";
 
 export interface EditIssueData {
   id: string;
@@ -111,6 +112,24 @@ export default function EditIssueModal({
     }
     return list;
   }, [projects, issue?.projectId, issue?.projectName]);
+
+  // Options for SearchableSelect
+  const projectOptions = React.useMemo(() => {
+    return availableProjects.map((p) => ({
+      value: p.id,
+      label: p.name,
+      subLabel: p.client ? `Client: ${p.client}` : undefined,
+    }));
+  }, [availableProjects]);
+
+  const workerOptions = React.useMemo(() => {
+    return assignableMembers.map((m) => ({
+      value: m.id,
+      label: m.name,
+      subLabel: m.email || undefined,
+      badge: m.role && m.role !== "MEMBER" ? m.role : undefined,
+    }));
+  }, [assignableMembers]);
 
   const isDirty = Boolean(
     issue &&
@@ -252,6 +271,8 @@ export default function EditIssueModal({
     });
   };
 
+  if (!isOpen || !issue) return null;
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
@@ -364,19 +385,15 @@ export default function EditIssueModal({
                 Project <span className="text-signal-red">*</span>
               </label>
               {availableProjects.length > 0 ? (
-                <select
+                <SearchableSelect
                   required
                   value={projectId}
-                  onChange={(e) => setProjectId(e.target.value)}
-                  className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
-                >
-                  <option value="">-- Select Project --</option>
-                  {availableProjects.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} {p.client ? `(${p.client})` : ""}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setProjectId(val)}
+                  options={projectOptions}
+                  placeholder="-- Select Project --"
+                  searchPlaceholder="Search project by name or client..."
+                  emptyMessage="No matching projects found"
+                />
               ) : (
                 <div className="px-3 py-2 bg-surface dark:bg-[#111111] border border-border dark:border-[#262626] rounded-lg text-slate-700 dark:text-slate-300 font-medium truncate">
                   {issue.projectName || "Current Project"}
@@ -389,19 +406,15 @@ export default function EditIssueModal({
               <label className="font-semibold text-slate-700 dark:text-slate-200 block">
                 Assigned Worker <span className="text-signal-red">*</span>
               </label>
-              <select
+              <SearchableSelect
                 required
                 value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-                className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
-              >
-                <option value="">-- Select Worker (Required) --</option>
-                {assignableMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} {m.email ? `(${m.email})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setAssignedToId(val)}
+                options={workerOptions}
+                placeholder="-- Select Worker (Required) --"
+                searchPlaceholder="Search worker by name or email..."
+                emptyMessage="No matching workers found"
+              />
             </div>
           </div>
 

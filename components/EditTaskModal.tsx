@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { updateTaskAction } from "@/lib/actions";
 import { formatDeadlineDate } from "@/lib/dateUtils";
+import SearchableSelect from "./SearchableSelect";
 
 export interface EditableTaskData {
   id: string;
@@ -66,6 +67,15 @@ export default function EditTaskModal({
       setError("");
     }
   }, [task]);
+
+  const memberOptions = useMemo(() => {
+    return teamMembers.map((m) => ({
+      value: m.id,
+      label: m.name,
+      subLabel: m.email || undefined,
+      badge: m.role && m.role !== "MEMBER" ? m.role : undefined,
+    }));
+  }, [teamMembers]);
 
   if (!isOpen || !task) return null;
 
@@ -267,18 +277,15 @@ export default function EditTaskModal({
                 <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Assignee
                 </label>
-                <select
+                <SearchableSelect
                   value={assignedToId}
-                  onChange={(e) => setAssignedToId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink font-medium cursor-pointer"
-                >
-                  <option value="">Unassigned</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.email})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignedToId(val)}
+                  options={memberOptions}
+                  placeholder="Unassigned"
+                  searchPlaceholder="Search assignee by name or email..."
+                  allowClear
+                  emptyMessage="No team members found"
+                />
               </div>
 
               <div>

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createDirectMeetingUpdateAction } from "@/lib/actions";
+import SearchableSelect from "./SearchableSelect";
 
 interface ProjectOption {
   id: string;
@@ -104,10 +105,17 @@ export default function LogDirectMeetingModal({
     }
   }, [isOpen, defaultProjectId, defaultClientName, defaultClientEmail, defaultClientPhone, defaultTitle, defaultAssignedToId, projects]);
 
+  const projectOptions = useMemo(() => {
+    return projects.map((p) => ({
+      value: p.id,
+      label: p.name,
+      subLabel: p.client ? `Client: ${p.client}` : undefined,
+    }));
+  }, [projects]);
+
   if (!isOpen) return null;
 
-  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const pId = e.target.value;
+  const handleProjectSelect = (pId: string) => {
     setProjectId(pId);
     if (pId) {
       const selected = projects.find((p) => p.id === pId);
@@ -199,18 +207,15 @@ export default function LogDirectMeetingModal({
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Related Project (optional)
               </label>
-              <select
+              <SearchableSelect
                 value={projectId}
-                onChange={handleProjectChange}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
-              >
-                <option value="">-- General / No Project --</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.client ? `(${p.client})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={handleProjectSelect}
+                options={projectOptions}
+                placeholder="-- General / No Project --"
+                searchPlaceholder="Search projects..."
+                allowClear
+                emptyMessage="No matching projects"
+              />
             </div>
           </div>
 

@@ -77,6 +77,9 @@ export default function IssuesClient({
   const [projectFilter, setProjectFilter] = useState("All");
   const [moduleFilter, setModuleFilter] = useState("All");
   const [assigneeFilter, setAssigneeFilter] = useState("All");
+  const [reporterFilter, setReporterFilter] = useState("All");
+  const [dateFilter, setDateFilter] = useState("All");
+  const [customDate, setCustomDate] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("All");
   const [isTableMaximized, setIsTableMaximized] = useState(false);
 
@@ -119,6 +122,22 @@ export default function IssuesClient({
     });
   };
 
+  // Unique reporters list
+  const uniqueReporters = useMemo(() => {
+    const map = new Map<string, string>();
+    issues.forEach((i) => {
+      if (i.raisedBy?.id && i.raisedBy?.name) {
+        map.set(i.raisedBy.id, i.raisedBy.name);
+      }
+    });
+    teamMembers.forEach((m) => {
+      if (!map.has(m.id)) {
+        map.set(m.id, m.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [issues, teamMembers]);
+
   // Filter calculation
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
@@ -136,18 +155,27 @@ export default function IssuesClient({
         }
       }
 
+      // Status filter
       if (statusFilter !== "All" && issue.status !== statusFilter) {
         return false;
       }
 
+      // Project filter
       if (projectFilter !== "All" && issue.projectId !== projectFilter) {
         return false;
       }
 
+      // Reporter ("the person who gives the bug") filter
+      if (reporterFilter !== "All" && issue.raisedBy?.id !== reporterFilter) {
+        return false;
+      }
+
+      // Module filter
       if (moduleFilter !== "All" && (issue.module || "User Side") !== moduleFilter) {
         return false;
       }
 
+      // Assignee filter
       if (assigneeFilter === "assigned_to_me") {
         if (issue.assignedTo?.id !== currentUser.id) return false;
       } else if (assigneeFilter === "reported_by_me") {
@@ -158,13 +186,51 @@ export default function IssuesClient({
         if (issue.assignedTo?.id !== assigneeFilter) return false;
       }
 
+      // Priority filter
       if (priorityFilter !== "All" && issue.priority !== priorityFilter) {
         return false;
       }
 
+      // Date filter
+      if (dateFilter !== "All") {
+        const created = new Date(issue.createdAt);
+        const now = new Date();
+
+        if (dateFilter === "today") {
+          if (created.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === "yesterday") {
+          const yesterday = new Date();
+          yesterday.setDate(now.getDate() - 1);
+          if (created.toDateString() !== yesterday.toDateString()) return false;
+        } else if (dateFilter === "this_week") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          if (created < sevenDaysAgo) return false;
+        } else if (dateFilter === "this_month") {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          if (created < thirtyDaysAgo) return false;
+        } else if (dateFilter === "custom" && customDate) {
+          const createdDateStr = new Date(issue.createdAt).toISOString().slice(0, 10);
+          if (createdDateStr !== customDate) return false;
+        }
+      }
+
       return true;
     });
-  }, [issues, searchQuery, statusFilter, projectFilter, moduleFilter, assigneeFilter, priorityFilter, currentUser.id]);
+  }, [
+    issues,
+    searchQuery,
+    statusFilter,
+    projectFilter,
+    reporterFilter,
+    moduleFilter,
+    assigneeFilter,
+    priorityFilter,
+    dateFilter,
+    customDate,
+    currentUser.id,
+  ]);
 
   const totalCount = issues.length;
   const openCount = issues.filter((i) => i.status === "Open").length;
@@ -532,11 +598,48 @@ export default function IssuesClient({
             </select>
           )}
 
+          {/* Reporter ("person who gives the bug") Dropdown */}
+          <select
+            value={reporterFilter}
+            onChange={(e) => setReporterFilter(e.target.value)}
+            className="px-2.5 py-1 bg-white dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer max-w-[160px] truncate"
+          >
+            <option value="All">👤 All Reporters (Who gave bug)</option>
+            {uniqueReporters.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} {r.id === currentUser.id ? "(You)" : ""}
+              </option>
+            ))}
+          </select>
+
+          {/* Date Filter Dropdown */}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-2.5 py-1 bg-white dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
+          >
+            <option value="All">📅 All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_week">Last 7 Days</option>
+            <option value="this_month">Last 30 Days</option>
+            <option value="custom">Specific Date...</option>
+          </select>
+
+          {dateFilter === "custom" && (
+            <input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="px-2 py-0.5 bg-white dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+            />
+          )}
+
           {/* Priority Filter */}
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-2.5 py-1 bg-white border border-border rounded-lg text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
+            className="px-2.5 py-1 bg-white dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
           >
             <option value="All">All Priorities</option>
             <option value="Critical">Critical</option>
@@ -548,6 +651,8 @@ export default function IssuesClient({
           {(searchQuery ||
             statusFilter !== "All" ||
             projectFilter !== "All" ||
+            reporterFilter !== "All" ||
+            dateFilter !== "All" ||
             moduleFilter !== "All" ||
             assigneeFilter !== "All" ||
             priorityFilter !== "All") && (
@@ -557,6 +662,9 @@ export default function IssuesClient({
                 setSearchQuery("");
                 setStatusFilter("All");
                 setProjectFilter("All");
+                setReporterFilter("All");
+                setDateFilter("All");
+                setCustomDate("");
                 setModuleFilter("All");
                 setAssigneeFilter("All");
                 setPriorityFilter("All");
@@ -625,9 +733,11 @@ export default function IssuesClient({
                   return (
                     <React.Fragment key={issue.id}>
                       <tr
-                        className={`hover:bg-surface/70 dark:hover:bg-neutral-900/60 transition-colors group ${
+                        onDoubleClick={() => setEditingIssue(issue)}
+                        className={`hover:bg-surface/70 dark:hover:bg-neutral-900/60 transition-colors group cursor-default ${
                           isMyIssue && isOpen ? "bg-red-50/20 dark:bg-red-950/20" : ""
                         } ${isExpanded ? "bg-surface/50 dark:bg-neutral-900/50" : ""}`}
+                        title="Double-click row or click Edit to modify defect"
                       >
                         {/* Index / Expand toggle */}
                         <td className="py-2.5 px-2 text-center text-slate-400 font-medium tabular-nums">
@@ -668,8 +778,9 @@ export default function IssuesClient({
                           <div className="space-y-0.5">
                             <button
                               type="button"
-                              onClick={() => toggleRowExpansion(issue.id)}
-                              className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block"
+                              onClick={() => setEditingIssue(issue)}
+                              className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block cursor-pointer group-hover:underline"
+                              title="Click to edit defect"
                             >
                               {issue.title}
                             </button>
@@ -727,15 +838,31 @@ export default function IssuesClient({
                           </span>
                         </td>
 
-                        {/* Status */}
+                        {/* Status (Direct Inline Edit Dropdown) */}
                         <td className="py-2.5 px-1.5">
-                          <span
-                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
+                          <select
+                            value={issue.status}
+                            disabled={isPending}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              if (newStatus === "Resolved") {
+                                toggleRowExpansion(issue.id);
+                                setResolvingIssueId(issue.id);
+                                setResolutionText("");
+                              } else {
+                                handleUpdateStatus(issue.id, newStatus);
+                              }
+                            }}
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 ${getStatusBadgeClass(
                               issue.status
                             )}`}
+                            title="Change issue status directly from table"
                           >
-                            {issue.status}
-                          </span>
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Closed">Closed</option>
+                          </select>
                         </td>
 
                         {/* Assignee */}
@@ -778,12 +905,12 @@ export default function IssuesClient({
 
                         {/* Actions */}
                         <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setEditingIssue(issue)}
                               title="Edit issue details"
-                              className="px-2 py-0.5 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2.5 py-1 bg-accent/10 hover:bg-accent text-accent hover:text-white dark:bg-blue-950/50 dark:hover:bg-blue-600 dark:text-blue-300 dark:hover:text-white font-semibold rounded-lg text-[11px] transition-all cursor-pointer inline-flex items-center gap-1 border border-accent/20 dark:border-blue-800 shadow-2xs"
                             >
                               <span>✏️</span>
                               <span>Edit</span>

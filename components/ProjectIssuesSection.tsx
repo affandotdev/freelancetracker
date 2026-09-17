@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
-import { updateIssueStatusAction, deleteIssueAction } from "@/lib/actions";
+import { updateIssueStatusAction, reassignIssueAction, deleteIssueAction } from "@/lib/actions";
 import ReportBugModal from "./ReportBugModal";
 import EditIssueModal from "./EditIssueModal";
 import IssueAttachmentViewer from "./IssueAttachmentViewer";
@@ -60,6 +60,9 @@ export default function ProjectIssuesSection({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [moduleFilter, setModuleFilter] = useState<string>("ALL");
+  const [reporterFilter, setReporterFilter] = useState<string>("ALL");
+  const [dateFilter, setDateFilter] = useState<string>("ALL");
+  const [customDate, setCustomDate] = useState<string>("");
 
   const assignableMembers = teamMembers.filter(
     (m) =>
@@ -113,6 +116,33 @@ export default function ProjectIssuesSection({
     });
   };
 
+  const handleReassign = (issueId: string, newMemberId: string) => {
+    const formData = new FormData();
+    formData.append("issueId", issueId);
+    formData.append("assignedToId", newMemberId);
+
+    startTransition(async () => {
+      try {
+        await reassignIssueAction(formData);
+        const newMember = teamMembers.find((m) => m.id === newMemberId) || null;
+        setIssues((prev) =>
+          prev.map((i) =>
+            i.id === issueId
+              ? {
+                  ...i,
+                  assignedTo: newMember
+                    ? { id: newMember.id, name: newMember.name, email: newMember.email }
+                    : null,
+                }
+              : i
+          )
+        );
+      } catch (err: any) {
+        alert(err?.message || "Failed to reassign issue.");
+      }
+    });
+  };
+
   const handleDeleteIssue = (issueId: string) => {
     if (!confirm("Are you sure you want to delete this issue?")) return;
 
@@ -130,10 +160,53 @@ export default function ProjectIssuesSection({
   const inProgressCount = issues.filter((i) => i.status === "In Progress").length;
   const resolvedCount = issues.filter((i) => i.status === "Resolved" || i.status === "Closed").length;
 
+  // Unique reporters list
+  const uniqueReporters = useMemo(() => {
+    const map = new Map<string, string>();
+    issues.forEach((i) => {
+      if (i.raisedBy?.id && i.raisedBy?.name) {
+        map.set(i.raisedBy.id, i.raisedBy.name);
+      }
+    });
+    teamMembers.forEach((m) => {
+      if (!map.has(m.id)) {
+        map.set(m.id, m.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [issues, teamMembers]);
+
   const filteredIssues = useMemo(() => {
     return issues.filter((issue) => {
       if (statusFilter !== "ALL" && issue.status !== statusFilter) return false;
       if (moduleFilter !== "ALL" && (issue.module || "User Side") !== moduleFilter) return false;
+      if (reporterFilter !== "ALL" && issue.raisedBy?.id !== reporterFilter) return false;
+
+      // Date filter
+      if (dateFilter !== "ALL") {
+        const created = new Date(issue.createdAt);
+        const now = new Date();
+
+        if (dateFilter === "today") {
+          if (created.toDateString() !== now.toDateString()) return false;
+        } else if (dateFilter === "yesterday") {
+          const yesterday = new Date();
+          yesterday.setDate(now.getDate() - 1);
+          if (created.toDateString() !== yesterday.toDateString()) return false;
+        } else if (dateFilter === "this_week") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          if (created < sevenDaysAgo) return false;
+        } else if (dateFilter === "this_month") {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          if (created < thirtyDaysAgo) return false;
+        } else if (dateFilter === "custom" && customDate) {
+          const createdDateStr = new Date(issue.createdAt).toISOString().slice(0, 10);
+          if (createdDateStr !== customDate) return false;
+        }
+      }
+
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const titleMatch = issue.title.toLowerCase().includes(q);
@@ -146,7 +219,7 @@ export default function ProjectIssuesSection({
       }
       return true;
     });
-  }, [issues, statusFilter, moduleFilter, searchQuery]);
+  }, [issues, statusFilter, moduleFilter, reporterFilter, dateFilter, customDate, searchQuery]);
 
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
@@ -349,6 +422,43 @@ export default function ProjectIssuesSection({
             </button>
           </div>
 
+          {/* Reporter Selector */}
+          <select
+            value={reporterFilter}
+            onChange={(e) => setReporterFilter(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-white dark:bg-[#0a0a0a] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[150px] truncate"
+          >
+            <option value="ALL">👤 All Reporters</option>
+            {uniqueReporters.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Date Selector */}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-white dark:bg-[#0a0a0a] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+          >
+            <option value="ALL">📅 All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_week">Last 7 Days</option>
+            <option value="this_month">Last 30 Days</option>
+            <option value="custom">Specific Date...</option>
+          </select>
+
+          {dateFilter === "custom" && (
+            <input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="px-2 py-1 text-xs bg-white dark:bg-[#0a0a0a] border border-border dark:border-[#262626] rounded-lg text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+            />
+          )}
+
           {/* Module selector */}
           <select
             value={moduleFilter}
@@ -362,6 +472,28 @@ export default function ProjectIssuesSection({
             <option value="API / Backend">API / Backend</option>
             <option value="Public / Landing">Public / Landing</option>
           </select>
+
+          {/* Reset Filters */}
+          {(searchQuery ||
+            statusFilter !== "ALL" ||
+            reporterFilter !== "ALL" ||
+            dateFilter !== "ALL" ||
+            moduleFilter !== "ALL") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("ALL");
+                setReporterFilter("ALL");
+                setDateFilter("ALL");
+                setCustomDate("");
+                setModuleFilter("ALL");
+              }}
+              className="px-2 py-1 text-xs text-accent hover:underline cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
@@ -405,9 +537,11 @@ export default function ProjectIssuesSection({
                   return (
                     <React.Fragment key={issue.id}>
                       <tr
-                        className={`hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors group ${
+                        onDoubleClick={() => setEditingIssue(issue)}
+                        className={`hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors group cursor-default ${
                           isExpanded ? "bg-surface/50 dark:bg-neutral-900/60" : ""
                         }`}
+                        title="Double-click row or click Edit to modify defect"
                       >
                         {/* Expand Icon */}
                         <td className="py-2.5 px-2 text-center text-slate-400 dark:text-neutral-500 font-medium tabular-nums">
@@ -444,8 +578,9 @@ export default function ProjectIssuesSection({
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <button
                                 type="button"
-                                onClick={() => toggleRowExpansion(issue.id)}
-                                className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left"
+                                onClick={() => setEditingIssue(issue)}
+                                className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left cursor-pointer group-hover:underline"
+                                title="Click to edit defect"
                               >
                                 {issue.title}
                               </button>
@@ -489,22 +624,49 @@ export default function ProjectIssuesSection({
                           </span>
                         </td>
 
-                        {/* Status */}
+                        {/* Status (Direct Inline Edit Dropdown) */}
                         <td className="py-2.5 px-1.5">
-                          <span
-                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getStatusBadgeClass(
+                          <select
+                            value={issue.status}
+                            disabled={isPending}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              if (newStatus === "Resolved") {
+                                toggleRowExpansion(issue.id);
+                                setResolvingId(issue.id);
+                                setResolutionText("");
+                              } else {
+                                handleUpdateStatus(issue.id, newStatus);
+                              }
+                            }}
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 ${getStatusBadgeClass(
                               issue.status
                             )}`}
+                            title="Change status directly from table"
                           >
-                            {issue.status}
-                          </span>
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Closed">Closed</option>
+                          </select>
                         </td>
 
-                        {/* Assigned Member */}
+                        {/* Assigned Member (Direct Inline Reassignment) */}
                         <td className="py-2.5 px-2">
-                          <span className="font-medium text-slate-800 dark:text-slate-200 block truncate max-w-[100px]">
-                            {issue.assignedTo ? issue.assignedTo.name : <span className="text-slate-400 dark:text-neutral-500 italic">Unassigned</span>}
-                          </span>
+                          <select
+                            value={issue.assignedTo?.id || ""}
+                            disabled={isPending}
+                            onChange={(e) => handleReassign(issue.id, e.target.value)}
+                            className="text-[11px] font-medium px-2 py-0.5 bg-white dark:bg-[#161616] border border-border dark:border-[#262626] rounded text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[120px] truncate"
+                            title="Reassign worker directly from table"
+                          >
+                            <option value="">Unassigned</option>
+                            {assignableMembers.map((m) => (
+                              <option key={m.id} value={m.id}>
+                                {m.name}
+                              </option>
+                            ))}
+                          </select>
                         </td>
 
                         {/* Reported By & Date */}
@@ -522,12 +684,12 @@ export default function ProjectIssuesSection({
 
                         {/* Actions */}
                         <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setEditingIssue(issue)}
                               title="Edit issue details"
-                              className="px-2 py-0.5 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2.5 py-1 bg-accent/10 hover:bg-accent text-accent hover:text-white dark:bg-blue-950/50 dark:hover:bg-blue-600 dark:text-blue-300 dark:hover:text-white font-semibold rounded-lg text-[11px] transition-all cursor-pointer inline-flex items-center gap-1 border border-accent/20 dark:border-blue-800 shadow-2xs"
                             >
                               <span>✏️</span>
                               <span>Edit</span>

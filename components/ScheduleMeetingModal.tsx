@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { createMeetingAction } from "@/lib/actions";
+import SearchableSelect from "./SearchableSelect";
 
 interface TeamMember {
   id: string;
@@ -113,10 +114,26 @@ export default function ScheduleMeetingModal({
     }
   }, [isOpen, preselectedProjectId, defaultTitle, defaultClientName, defaultAssignedToId, isSuperAdmin, currentUserId, projects]);
 
+  const projectOptions = useMemo(() => {
+    return projects.map((p) => ({
+      value: p.id,
+      label: p.name,
+      subLabel: p.client ? `Client: ${p.client}` : undefined,
+    }));
+  }, [projects]);
+
+  const memberOptions = useMemo(() => {
+    return teamMembers.map((m) => ({
+      value: m.id,
+      label: m.name,
+      subLabel: m.email || undefined,
+      badge: m.role && m.role !== "MEMBER" ? m.role : undefined,
+    }));
+  }, [teamMembers]);
+
   if (!isOpen) return null;
 
-  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const pId = e.target.value;
+  const handleProjectSelect = (pId: string) => {
     setProjectId(pId);
     if (pId) {
       const selected = projects.find((p) => p.id === pId);
@@ -266,36 +283,30 @@ export default function ScheduleMeetingModal({
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Related Project
               </label>
-              <select
+              <SearchableSelect
                 value={projectId}
-                onChange={handleProjectChange}
-                className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
-              >
-                <option value="">-- No specific project --</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.client ? `(${p.client})` : ""}
-                  </option>
-                ))}
-              </select>
+                onChange={handleProjectSelect}
+                options={projectOptions}
+                placeholder="-- No specific project --"
+                searchPlaceholder="Search projects..."
+                allowClear
+                emptyMessage="No matching projects"
+              />
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Assign Team Member
               </label>
               {isSuperAdmin ? (
-                <select
+                <SearchableSelect
                   value={assignedToId}
-                  onChange={(e) => setAssignedToId(e.target.value)}
-                  className="w-full px-3 py-2 bg-surface border border-border rounded-md text-sm text-ink focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
-                >
-                  <option value="">-- Unassigned --</option>
-                  {teamMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} ({m.email})
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAssignedToId(val)}
+                  options={memberOptions}
+                  placeholder="-- Unassigned --"
+                  searchPlaceholder="Search team member..."
+                  allowClear
+                  emptyMessage="No team members found"
+                />
               ) : (
                 <div className="px-3 py-2 bg-surface/50 border border-border rounded-md text-sm text-gray-600">
                   Assigned to You

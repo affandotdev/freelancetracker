@@ -73,9 +73,12 @@ export default function AdminBugsMonitor({
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
+  const [selectedReporterId, setSelectedReporterId] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
+  const [dateFilter, setDateFilter] = useState<string>("all");
+  const [customDate, setCustomDate] = useState<string>("");
   const [isTableMaximized, setIsTableMaximized] = useState<boolean>(false);
 
   // Inline resolution state
@@ -150,6 +153,22 @@ export default function AdminBugsMonitor({
     return { map, unassigned };
   }, [issues]);
 
+  // Unique reporters list
+  const uniqueReporters = useMemo(() => {
+    const map = new Map<string, string>();
+    issues.forEach((i) => {
+      if (i.raisedBy?.id && i.raisedBy?.name) {
+        map.set(i.raisedBy.id, i.raisedBy.name);
+      }
+    });
+    teamMembers.forEach((m) => {
+      if (!map.has(m.id)) {
+        map.set(m.id, m.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [issues, teamMembers]);
+
   // Filtered issues
   const filteredIssues = useMemo(() => {
     let list = [...issues];
@@ -168,16 +187,24 @@ export default function AdminBugsMonitor({
       );
     }
 
+    // Assigned Worker Filter
     if (selectedMemberId === "unassigned") {
       list = list.filter((i) => !i.assignedTo);
     } else if (selectedMemberId !== "all") {
       list = list.filter((i) => i.assignedTo?.id === selectedMemberId);
     }
 
+    // Reporter (Person who gave the bug) Filter
+    if (selectedReporterId !== "all") {
+      list = list.filter((i) => i.raisedBy?.id === selectedReporterId);
+    }
+
+    // Project Filter
     if (selectedProjectId !== "all") {
       list = list.filter((i) => i.projectId === selectedProjectId);
     }
 
+    // Status Filter
     if (statusFilter !== "all") {
       if (statusFilter === "Resolved") {
         list = list.filter((i) => i.status === "Resolved" || i.status === "Closed");
@@ -186,12 +213,54 @@ export default function AdminBugsMonitor({
       }
     }
 
+    // Priority Filter
     if (priorityFilter !== "all") {
       list = list.filter((i) => i.priority === priorityFilter);
     }
 
+    // Date Filter
+    if (dateFilter !== "all") {
+      const now = new Date();
+      list = list.filter((i) => {
+        const created = new Date(i.createdAt);
+        if (dateFilter === "today") {
+          return created.toDateString() === now.toDateString();
+        }
+        if (dateFilter === "yesterday") {
+          const yesterday = new Date();
+          yesterday.setDate(now.getDate() - 1);
+          return created.toDateString() === yesterday.toDateString();
+        }
+        if (dateFilter === "this_week") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          return created >= sevenDaysAgo;
+        }
+        if (dateFilter === "this_month") {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          return created >= thirtyDaysAgo;
+        }
+        if (dateFilter === "custom" && customDate) {
+          const createdDateStr = new Date(i.createdAt).toISOString().slice(0, 10);
+          return createdDateStr === customDate;
+        }
+        return true;
+      });
+    }
+
     return list;
-  }, [issues, searchQuery, selectedMemberId, selectedProjectId, statusFilter, priorityFilter]);
+  }, [
+    issues,
+    searchQuery,
+    selectedMemberId,
+    selectedReporterId,
+    selectedProjectId,
+    statusFilter,
+    priorityFilter,
+    dateFilter,
+    customDate,
+  ]);
 
   const handleUpdateStatus = (issueId: string, newStatus: string, resolution?: string) => {
     const formData = new FormData();
@@ -566,6 +635,71 @@ export default function AdminBugsMonitor({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+          {/* Project Filter */}
+          <select
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent max-w-[150px] truncate"
+          >
+            <option value="all">📁 All Projects</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Reporter Filter ("person who gives the bug") */}
+          <select
+            value={selectedReporterId}
+            onChange={(e) => setSelectedReporterId(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent max-w-[160px] truncate"
+          >
+            <option value="all">👤 All Reporters (Who gave bug)</option>
+            {uniqueReporters.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Date Filter */}
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+          >
+            <option value="all">📅 All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="this_week">Last 7 Days</option>
+            <option value="this_month">Last 30 Days</option>
+            <option value="custom">Specific Date...</option>
+          </select>
+
+          {dateFilter === "custom" && (
+            <input
+              type="date"
+              value={customDate}
+              onChange={(e) => setCustomDate(e.target.value)}
+              className="px-2 py-1 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+            />
+          )}
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-2.5 py-1.5 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+          >
+            <option value="all">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="In Progress">In Progress</option>
+            <option value="Resolved">Resolved</option>
+            <option value="Closed">Closed</option>
+          </select>
+
+          {/* Priority Filter */}
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
@@ -578,18 +712,31 @@ export default function AdminBugsMonitor({
             <option value="Low">Low</option>
           </select>
 
-          <select
-            value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="px-2.5 py-1.5 text-xs bg-surface dark:bg-[#141414] border border-border dark:border-[#262626] rounded-lg font-medium text-slate-700 dark:text-slate-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
-          >
-            <option value="all">All Projects</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+          {/* Reset Filters */}
+          {(searchQuery ||
+            selectedMemberId !== "all" ||
+            selectedReporterId !== "all" ||
+            selectedProjectId !== "all" ||
+            statusFilter !== "all" ||
+            priorityFilter !== "all" ||
+            dateFilter !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedMemberId("all");
+                setSelectedReporterId("all");
+                setSelectedProjectId("all");
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setDateFilter("all");
+                setCustomDate("");
+              }}
+              className="px-2.5 py-1 text-xs font-medium text-accent hover:underline cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
 
           {/* Maximize Table Toggle */}
           <button
@@ -657,9 +804,11 @@ export default function AdminBugsMonitor({
                   return (
                     <React.Fragment key={issue.id}>
                       <tr
-                        className={`hover:bg-surface/70 dark:hover:bg-neutral-900/60 transition-colors group ${
+                        onDoubleClick={() => setEditingIssue(issue)}
+                        className={`hover:bg-surface/70 dark:hover:bg-neutral-900/60 transition-colors group cursor-default ${
                           issue.priority === "Critical" && !isResolved ? "bg-red-50/20 dark:bg-red-950/20" : ""
                         } ${isExpanded ? "bg-surface/50 dark:bg-neutral-900/50" : ""}`}
+                        title="Double-click row or click Edit to modify defect"
                       >
                         {/* Index / Expand toggle */}
                         <td className="py-2.5 px-2 text-center text-slate-400 font-medium tabular-nums">
@@ -700,8 +849,9 @@ export default function AdminBugsMonitor({
                           <div className="space-y-0.5">
                             <button
                               type="button"
-                              onClick={() => toggleRowExpansion(issue.id)}
-                              className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block"
+                              onClick={() => setEditingIssue(issue)}
+                              className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block cursor-pointer group-hover:underline"
+                              title="Click to edit defect"
                             >
                               {issue.title}
                             </button>
@@ -754,15 +904,31 @@ export default function AdminBugsMonitor({
                           </span>
                         </td>
 
-                        {/* Status */}
+                        {/* Status (Direct Inline Edit Dropdown) */}
                         <td className="py-2.5 px-1.5">
-                          <span
-                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
+                          <select
+                            value={issue.status}
+                            disabled={isPending}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              if (newStatus === "Resolved") {
+                                toggleRowExpansion(issue.id);
+                                setResolvingId(issue.id);
+                                setResolutionText("");
+                              } else {
+                                handleUpdateStatus(issue.id, newStatus);
+                              }
+                            }}
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded border cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 ${getStatusBadgeClass(
                               issue.status
                             )}`}
+                            title="Change bug status directly from table"
                           >
-                            {issue.status}
-                          </span>
+                            <option value="Open">Open</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                            <option value="Closed">Closed</option>
+                          </select>
                         </td>
 
                         {/* Assigned Worker (with 1-click reassignment) */}
@@ -797,12 +963,12 @@ export default function AdminBugsMonitor({
 
                         {/* Actions */}
                         <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               type="button"
                               onClick={() => setEditingIssue(issue)}
                               title="Edit issue details"
-                              className="px-2 py-0.5 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                              className="px-2.5 py-1 bg-accent/10 hover:bg-accent text-accent hover:text-white dark:bg-blue-950/50 dark:hover:bg-blue-600 dark:text-blue-300 dark:hover:text-white font-semibold rounded-lg text-[11px] transition-all cursor-pointer inline-flex items-center gap-1 border border-accent/20 dark:border-blue-800 shadow-2xs"
                             >
                               <span>✏️</span>
                               <span>Edit</span>

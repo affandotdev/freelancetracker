@@ -10,7 +10,7 @@ import LogMeetingFollowUpModal from "./LogMeetingFollowUpModal";
 import LogDirectMeetingModal from "./LogDirectMeetingModal";
 import EditTaskModal, { EditableTaskData } from "./EditTaskModal";
 import EditIssueModal from "./EditIssueModal";
-import { updateIssueStatusAction, updateMeetingStatusAction, deleteIssueAction } from "@/lib/actions";
+import { updateIssueStatusAction, reassignIssueAction, updateMeetingStatusAction, deleteIssueAction } from "@/lib/actions";
 
 export interface MemberIssueData {
   id: string;
@@ -92,6 +92,10 @@ export default function MemberDashboardClient({
   const [activeTab, setActiveTab] = useState<"tasks" | "issues" | "meetings">("tasks");
   const [taskFilter, setTaskFilter] = useState<string>("All");
   const [issueFilter, setIssueFilter] = useState<string>("All");
+  const [issueProjectFilter, setIssueProjectFilter] = useState<string>("All");
+  const [issueReporterFilter, setIssueReporterFilter] = useState<string>("All");
+  const [issueDateFilter, setIssueDateFilter] = useState<string>("All");
+  const [issueCustomDate, setIssueCustomDate] = useState<string>("");
   const [moduleFilter, setModuleFilter] = useState<string>("All");
   const [issueSearchQuery, setIssueSearchQuery] = useState<string>("");
   const [isTableMaximized, setIsTableMaximized] = useState<boolean>(false);
@@ -191,30 +195,104 @@ export default function MemberDashboardClient({
     (i) => i.status === "Resolved" || i.status === "Closed"
   );
 
-  const filteredIssues = issues.filter((issue) => {
-    if (moduleFilter !== "All" && (issue.module || "User Side") !== moduleFilter) return false;
-    if (issueFilter === "Assigned to Me") {
-      if (issue.assignedTo?.id !== currentUserId) return false;
-    } else if (issueFilter === "Reported by Me") {
-      if (issue.raisedBy.id !== currentUserId) return false;
-    } else if (issueFilter !== "all" && issueFilter !== "All") {
-      if (issue.status !== issueFilter) return false;
-    }
+  // List of unique reporters who have logged bugs
+  const uniqueReporters = useMemo(() => {
+    const map = new Map<string, string>();
+    issues.forEach((i) => {
+      if (i.raisedBy?.id && i.raisedBy?.name) {
+        map.set(i.raisedBy.id, i.raisedBy.name);
+      }
+    });
+    // Also include other team members if needed
+    teamMembers.forEach((m) => {
+      if (!map.has(m.id)) {
+        map.set(m.id, m.name);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [issues, teamMembers]);
 
-    if (issueSearchQuery.trim()) {
-      const q = issueSearchQuery.toLowerCase();
-      const matchTitle = issue.title.toLowerCase().includes(q);
-      const matchPath = (issue.path || "").toLowerCase().includes(q);
-      const matchProject = (issue.projectName || "").toLowerCase().includes(q);
-      const matchReporter = (issue.raisedBy?.name || "").toLowerCase().includes(q);
-      const matchAssignee = (issue.assignedTo?.name || "").toLowerCase().includes(q);
-      const matchDesc = (issue.description || "").toLowerCase().includes(q);
-      if (!matchTitle && !matchPath && !matchProject && !matchReporter && !matchAssignee && !matchDesc) {
+  const filteredIssues = useMemo(() => {
+    return issues.filter((issue) => {
+      // 1. Module filter
+      if (moduleFilter !== "All" && (issue.module || "User Side") !== moduleFilter) return false;
+
+      // 2. Status / scope filter
+      if (issueFilter === "Assigned to Me") {
+        if (issue.assignedTo?.id !== currentUserId) return false;
+      } else if (issueFilter === "Reported by Me") {
+        if (issue.raisedBy.id !== currentUserId) return false;
+      } else if (issueFilter === "Open") {
+        if (issue.status !== "Open") return false;
+      } else if (issueFilter === "In Progress") {
+        if (issue.status !== "In Progress") return false;
+      } else if (issueFilter === "Resolved") {
+        if (issue.status !== "Resolved" && issue.status !== "Closed") return false;
+      } else if (issueFilter !== "all" && issueFilter !== "All") {
+        if (issue.status !== issueFilter) return false;
+      }
+
+      // 3. Project filter
+      if (issueProjectFilter !== "All" && issue.projectId !== issueProjectFilter) {
         return false;
       }
-    }
-    return true;
-  });
+
+      // 4. Reporter ("person who gives the bug") filter
+      if (issueReporterFilter !== "All" && issue.raisedBy?.id !== issueReporterFilter) {
+        return false;
+      }
+
+      // 5. Date filter
+      if (issueDateFilter !== "All") {
+        const created = new Date(issue.createdAt);
+        const now = new Date();
+
+        if (issueDateFilter === "today") {
+          if (created.toDateString() !== now.toDateString()) return false;
+        } else if (issueDateFilter === "yesterday") {
+          const yesterday = new Date();
+          yesterday.setDate(now.getDate() - 1);
+          if (created.toDateString() !== yesterday.toDateString()) return false;
+        } else if (issueDateFilter === "this_week") {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(now.getDate() - 7);
+          if (created < sevenDaysAgo) return false;
+        } else if (issueDateFilter === "this_month") {
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(now.getDate() - 30);
+          if (created < thirtyDaysAgo) return false;
+        } else if (issueDateFilter === "custom" && issueCustomDate) {
+          const createdDateStr = new Date(issue.createdAt).toISOString().slice(0, 10);
+          if (createdDateStr !== issueCustomDate) return false;
+        }
+      }
+
+      // 6. Search query
+      if (issueSearchQuery.trim()) {
+        const q = issueSearchQuery.toLowerCase();
+        const matchTitle = issue.title.toLowerCase().includes(q);
+        const matchPath = (issue.path || "").toLowerCase().includes(q);
+        const matchProject = (issue.projectName || "").toLowerCase().includes(q);
+        const matchReporter = (issue.raisedBy?.name || "").toLowerCase().includes(q);
+        const matchAssignee = (issue.assignedTo?.name || "").toLowerCase().includes(q);
+        const matchDesc = (issue.description || "").toLowerCase().includes(q);
+        if (!matchTitle && !matchPath && !matchProject && !matchReporter && !matchAssignee && !matchDesc) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [
+    issues,
+    moduleFilter,
+    issueFilter,
+    issueProjectFilter,
+    issueReporterFilter,
+    issueDateFilter,
+    issueCustomDate,
+    issueSearchQuery,
+    currentUserId,
+  ]);
 
   const filteredMeetings = useMemo(() => {
     return meetings.filter((m) => {
@@ -310,6 +388,33 @@ export default function MemberDashboardClient({
     });
   };
 
+  const handleReassign = (issueId: string, newMemberId: string) => {
+    const formData = new FormData();
+    formData.append("issueId", issueId);
+    formData.append("assignedToId", newMemberId);
+
+    startTransition(async () => {
+      try {
+        await reassignIssueAction(formData);
+        const newMember = teamMembers.find((m) => m.id === newMemberId) || null;
+        setIssues((prev) =>
+          prev.map((i) =>
+            i.id === issueId
+              ? {
+                  ...i,
+                  assignedTo: newMember
+                    ? { id: newMember.id, name: newMember.name, email: newMember.email }
+                    : null,
+                }
+              : i
+          )
+        );
+      } catch (err: any) {
+        alert(err?.message || "Failed to reassign issue.");
+      }
+    });
+  };
+
   const handleDeleteIssue = async (issueId: string) => {
     if (!confirm("Are you sure you want to delete this issue? This action cannot be undone.")) {
       return;
@@ -370,14 +475,6 @@ export default function MemberDashboardClient({
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={() => handleOpenReportModal()}
-            className="px-4 py-2 bg-accent hover:bg-blue-700 text-white font-medium text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
-          >
-            + Report Defect
-          </button>
-
           <div className="bg-surface p-3 rounded-lg border border-border text-center min-w-[110px]">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
               Tasks Done
@@ -437,60 +534,6 @@ export default function MemberDashboardClient({
         </div>
       )}
 
-      {/* QUICK BUG REPORT: CLICK ANY TEAM MEMBER */}
-      {assignableMembers.length > 0 && (
-        <div className="bg-white p-4 sm:p-5 rounded-lg border border-border shadow-xs space-y-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <h3 className="text-xs font-semibold text-slate-800 uppercase tracking-wider">
-              Quick Defect Assignment Against Teammates
-            </h3>
-            <span className="text-[11px] text-slate-400">
-              Click a member to log a defect against their deliverable:
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {assignableMembers.map((m) => {
-              const isMe = m.id === currentUserId;
-              const initials = m.name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2);
-
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => handleOpenReportModal(m.id)}
-                  className={`px-3 py-1.5 rounded-lg border transition-colors cursor-pointer flex items-center gap-2 shrink-0 ${
-                    isMe
-                      ? "bg-surface hover:bg-slate-100 border-border text-slate-700"
-                      : "bg-white hover:bg-surface border-border text-slate-800"
-                  }`}
-                >
-                  <div
-                    className={`w-6 h-6 rounded flex items-center justify-center font-bold text-[10px] ${
-                      isMe ? "bg-slate-200 text-slate-700" : "bg-slate-800 text-white"
-                    }`}
-                  >
-                    {initials}
-                  </div>
-                  <div className="text-left leading-tight">
-                    <p className="text-xs font-semibold truncate">
-                      {m.name} {isMe ? "(You)" : ""}
-                    </p>
-                    <p className="text-[10px] text-slate-400">
-                      {isMe ? "Self-assign" : "Report defect →"}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Primary Workspace Navigation Tabs */}
       <div className="flex items-center justify-between gap-3 border-b border-border pb-3 flex-wrap">
@@ -860,46 +903,143 @@ export default function MemberDashboardClient({
               </div>
             </div>
 
-            {/* Sub-row: Status Pills + Module Filter */}
-            <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-border/60 dark:border-[#262626]/60">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {[
-                  { key: "All", label: `All (${issues.length})` },
-                  { key: "Assigned to Me", label: `Assigned to Me (${myAssignedIssues.length})` },
-                  { key: "Open", label: `Open (${openIssues.length})` },
-                  { key: "In Progress", label: `In Progress (${inProgressIssues.length})` },
-                  { key: "Resolved", label: `Resolved (${resolvedIssues.length})` },
-                ].map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setIssueFilter(tab.key)}
-                    className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer tabular-nums font-medium ${
-                      issueFilter === tab.key
-                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
-                        : "bg-surface dark:bg-[#161616] text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-neutral-800 border border-border dark:border-[#262626]"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            {/* Sub-row: Status Pills + Project + Reporter + Date + Module Filters */}
+            <div className="flex flex-col gap-2.5 pt-2 border-t border-border/60 dark:border-[#262626]/60">
+              {/* Primary Status Quick-Filters */}
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {[
+                    { key: "All", label: `All (${issues.length})` },
+                    { key: "Assigned to Me", label: `Assigned to Me (${myAssignedIssues.length})` },
+                    { key: "Reported by Me", label: `Reported by Me (${issues.filter((i) => i.raisedBy.id === currentUserId).length})` },
+                    { key: "Open", label: `Open (${openIssues.length})` },
+                    { key: "In Progress", label: `In Progress (${inProgressIssues.length})` },
+                    { key: "Resolved", label: `Resolved (${resolvedIssues.length})` },
+                  ].map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setIssueFilter(tab.key)}
+                      className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer tabular-nums font-medium ${
+                        issueFilter === tab.key
+                          ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                          : "bg-surface dark:bg-[#161616] text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-neutral-800 border border-border dark:border-[#262626]"
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Filter Counts Indicator */}
+                <span className="text-[11px] text-slate-400 font-medium tabular-nums ml-auto">
+                  Showing {filteredIssues.length} of {issues.length} bugs
+                </span>
               </div>
 
-              {/* Module Filter Dropdown */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] text-slate-400 font-medium">Module:</span>
-                <select
-                  value={moduleFilter}
-                  onChange={(e) => setModuleFilter(e.target.value)}
-                  className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
-                >
-                  <option value="All">All Modules</option>
-                  <option value="Admin Side">🛡️ Admin Side</option>
-                  <option value="User Side">👤 User Side</option>
-                  <option value="Client Portal">🏢 Client Portal</option>
-                  <option value="API / Backend">⚡ API / Backend</option>
-                  <option value="Public / Landing">🌐 Public / Landing</option>
-                </select>
+              {/* Multi-Dimensional Filter Dropdowns (Project, Reporter, Date, Module, Reset) */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 1. Project Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Project:</span>
+                  <select
+                    value={issueProjectFilter}
+                    onChange={(e) => setIssueProjectFilter(e.target.value)}
+                    className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[150px] truncate"
+                  >
+                    <option value="All">📁 All Projects</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 2. Reporter ("the person who gives the bug") Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Reporter:</span>
+                  <select
+                    value={issueReporterFilter}
+                    onChange={(e) => setIssueReporterFilter(e.target.value)}
+                    className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[160px] truncate"
+                  >
+                    <option value="All">👤 All Reporters (Who gave bug)</option>
+                    {uniqueReporters.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} {r.id === currentUserId ? "(You)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 3. Date Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Date:</span>
+                  <select
+                    value={issueDateFilter}
+                    onChange={(e) => setIssueDateFilter(e.target.value)}
+                    className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+                  >
+                    <option value="All">📅 All Time</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this_week">Last 7 Days</option>
+                    <option value="this_month">Last 30 Days</option>
+                    <option value="custom">Specific Date...</option>
+                  </select>
+
+                  {issueDateFilter === "custom" && (
+                    <input
+                      type="date"
+                      value={issueCustomDate}
+                      onChange={(e) => setIssueCustomDate(e.target.value)}
+                      className="px-2 py-0.5 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+                    />
+                  )}
+                </div>
+
+                {/* 4. Module Filter Dropdown */}
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] text-slate-400 font-medium hidden sm:inline">Module:</span>
+                  <select
+                    value={moduleFilter}
+                    onChange={(e) => setModuleFilter(e.target.value)}
+                    className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+                  >
+                    <option value="All">All Modules</option>
+                    <option value="Admin Side">🛡️ Admin Side</option>
+                    <option value="User Side">👤 User Side</option>
+                    <option value="Client Portal">🏢 Client Portal</option>
+                    <option value="API / Backend">⚡ API / Backend</option>
+                    <option value="Public / Landing">🌐 Public / Landing</option>
+                  </select>
+                </div>
+
+                {/* 5. Clear / Reset Filters Button */}
+                {(issueSearchQuery ||
+                  issueFilter !== "All" ||
+                  issueProjectFilter !== "All" ||
+                  issueReporterFilter !== "All" ||
+                  issueDateFilter !== "All" ||
+                  moduleFilter !== "All") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIssueSearchQuery("");
+                      setIssueFilter("All");
+                      setIssueProjectFilter("All");
+                      setIssueReporterFilter("All");
+                      setIssueDateFilter("All");
+                      setIssueCustomDate("");
+                      setModuleFilter("All");
+                    }}
+                    className="px-2.5 py-1 text-xs font-medium text-accent hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline cursor-pointer ml-auto flex items-center gap-1"
+                  >
+                    <span>✕</span>
+                    <span>Reset Filters</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -948,9 +1088,11 @@ export default function MemberDashboardClient({
                       return (
                         <React.Fragment key={issue.id}>
                           <tr
-                            className={`hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors group ${
+                            onDoubleClick={() => setEditingIssue(issue)}
+                            className={`hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors group cursor-default ${
                               isMyIssue && isOpen ? "bg-red-50/20 dark:bg-red-950/20" : ""
                             } ${isExpanded ? "bg-surface/50 dark:bg-neutral-900/60" : ""}`}
+                            title="Double-click row or click Edit to modify defect"
                           >
                             {/* Expand icon */}
                             <td className="py-2.5 px-2 text-center text-slate-400 dark:text-neutral-500 font-medium tabular-nums">
@@ -991,8 +1133,9 @@ export default function MemberDashboardClient({
                               <div className="space-y-0.5">
                                 <button
                                   type="button"
-                                  onClick={() => toggleRowExpansion(issue.id)}
-                                  className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block text-xs"
+                                  onClick={() => setEditingIssue(issue)}
+                                  className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block text-xs cursor-pointer group-hover:underline"
+                                  title="Click to edit defect"
                                 >
                                   {issue.title}
                                 </button>
@@ -1042,32 +1185,49 @@ export default function MemberDashboardClient({
                               </span>
                             </td>
 
-                            {/* Status */}
+                            {/* Status (Direct Inline Edit Dropdown) */}
                             <td className="py-2.5 px-1.5">
-                              <span
-                                className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getStatusBadgeClass(
+                              <select
+                                value={issue.status}
+                                disabled={isPending}
+                                onChange={(e) => {
+                                  const newStatus = e.target.value;
+                                  if (newStatus === "Resolved") {
+                                    toggleRowExpansion(issue.id);
+                                    setResolvingIssueId(issue.id);
+                                    setResolutionText("");
+                                  } else {
+                                    handleUpdateStatus(issue.id, newStatus);
+                                  }
+                                }}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent/20 ${getStatusBadgeClass(
                                   issue.status
                                 )}`}
+                                title="Change status directly from table"
                               >
-                                {issue.status}
-                              </span>
+                                <option value="Open">Open</option>
+                                <option value="In Progress">In Progress</option>
+                                <option value="Resolved">Resolved</option>
+                                <option value="Closed">Closed</option>
+                              </select>
                             </td>
 
-                            {/* Assigned To */}
+                            {/* Assigned To (Direct Inline Reassignment) */}
                             <td className="py-2.5 px-2">
-                              <span
-                                className={`font-medium block truncate max-w-[100px] ${
-                                  isMyIssue ? "text-accent dark:text-blue-400 font-semibold" : "text-slate-800 dark:text-slate-200"
-                                }`}
+                              <select
+                                value={issue.assignedTo?.id || ""}
+                                disabled={isPending}
+                                onChange={(e) => handleReassign(issue.id, e.target.value)}
+                                className="text-[11px] font-medium px-2 py-0.5 bg-white dark:bg-[#161616] border border-border dark:border-[#262626] rounded text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[120px] truncate"
+                                title="Reassign worker directly from table"
                               >
-                                {issue.assignedTo ? (
-                                  <>
-                                    {issue.assignedTo.name} {isMyIssue ? "(You)" : ""}
-                                  </>
-                                ) : (
-                                  <span className="italic text-slate-400 dark:text-neutral-500">Unassigned</span>
-                                )}
-                              </span>
+                                <option value="">Unassigned</option>
+                                {assignableMembers.map((m) => (
+                                  <option key={m.id} value={m.id}>
+                                    {m.name} {m.id === currentUserId ? "(You)" : ""}
+                                  </option>
+                                ))}
+                              </select>
                             </td>
 
                             {/* Reporter & Date */}
@@ -1083,14 +1243,14 @@ export default function MemberDashboardClient({
                               </span>
                             </td>
 
-                            {/* Actions (Natural Right Alignment) */}
+                            {/* Actions (Prominent Edit & Controls) */}
                             <td className="py-2.5 px-2 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-1">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   type="button"
                                   onClick={() => setEditingIssue(issue)}
-                                  className="px-2 py-0.5 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
-                                  title="Edit Defect"
+                                  className="px-2.5 py-1 bg-accent/10 hover:bg-accent text-accent hover:text-white dark:bg-blue-950/50 dark:hover:bg-blue-600 dark:text-blue-300 dark:hover:text-white font-semibold rounded-lg text-[11px] transition-all cursor-pointer inline-flex items-center gap-1 border border-accent/20 dark:border-blue-800 shadow-2xs"
+                                  title="Edit defect details"
                                 >
                                   <span>✏️</span>
                                   <span>Edit</span>
