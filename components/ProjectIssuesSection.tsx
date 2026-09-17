@@ -323,30 +323,6 @@ export default function ProjectIssuesSection({
         </div>
       </div>
 
-      {/* Quick Bug Report Against Teammates */}
-      {!isTableMaximized && assignableMembers.length > 0 && (
-        <div className="bg-surface dark:bg-[#161616] p-3 rounded-xl border border-border dark:border-[#262626] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <p className="text-xs text-slate-600 dark:text-neutral-400 font-medium">
-            Quick report against:
-          </p>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {assignableMembers.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => {
-                  setSelectedMemberToReport(m.id);
-                  setIsModalOpen(true);
-                }}
-                className="px-2.5 py-1 bg-white dark:bg-[#202020] hover:bg-slate-100 dark:hover:bg-neutral-700 border border-border dark:border-neutral-700 rounded-lg text-xs font-medium text-ink dark:text-white transition-colors cursor-pointer"
-              >
-                {m.name} →
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Search & Filters Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface/50 dark:bg-[#141414] p-2.5 rounded-xl border border-border dark:border-[#262626]">
         {/* Search */}

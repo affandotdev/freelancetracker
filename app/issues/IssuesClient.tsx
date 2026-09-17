@@ -437,33 +437,6 @@ export default function IssuesClient({
         </p>
       </div>
 
-      {/* Quick Report Bar */}
-      {assignableMembers.length > 0 && (
-        <div className="bg-white p-4 rounded-lg border border-border shadow-xs space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-            <h3 className="text-xs font-semibold text-ink">
-              Quick Report Against Team Member
-            </h3>
-            <span className="text-[11px] text-slate-400">
-              Click a member to immediately file an issue:
-            </span>
-          </div>
-
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            {assignableMembers.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => handleOpenReportModal(m.id)}
-                className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-slate-100 text-ink text-xs font-medium transition-colors cursor-pointer shrink-0"
-              >
-                {m.name} →
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
