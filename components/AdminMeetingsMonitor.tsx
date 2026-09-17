@@ -473,10 +473,10 @@ export default function AdminMeetingsMonitor({
             <p className="text-xs text-gray-500 font-medium">No meetings match your current filters.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-surface/75 border-b border-border text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+          <div className="overflow-x-auto max-h-[calc(100vh-320px)] min-h-[400px] overflow-y-auto">
+            <table className="w-full text-left border-collapse relative">
+              <thead className="sticky top-0 z-10 bg-surface dark:bg-[#161616] border-b border-border dark:border-[#262626] shadow-xs">
+                <tr className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   <th className="py-3 px-4">Timing & Status</th>
                   <th className="py-3 px-4">Client & Title</th>
                   <th className="py-3 px-4">Assigned Member</th>

@@ -18,6 +18,8 @@ export interface MemberIssueData {
   projectName: string;
   title: string;
   description?: string | null;
+  path?: string | null;
+  module?: string | null;
   priority: string;
   status: string;
   resolution?: string | null;
@@ -90,7 +92,12 @@ export default function MemberDashboardClient({
   const [activeTab, setActiveTab] = useState<"tasks" | "issues" | "meetings">("tasks");
   const [taskFilter, setTaskFilter] = useState<string>("All");
   const [issueFilter, setIssueFilter] = useState<string>("All");
+  const [moduleFilter, setModuleFilter] = useState<string>("All");
+  const [issueSearchQuery, setIssueSearchQuery] = useState<string>("");
+  const [isTableMaximized, setIsTableMaximized] = useState<boolean>(false);
   const [meetingFilter, setMeetingFilter] = useState<string>("All");
+  const [meetingSearchQuery, setMeetingSearchQuery] = useState<string>("");
+  const [isMeetingTableMaximized, setIsMeetingTableMaximized] = useState<boolean>(false);
   const [issueViewMode, setIssueViewMode] = useState<"table" | "cards">("table");
   const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(new Set());
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set());
@@ -132,7 +139,7 @@ export default function MemberDashboardClient({
     assignedToId: string;
     title: string;
   }>({
-    projectId: projects[0]?.id || "",
+    projectId: "",
     assignedToId: "",
     title: "",
   });
@@ -185,15 +192,84 @@ export default function MemberDashboardClient({
   );
 
   const filteredIssues = issues.filter((issue) => {
-    if (issueFilter === "all" || issueFilter === "All") return true;
-    if (issueFilter === "Assigned to Me") return issue.assignedTo?.id === currentUserId;
-    if (issueFilter === "Reported by Me") return issue.raisedBy.id === currentUserId;
-    return issue.status === issueFilter;
+    if (moduleFilter !== "All" && (issue.module || "User Side") !== moduleFilter) return false;
+    if (issueFilter === "Assigned to Me") {
+      if (issue.assignedTo?.id !== currentUserId) return false;
+    } else if (issueFilter === "Reported by Me") {
+      if (issue.raisedBy.id !== currentUserId) return false;
+    } else if (issueFilter !== "all" && issueFilter !== "All") {
+      if (issue.status !== issueFilter) return false;
+    }
+
+    if (issueSearchQuery.trim()) {
+      const q = issueSearchQuery.toLowerCase();
+      const matchTitle = issue.title.toLowerCase().includes(q);
+      const matchPath = (issue.path || "").toLowerCase().includes(q);
+      const matchProject = (issue.projectName || "").toLowerCase().includes(q);
+      const matchReporter = (issue.raisedBy?.name || "").toLowerCase().includes(q);
+      const matchAssignee = (issue.assignedTo?.name || "").toLowerCase().includes(q);
+      const matchDesc = (issue.description || "").toLowerCase().includes(q);
+      if (!matchTitle && !matchPath && !matchProject && !matchReporter && !matchAssignee && !matchDesc) {
+        return false;
+      }
+    }
+    return true;
   });
+
+  const filteredMeetings = useMemo(() => {
+    return meetings.filter((m) => {
+      if (meetingFilter === "Scheduled" && m.status !== "Scheduled") return false;
+      if (meetingFilter === "Completed" && m.status !== "Completed") return false;
+      if (meetingFilter === "Follow-up Required") {
+        const hasFollowUp =
+          m.outcome === "Follow-up Required" ||
+          (m.nextFollowUpDate && new Date(m.nextFollowUpDate) >= new Date());
+        if (!hasFollowUp) return false;
+      }
+
+      if (meetingSearchQuery.trim()) {
+        const q = meetingSearchQuery.toLowerCase();
+        const matchTitle = m.title.toLowerCase().includes(q);
+        const matchClient = (m.clientName || "").toLowerCase().includes(q);
+        const matchProject = (m.projectName || "").toLowerCase().includes(q);
+        const matchPlatform = (m.platform || "").toLowerCase().includes(q);
+        const matchNotes = (m.notes || "").toLowerCase().includes(q);
+        const matchOutcome = (m.outcome || "").toLowerCase().includes(q);
+        if (
+          !matchTitle &&
+          !matchClient &&
+          !matchProject &&
+          !matchPlatform &&
+          !matchNotes &&
+          !matchOutcome
+        ) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [meetings, meetingFilter, meetingSearchQuery]);
+
+  const getModuleBadgeClass = (m?: string | null) => {
+    switch (m) {
+      case "Admin Side":
+        return "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800";
+      case "User Side":
+        return "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+      case "Client Portal":
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+      case "API / Backend":
+        return "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800";
+      case "Public / Landing":
+        return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800";
+      default:
+        return "bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-slate-200 dark:border-neutral-700";
+    }
+  };
 
   const handleOpenReportModal = (memberId = "", projectId = "", title = "") => {
     setModalDefaults({
-      projectId: projectId || projects[0]?.id || "",
+      projectId: projectId || "",
       assignedToId: memberId,
       title: title || "",
     });
@@ -249,28 +325,28 @@ export default function MemberDashboardClient({
   const getPriorityBadgeClass = (priority: string) => {
     switch (priority) {
       case "Critical":
-        return "bg-red-50 text-signal-red border-red-200";
+        return "bg-red-50 text-signal-red dark:bg-red-950/40 dark:text-rose-300 border-red-200 dark:border-red-800";
       case "High":
-        return "bg-amber-50 text-signal-amber border-amber-200";
+        return "bg-amber-50 text-signal-amber dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800";
       case "Medium":
-        return "bg-blue-50 text-accent border-blue-200";
+        return "bg-blue-50 text-accent dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800";
       default:
-        return "bg-surface text-slate-700 border-border";
+        return "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border dark:border-neutral-700";
     }
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Open":
-        return "bg-red-50 text-signal-red border-red-200";
+        return "bg-red-50 text-signal-red dark:bg-red-950/40 dark:text-rose-300 border-red-200 dark:border-red-800";
       case "In Progress":
-        return "bg-blue-50 text-accent border-blue-200";
+        return "bg-blue-50 text-accent dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800";
       case "Resolved":
-        return "bg-emerald-50 text-signal-green border-emerald-200";
+        return "bg-emerald-50 text-signal-green dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
       case "Closed":
-        return "bg-surface text-slate-700 border-border";
+        return "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border dark:border-neutral-700";
       default:
-        return "bg-surface text-slate-700 border-border";
+        return "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border dark:border-neutral-700";
     }
   };
 
@@ -624,100 +700,216 @@ export default function MemberDashboardClient({
 
       {/* TAB 2: BUGS & ISSUES (TABLE VIEW PRIMARY) */}
       {activeTab === "issues" && (
-        <div className="space-y-6">
-          {/* Issue KPI Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+        <div className={`space-y-4 ${isTableMaximized ? "fixed inset-2 sm:inset-4 md:inset-6 z-50 bg-white dark:bg-[#111111] p-4 sm:p-6 rounded-2xl shadow-2xl border border-border dark:border-[#262626] overflow-hidden flex flex-col" : ""}`}>
+          {/* Issue KPI Stats - Compact & Interactive */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <button
+              type="button"
+              onClick={() => setIssueFilter("All")}
+              className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                issueFilter === "All"
+                  ? "bg-slate-50 dark:bg-neutral-800/80 border-slate-400 dark:border-neutral-500 ring-2 ring-slate-400/20"
+                  : "bg-white dark:bg-[#111111] border-border dark:border-[#262626] hover:border-slate-300 dark:hover:border-neutral-700"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
                 Total Issues
               </span>
-              <div className="text-2xl font-bold text-ink mt-1 tabular-nums">{issues.length}</div>
-              <span className="text-[11px] text-slate-500">Related to your work</span>
-            </div>
+              <div className="text-2xl font-bold text-ink dark:text-white mt-0.5 tabular-nums">
+                {issues.length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Related to your work</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-red-200/60 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setIssueFilter("Assigned to Me")}
+              className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                issueFilter === "Assigned to Me"
+                  ? "bg-red-50/70 dark:bg-red-950/40 border-red-400 dark:border-red-700 ring-2 ring-red-400/20"
+                  : "bg-white dark:bg-[#111111] border-red-200/70 dark:border-red-950/50 hover:border-red-300"
+              }`}
+            >
               <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-red block">
                 Assigned to You
               </span>
-              <div className="text-2xl font-bold text-signal-red mt-1 tabular-nums">{myAssignedIssues.length}</div>
-              <span className="text-[11px] text-slate-500">Need your resolution</span>
-            </div>
+              <div className="text-2xl font-bold text-signal-red mt-0.5 tabular-nums">
+                {myAssignedIssues.length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Need your resolution</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-blue-200/60 shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent block">
+            <button
+              type="button"
+              onClick={() => setIssueFilter("In Progress")}
+              className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                issueFilter === "In Progress"
+                  ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-700 ring-2 ring-blue-400/20"
+                  : "bg-white dark:bg-[#111111] border-blue-200/70 dark:border-blue-950/50 hover:border-blue-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent dark:text-blue-400 block">
                 In Progress
               </span>
-              <div className="text-2xl font-bold text-accent mt-1 tabular-nums">{inProgressIssues.length}</div>
-              <span className="text-[11px] text-slate-500">Active fixes</span>
-            </div>
+              <div className="text-2xl font-bold text-accent dark:text-blue-400 mt-0.5 tabular-nums">
+                {inProgressIssues.length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Active fixes</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-emerald-200/60 shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green block">
+            <button
+              type="button"
+              onClick={() => setIssueFilter("Resolved")}
+              className={`p-3 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                issueFilter === "Resolved"
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-400/20"
+                  : "bg-white dark:bg-[#111111] border-emerald-200/70 dark:border-emerald-950/50 hover:border-emerald-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green dark:text-emerald-400 block">
                 Resolved
               </span>
-              <div className="text-2xl font-bold text-signal-green mt-1 tabular-nums">{resolvedIssues.length}</div>
-              <span className="text-[11px] text-slate-500">Verified & closed</span>
-            </div>
+              <div className="text-2xl font-bold text-signal-green dark:text-emerald-400 mt-0.5 tabular-nums">
+                {resolvedIssues.length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Verified & closed</span>
+            </button>
           </div>
 
-          {/* Issue Filters & View Switcher Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 p-1 bg-surface rounded-lg border border-border max-w-xl text-xs font-medium flex-wrap">
-              {[
-                { key: "All", label: `All (${issues.length})` },
-                { key: "Assigned to Me", label: `Assigned to Me (${myAssignedIssues.length})` },
-                { key: "Open", label: `Open (${openIssues.length})` },
-                { key: "In Progress", label: `In Progress (${inProgressIssues.length})` },
-                { key: "Resolved", label: `Resolved (${resolvedIssues.length})` },
-              ].map((tab) => (
+          {/* Issue Toolbar: Prominent + Report Button, Search, Filters, Fullscreen & View Mode */}
+          <div className="bg-white dark:bg-[#111111] p-3 sm:p-3.5 rounded-xl border border-border dark:border-[#262626] shadow-xs flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Left group: + Report Defect button + Real-time Search */}
+              <div className="flex items-center gap-2.5 flex-wrap">
                 <button
-                  key={tab.key}
                   type="button"
-                  onClick={() => setIssueFilter(tab.key)}
-                  className={`px-3 py-1 rounded-md transition-colors cursor-pointer tabular-nums ${
-                    issueFilter === tab.key
-                      ? "bg-white text-ink font-semibold shadow-xs border border-border/80"
-                      : "text-slate-600 hover:text-ink"
-                  }`}
+                  onClick={() => handleOpenReportModal()}
+                  className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 shrink-0"
                 >
-                  {tab.label}
+                  <span className="text-sm font-bold leading-none">+</span>
+                  <span>Report Defect</span>
                 </button>
-              ))}
+
+                {/* Instant Search Bar */}
+                <div className="relative flex-1 sm:w-72">
+                  <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 dark:text-neutral-500 text-xs">
+                    🔍
+                  </span>
+                  <input
+                    type="text"
+                    value={issueSearchQuery}
+                    onChange={(e) => setIssueSearchQuery(e.target.value)}
+                    placeholder="Search defect, path, project, person..."
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-xl text-ink dark:text-white placeholder:text-slate-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                  />
+                  {issueSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setIssueSearchQuery("")}
+                      className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-ink dark:hover:text-white text-xs cursor-pointer"
+                      title="Clear search"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Right group: Maximize & View Mode Switcher */}
+              <div className="flex items-center gap-2 self-end md:self-auto">
+                {/* Maximize / Full-Screen Table Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsTableMaximized((prev) => !prev)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 ${
+                    isTableMaximized
+                      ? "bg-accent text-white border-accent shadow-xs"
+                      : "bg-surface dark:bg-[#161616] border-border dark:border-[#262626] text-slate-700 dark:text-slate-300 hover:text-ink dark:hover:text-white"
+                  }`}
+                  title={isTableMaximized ? "Restore table size" : "Expand table full screen"}
+                >
+                  <span>{isTableMaximized ? "🗗" : "⛶"}</span>
+                  <span className="hidden sm:inline">{isTableMaximized ? "Compact" : "Maximize Table"}</span>
+                </button>
+
+                {/* View Mode Toggle */}
+                <div className="flex p-0.5 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-xl text-xs font-medium shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIssueViewMode("table")}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      issueViewMode === "table"
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-ink dark:hover:text-white"
+                    }`}
+                  >
+                    <span>Table</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIssueViewMode("cards")}
+                    className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      issueViewMode === "cards"
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-ink dark:hover:text-white"
+                    }`}
+                  >
+                    <span>Cards</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex p-0.5 bg-surface border border-border rounded-lg text-xs font-medium shrink-0 self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setIssueViewMode("table")}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  issueViewMode === "table"
-                    ? "bg-white text-ink font-semibold shadow-xs border border-border/80"
-                    : "text-slate-500 hover:text-ink"
-                }`}
-              >
-                <span>Table</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIssueViewMode("cards")}
-                className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  issueViewMode === "cards"
-                    ? "bg-white text-ink font-semibold shadow-xs border border-border/80"
-                    : "text-slate-500 hover:text-ink"
-                }`}
-              >
-                <span>Cards</span>
-              </button>
+            {/* Sub-row: Status Pills + Module Filter */}
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-border/60 dark:border-[#262626]/60">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { key: "All", label: `All (${issues.length})` },
+                  { key: "Assigned to Me", label: `Assigned to Me (${myAssignedIssues.length})` },
+                  { key: "Open", label: `Open (${openIssues.length})` },
+                  { key: "In Progress", label: `In Progress (${inProgressIssues.length})` },
+                  { key: "Resolved", label: `Resolved (${resolvedIssues.length})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setIssueFilter(tab.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer tabular-nums font-medium ${
+                      issueFilter === tab.key
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "bg-surface dark:bg-[#161616] text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-neutral-800 border border-border dark:border-[#262626]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Module Filter Dropdown */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-slate-400 font-medium">Module:</span>
+                <select
+                  value={moduleFilter}
+                  onChange={(e) => setModuleFilter(e.target.value)}
+                  className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer"
+                >
+                  <option value="All">All Modules</option>
+                  <option value="Admin Side">🛡️ Admin Side</option>
+                  <option value="User Side">👤 User Side</option>
+                  <option value="Client Portal">🏢 Client Portal</option>
+                  <option value="API / Backend">⚡ API / Backend</option>
+                  <option value="Public / Landing">🌐 Public / Landing</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Issues Presentation: Table View (Primary) vs Cards View */}
+          {/* Issues Presentation: Table View (Primary - Large Viewport & Sticky Actions) vs Cards View */}
           {filteredIssues.length === 0 ? (
-            <div className="bg-white p-12 border border-border rounded-lg text-center space-y-3 shadow-xs">
-              <h3 className="text-sm font-semibold text-slate-800">No issues found</h3>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                No bugs are currently blocking your deliverables under this filter.
+            <div className="bg-white dark:bg-[#111111] p-12 border border-border dark:border-[#262626] rounded-xl text-center space-y-3 shadow-xs">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">No issues found</h3>
+              <p className="text-xs text-slate-400 dark:text-neutral-500 max-w-xs mx-auto">
+                {issueSearchQuery ? "No issues matched your search query." : "No bugs are currently blocking your deliverables under this filter."}
               </p>
               <button
                 type="button"
@@ -728,23 +920,25 @@ export default function MemberDashboardClient({
               </button>
             </div>
           ) : issueViewMode === "table" ? (
-            /* TABLE FORMAT (PRIMARY) */
-            <div className="bg-white border border-border rounded-lg shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
+            /* TABLE FORMAT (FREE FLOW - GENEROUS HEIGHT & NO HORIZONTAL SCROLL) */
+            <div className={`flex flex-col ${isTableMaximized ? "fixed inset-2 sm:inset-4 md:inset-6 z-50 bg-white dark:bg-[#111111] p-4 sm:p-6 rounded-2xl shadow-2xl border border-border dark:border-[#262626] overflow-hidden" : ""}`}>
+              <div className={`overflow-y-auto overflow-x-hidden ${isTableMaximized ? "flex-1 min-h-0" : "min-h-[520px] max-h-[76vh]"}`}>
                 <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="bg-surface border-b border-border text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                      <th className="py-3 px-4 w-10 text-center">#</th>
-                      <th className="py-3 px-4 min-w-[240px]">Defect / Issue Title</th>
-                      <th className="py-3 px-4 min-w-[140px]">Project</th>
-                      <th className="py-3 px-4 w-28">Priority</th>
-                      <th className="py-3 px-4 w-28">Status</th>
-                      <th className="py-3 px-4 min-w-[140px]">Assigned To</th>
-                      <th className="py-3 px-4 min-w-[130px]">Reported By</th>
-                      <th className="py-3 px-4 min-w-[150px] text-right">Actions</th>
+                  <thead className="sticky top-0 z-20 bg-surface/95 dark:bg-[#161616]/95 backdrop-blur border-b border-border dark:border-[#262626]">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th className="py-2.5 px-2 w-7 text-center">#</th>
+                      <th className="py-2.5 px-2 w-28">Module</th>
+                      <th className="py-2.5 px-2">Defect / Issue Title</th>
+                      <th className="py-2.5 px-2 w-36">Route / Path</th>
+                      <th className="py-2.5 px-2 w-28">Project</th>
+                      <th className="py-2.5 px-1.5 w-20">Priority</th>
+                      <th className="py-2.5 px-1.5 w-20">Status</th>
+                      <th className="py-2.5 px-2 w-28">Assigned To</th>
+                      <th className="py-2.5 px-2 w-24">Reported By</th>
+                      <th className="py-2.5 px-2 w-32 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody className="divide-y divide-border/60 dark:divide-[#262626]/60">
                     {filteredIssues.map((issue) => {
                       const isOpen = issue.status === "Open";
                       const isResolved = issue.status === "Resolved" || issue.status === "Closed";
@@ -754,56 +948,93 @@ export default function MemberDashboardClient({
                       return (
                         <React.Fragment key={issue.id}>
                           <tr
-                            className={`hover:bg-surface/70 transition-colors group ${
-                              isMyIssue && isOpen ? "bg-red-50/20" : ""
-                            } ${isExpanded ? "bg-surface/50" : ""}`}
+                            className={`hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors group ${
+                              isMyIssue && isOpen ? "bg-red-50/20 dark:bg-red-950/20" : ""
+                            } ${isExpanded ? "bg-surface/50 dark:bg-neutral-900/60" : ""}`}
                           >
                             {/* Expand icon */}
-                            <td className="py-3.5 px-4 text-center text-slate-400 font-medium tabular-nums">
+                            <td className="py-2.5 px-2 text-center text-slate-400 dark:text-neutral-500 font-medium tabular-nums">
                               <button
                                 type="button"
                                 onClick={() => toggleRowExpansion(issue.id)}
-                                className="hover:text-ink cursor-pointer p-0.5"
+                                className="hover:text-ink dark:hover:text-white cursor-pointer p-0.5"
                                 title={isExpanded ? "Collapse details" : "Expand details"}
                               >
                                 {isExpanded ? "▼" : "▶"}
                               </button>
                             </td>
 
+                            {/* Module */}
+                            <td className="py-2.5 px-2">
+                              <span
+                                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border whitespace-nowrap ${getModuleBadgeClass(
+                                  issue.module
+                                )}`}
+                              >
+                                <span>
+                                  {issue.module === "Admin Side"
+                                    ? "🛡️"
+                                    : issue.module === "Client Portal"
+                                    ? "🏢"
+                                    : issue.module === "API / Backend"
+                                    ? "⚡"
+                                    : issue.module === "Public / Landing"
+                                    ? "🌐"
+                                    : "👤"}
+                                </span>
+                                <span>{issue.module || "User Side"}</span>
+                              </span>
+                            </td>
+
                             {/* Title & snippet */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-2.5 px-2">
                               <div className="space-y-0.5">
                                 <button
                                   type="button"
                                   onClick={() => toggleRowExpansion(issue.id)}
-                                  className="font-semibold text-ink hover:text-accent transition-colors text-left block"
+                                  className="font-semibold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 transition-colors text-left block text-xs"
                                 >
                                   {issue.title}
                                 </button>
                                 {issue.description && (
-                                  <p className="text-[11px] text-slate-500 line-clamp-1 max-w-md">
+                                  <p className="text-[11px] text-slate-500 dark:text-neutral-400 line-clamp-1 max-w-sm">
                                     {issue.description}
                                   </p>
                                 )}
                                 {(issue.attachmentUrl || issue.attachmentName) && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent dark:text-blue-300 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.2 rounded border border-blue-100 dark:border-blue-900">
                                     <span>Evidence attached</span>
                                   </span>
                                 )}
                               </div>
                             </td>
 
+                            {/* Route / Path */}
+                            <td className="py-2.5 px-2">
+                              {issue.path ? (
+                                <span
+                                  className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-neutral-800 px-2 py-0.5 rounded border border-slate-200 dark:border-neutral-700 truncate max-w-[130px] sm:max-w-[160px]"
+                                  title={`Route / Path: ${issue.path}`}
+                                >
+                                  <span>📍</span>
+                                  <span className="truncate">{issue.path}</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 dark:text-neutral-600 text-xs">—</span>
+                              )}
+                            </td>
+
                             {/* Project */}
-                            <td className="py-3.5 px-4">
-                              <span className="font-medium text-slate-700 block truncate max-w-[150px]">
+                            <td className="py-2.5 px-2">
+                              <span className="font-medium text-slate-700 dark:text-slate-300 block truncate max-w-[100px] sm:max-w-[120px]">
                                 {issue.projectName}
                               </span>
                             </td>
 
                             {/* Priority */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-2.5 px-1.5">
                               <span
-                                className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getPriorityBadgeClass(
+                                className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getPriorityBadgeClass(
                                   issue.priority
                                 )}`}
                               >
@@ -812,9 +1043,9 @@ export default function MemberDashboardClient({
                             </td>
 
                             {/* Status */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-2.5 px-1.5">
                               <span
-                                className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
+                                className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getStatusBadgeClass(
                                   issue.status
                                 )}`}
                               >
@@ -823,10 +1054,10 @@ export default function MemberDashboardClient({
                             </td>
 
                             {/* Assigned To */}
-                            <td className="py-3.5 px-4">
+                            <td className="py-2.5 px-2">
                               <span
-                                className={`font-medium ${
-                                  isMyIssue ? "text-accent font-semibold" : "text-slate-800"
+                                className={`font-medium block truncate max-w-[100px] ${
+                                  isMyIssue ? "text-accent dark:text-blue-400 font-semibold" : "text-slate-800 dark:text-slate-200"
                                 }`}
                               >
                                 {issue.assignedTo ? (
@@ -834,17 +1065,17 @@ export default function MemberDashboardClient({
                                     {issue.assignedTo.name} {isMyIssue ? "(You)" : ""}
                                   </>
                                 ) : (
-                                  <span className="italic text-slate-400">Unassigned</span>
+                                  <span className="italic text-slate-400 dark:text-neutral-500">Unassigned</span>
                                 )}
                               </span>
                             </td>
 
                             {/* Reporter & Date */}
-                            <td className="py-3.5 px-4">
-                              <span className="font-medium text-slate-700 block truncate">
+                            <td className="py-2.5 px-2">
+                              <span className="font-medium text-slate-700 dark:text-slate-300 block truncate max-w-[90px] sm:max-w-[100px]">
                                 {issue.raisedBy.name}
                               </span>
-                              <span className="text-[10px] text-slate-400 tabular-nums">
+                              <span className="text-[10px] text-slate-400 dark:text-neutral-500 tabular-nums">
                                 {new Date(issue.createdAt).toLocaleDateString("en-US", {
                                   month: "short",
                                   day: "numeric",
@@ -852,16 +1083,17 @@ export default function MemberDashboardClient({
                               </span>
                             </td>
 
-                            {/* Actions */}
-                            <td className="py-3.5 px-4 text-right">
-                              <div className="flex items-center justify-end gap-1.5">
+                            {/* Actions (Natural Right Alignment) */}
+                            <td className="py-2.5 px-2 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1">
                                 <button
                                   type="button"
                                   onClick={() => setEditingIssue(issue)}
-                                  className="px-2.5 py-1 bg-surface hover:bg-slate-200 text-slate-700 border border-border font-medium rounded text-[11px] transition-colors cursor-pointer"
+                                  className="px-2 py-0.5 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
                                   title="Edit Defect"
                                 >
-                                  ✏️ Edit
+                                  <span>✏️</span>
+                                  <span>Edit</span>
                                 </button>
 
                                 {isOpen && (
@@ -869,9 +1101,9 @@ export default function MemberDashboardClient({
                                     type="button"
                                     disabled={isPending}
                                     onClick={() => handleUpdateStatus(issue.id, "In Progress")}
-                                    className="px-2.5 py-1 bg-surface hover:bg-slate-100 text-accent border border-border font-medium rounded text-[11px] transition-colors cursor-pointer"
+                                    className="px-2 py-0.5 bg-surface dark:bg-neutral-800 hover:bg-slate-100 dark:hover:bg-neutral-700 text-accent dark:text-blue-300 border border-border dark:border-neutral-700 font-medium rounded text-[11px] transition-colors cursor-pointer"
                                   >
-                                    Start Work
+                                    Start
                                   </button>
                                 )}
 
@@ -884,14 +1116,14 @@ export default function MemberDashboardClient({
                                       setResolvingIssueId(issue.id);
                                       setResolutionText("");
                                     }}
-                                    className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-signal-green border border-emerald-200 font-medium rounded text-[11px] transition-colors cursor-pointer"
+                                    className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-signal-green dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 font-medium rounded text-[11px] transition-colors cursor-pointer"
                                   >
                                     Resolve
                                   </button>
                                 )}
 
                                 {isResolved && (
-                                  <span className="text-[11px] font-medium text-signal-green">
+                                  <span className="text-[11px] font-medium text-signal-green dark:text-emerald-400">
                                     Resolved
                                   </span>
                                 )}
@@ -899,12 +1131,10 @@ export default function MemberDashboardClient({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteIssue(issue.id)}
-                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-signal-red rounded transition-colors cursor-pointer"
+                                  className="p-1 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-signal-red dark:hover:text-rose-400 rounded transition-colors cursor-pointer text-xs"
                                   title="Delete issue"
                                 >
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
+                                  ✕
                                 </button>
                               </div>
                             </td>
@@ -912,28 +1142,58 @@ export default function MemberDashboardClient({
 
                           {/* Expandable Details Row */}
                           {isExpanded && (
-                            <tr className="bg-surface/70 border-b border-border">
-                              <td colSpan={8} className="p-4 sm:p-5">
-                                <div className="space-y-4 max-w-4xl mx-auto bg-white p-4 rounded-lg border border-border">
+                            <tr className="bg-surface/70 dark:bg-[#161616] border-b border-border dark:border-[#262626]">
+                              <td colSpan={10} className="p-4 sm:p-5">
+                                <div className="space-y-4 max-w-4xl mx-auto bg-white dark:bg-[#111111] p-4 rounded-xl border border-border dark:border-[#262626]">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {/* Module */}
+                                    <div className="space-y-1">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
+                                        Target Module / Side
+                                      </span>
+                                      <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 bg-surface dark:bg-[#161616] p-2.5 rounded-lg border border-border dark:border-[#262626] flex items-center gap-2">
+                                        <span
+                                          className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getModuleBadgeClass(
+                                            issue.module
+                                          )}`}
+                                        >
+                                          {issue.module || "User Side"}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Route / Screen / File Path */}
+                                    <div className="space-y-1">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
+                                        📍 Route / Screen / File Path
+                                      </span>
+                                      <div className="text-xs font-mono bg-surface dark:bg-[#161616] p-2.5 rounded-lg border border-border dark:border-[#262626] text-slate-800 dark:text-slate-200 font-semibold select-all truncate">
+                                        {issue.path || "Not specified"}
+                                      </div>
+                                    </div>
+                                  </div>
+
                                   {/* Full description */}
                                   {issue.description ? (
                                     <div className="space-y-1">
-                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
                                         Description & Steps to Reproduce
                                       </span>
-                                      <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-md border border-border">
+                                      <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-surface dark:bg-[#161616] p-3 rounded-lg border border-border dark:border-[#262626]">
                                         {issue.description}
                                       </p>
                                     </div>
                                   ) : (
-                                    <p className="text-xs text-slate-400 italic">No extra description provided.</p>
+                                    <p className="text-xs text-slate-400 dark:text-neutral-500 italic">
+                                      No extra reproduction steps recorded.
+                                    </p>
                                   )}
 
-                                  {/* Evidence / Attachments */}
+                                  {/* Evidence Attachment */}
                                   {(issue.attachmentUrl || issue.attachmentName) && (
-                                    <div className="space-y-1">
-                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
-                                        Attached Bug Evidence
+                                    <div className="space-y-2 pt-2 border-t border-border dark:border-[#262626]">
+                                      <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
+                                        Attached Evidence
                                       </span>
                                       <IssueAttachmentViewer
                                         attachmentUrl={issue.attachmentUrl}
@@ -943,51 +1203,57 @@ export default function MemberDashboardClient({
                                     </div>
                                   )}
 
-                                  {/* Resolution Note if resolved */}
-                                  {issue.resolution && (
-                                    <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-signal-green space-y-0.5">
-                                      <span className="font-semibold block">Resolution Note:</span>
-                                      <p className="whitespace-pre-wrap leading-relaxed text-emerald-950">
-                                        {issue.resolution}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Inline Resolve Box */}
-                                  {resolvingIssueId === issue.id && (
-                                    <div className="bg-surface p-3.5 rounded-lg border border-border space-y-2">
-                                      <label className="block text-xs font-semibold text-slate-700">
-                                        How did you resolve this bug?
-                                      </label>
+                                  {/* Inline Resolution form */}
+                                  {resolvingIssueId === issue.id ? (
+                                    <div className="space-y-3 pt-3 border-t border-border dark:border-[#262626] bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800/60">
+                                      <div className="flex items-center justify-between">
+                                        <h5 className="text-xs font-semibold text-signal-green dark:text-emerald-300 flex items-center gap-1.5">
+                                          <span>✓</span> Record Resolution Notes
+                                        </h5>
+                                        <button
+                                          type="button"
+                                          onClick={() => setResolvingIssueId(null)}
+                                          className="text-xs text-slate-400 hover:text-ink cursor-pointer"
+                                        >
+                                          ✕ Cancel
+                                        </button>
+                                      </div>
                                       <textarea
                                         rows={2}
-                                        required
                                         value={resolutionText}
                                         onChange={(e) => setResolutionText(e.target.value)}
-                                        placeholder="e.g. Corrected CSS overflow issue and updated mobile breakpoint."
-                                        className="w-full p-2.5 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
+                                        placeholder="Explain how this bug was fixed, PR link, or confirmation of fix..."
+                                        className="w-full text-xs p-2.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-[#111111] text-ink dark:text-white focus:ring-2 focus:ring-signal-green/20 focus:outline-none"
                                       />
                                       <div className="flex justify-end gap-2">
                                         <button
                                           type="button"
-                                          onClick={() => {
-                                            setResolvingIssueId(null);
-                                            setResolutionText("");
-                                          }}
-                                          className="px-3 py-1 text-xs text-slate-600 bg-white hover:bg-surface border border-border rounded-lg cursor-pointer"
+                                          onClick={() => setResolvingIssueId(null)}
+                                          className="px-3 py-1.5 text-xs text-slate-600 dark:text-neutral-400 hover:bg-slate-100 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer"
                                         >
                                           Cancel
                                         </button>
                                         <button
                                           type="button"
-                                          disabled={isPending || !resolutionText.trim()}
+                                          disabled={isPending}
                                           onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
-                                          className="px-3.5 py-1 bg-signal-green hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                                          className="px-3.5 py-1.5 bg-signal-green hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors cursor-pointer"
                                         >
-                                          {isPending ? "Saving..." : "Confirm Fix & Resolve"}
+                                          {isPending ? "Saving..." : "Confirm Resolved"}
                                         </button>
                                       </div>
                                     </div>
+                                  ) : (
+                                    issue.resolution && (
+                                      <div className="space-y-1 pt-2 border-t border-border dark:border-[#262626]">
+                                        <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green dark:text-emerald-400 block">
+                                          Resolution Notes
+                                        </span>
+                                        <p className="text-xs text-slate-700 dark:text-slate-300 bg-emerald-50/40 dark:bg-emerald-950/20 p-2.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50">
+                                          {issue.resolution}
+                                        </p>
+                                      </div>
+                                    )
                                   )}
                                 </div>
                               </td>
@@ -998,6 +1264,27 @@ export default function MemberDashboardClient({
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Table Footer Stats Bar */}
+              <div className="px-4 py-2.5 bg-surface dark:bg-[#161616] border-t border-border dark:border-[#262626] flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-neutral-400 gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-ink dark:text-white tabular-nums">
+                    Showing {filteredIssues.length} of {issues.length} issues
+                  </span>
+                  {issueSearchQuery && (
+                    <span className="text-accent dark:text-blue-400 font-medium">
+                      (filtered by &quot;{issueSearchQuery}&quot;)
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-[11px]">
+                  <span className="text-signal-red font-medium tabular-nums">{openIssues.length} Open</span>
+                  <span>·</span>
+                  <span className="text-accent dark:text-blue-400 font-medium tabular-nums">{inProgressIssues.length} In Progress</span>
+                  <span>·</span>
+                  <span className="text-signal-green dark:text-emerald-400 font-medium tabular-nums">{resolvedIssues.length} Resolved</span>
+                </div>
               </div>
             </div>
           ) : (
@@ -1011,14 +1298,34 @@ export default function MemberDashboardClient({
                 return (
                   <div
                     key={issue.id}
-                    className={`bg-white p-5 rounded-lg border transition-colors shadow-xs space-y-3.5 ${
+                    className={`bg-white dark:bg-[#111111] p-5 rounded-xl border transition-colors shadow-xs space-y-3.5 ${
                       isMyIssue && isOpen
-                        ? "border-red-300 ring-1 ring-red-200"
-                        : "border-border"
+                        ? "border-red-300 dark:border-red-900 ring-1 ring-red-200 dark:ring-red-950"
+                        : "border-border dark:border-[#262626]"
                     }`}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        {/* Module Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getModuleBadgeClass(
+                            issue.module
+                          )}`}
+                        >
+                          <span>
+                            {issue.module === "Admin Side"
+                              ? "🛡️"
+                              : issue.module === "Client Portal"
+                              ? "🏢"
+                              : issue.module === "API / Backend"
+                              ? "⚡"
+                              : issue.module === "Public / Landing"
+                              ? "🌐"
+                              : "👤"}
+                          </span>
+                          <span>{issue.module || "User Side"}</span>
+                        </span>
+
                         <span
                           className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${getPriorityBadgeClass(
                             issue.priority
@@ -1033,12 +1340,12 @@ export default function MemberDashboardClient({
                         >
                           {issue.status}
                         </span>
-                        <span className="text-[11px] font-medium text-slate-600 bg-surface border border-border px-2 py-0.5 rounded">
+                        <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] px-2 py-0.5 rounded">
                           {issue.projectName}
                         </span>
                       </div>
 
-                      <span className="text-slate-400 text-[11px] tabular-nums">
+                      <span className="text-slate-400 dark:text-neutral-500 text-[11px] tabular-nums">
                         {new Date(issue.createdAt).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -1048,12 +1355,23 @@ export default function MemberDashboardClient({
                       </span>
                     </div>
 
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-semibold text-ink">
-                        {issue.title}
-                      </h3>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm font-semibold text-ink dark:text-white">
+                          {issue.title}
+                        </h3>
+                        {issue.path && (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] font-mono font-medium text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-neutral-800 px-2 py-0.5 rounded border border-slate-200 dark:border-neutral-700"
+                            title={`Route / File Path: ${issue.path}`}
+                          >
+                            <span>📍</span>
+                            <span>{issue.path}</span>
+                          </span>
+                        )}
+                      </div>
                       {issue.description && (
-                        <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-lg border border-border">
+                        <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-surface dark:bg-[#161616] p-3 rounded-lg border border-border dark:border-[#262626]">
                           {issue.description}
                         </p>
                       )}
@@ -1070,7 +1388,7 @@ export default function MemberDashboardClient({
 
                     {/* Resolution Note */}
                     {issue.resolution && (
-                      <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-signal-green space-y-0.5">
+                      <div className="bg-emerald-50 dark:bg-emerald-950/40 p-3 rounded-lg border border-emerald-200 dark:border-emerald-800 text-xs text-signal-green dark:text-emerald-300 space-y-0.5">
                         <span className="font-semibold block">Resolution Note:</span>
                         <p className="whitespace-pre-wrap">{issue.resolution}</p>
                       </div>
@@ -1078,8 +1396,8 @@ export default function MemberDashboardClient({
 
                     {/* Inline Resolution Box */}
                     {resolvingIssueId === issue.id && (
-                      <div className="bg-surface p-3 rounded-lg border border-border space-y-2">
-                        <label className="block text-xs font-semibold text-slate-700">
+                      <div className="bg-surface dark:bg-[#161616] p-3.5 rounded-lg border border-border dark:border-[#262626] space-y-2">
+                        <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
                           How did you resolve this bug?
                         </label>
                         <textarea
@@ -1088,7 +1406,7 @@ export default function MemberDashboardClient({
                           value={resolutionText}
                           onChange={(e) => setResolutionText(e.target.value)}
                           placeholder="e.g. Corrected CSS overflow issue and updated mobile breakpoint."
-                          className="w-full p-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
+                          className="w-full p-2.5 text-xs bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white placeholder:text-slate-400 dark:placeholder:text-neutral-500"
                         />
                         <div className="flex justify-end gap-2">
                           <button
@@ -1097,7 +1415,7 @@ export default function MemberDashboardClient({
                               setResolvingIssueId(null);
                               setResolutionText("");
                             }}
-                            className="px-3 py-1 text-xs text-slate-600 bg-white hover:bg-surface border border-border rounded-lg"
+                            className="px-3 py-1 text-xs text-slate-600 dark:text-neutral-400 bg-white dark:bg-[#202020] hover:bg-surface dark:hover:bg-neutral-700 border border-border dark:border-neutral-700 rounded-lg"
                           >
                             Cancel
                           </button>
@@ -1114,14 +1432,14 @@ export default function MemberDashboardClient({
                     )}
 
                     {/* People & Quick Actions */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border text-xs">
-                      <div className="flex items-center gap-3 text-slate-500">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border dark:border-[#262626] text-xs">
+                      <div className="flex items-center gap-3 text-slate-500 dark:text-neutral-400">
                         <span>
-                          Reported by: <strong className="text-slate-700 font-semibold">{issue.raisedBy.name}</strong>
+                          Reported by: <strong className="text-slate-700 dark:text-slate-200 font-semibold">{issue.raisedBy.name}</strong>
                         </span>
                         <span>
                           Assigned to:{" "}
-                          <strong className="text-slate-700 font-semibold">
+                          <strong className="text-slate-700 dark:text-slate-200 font-semibold">
                             {issue.assignedTo ? issue.assignedTo.name : "Unassigned"}
                           </strong>
                         </span>
@@ -1131,7 +1449,7 @@ export default function MemberDashboardClient({
                         <button
                           type="button"
                           onClick={() => setEditingIssue(issue)}
-                          className="px-3 py-1 bg-surface hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-border transition-colors cursor-pointer"
+                          className="px-3 py-1 bg-surface dark:bg-neutral-800 hover:bg-slate-200 dark:hover:bg-neutral-700 text-slate-700 dark:text-slate-200 font-semibold rounded-lg border border-border dark:border-neutral-700 transition-colors cursor-pointer"
                         >
                           ✏️ Edit
                         </button>
@@ -1141,7 +1459,7 @@ export default function MemberDashboardClient({
                             type="button"
                             disabled={isPending}
                             onClick={() => handleUpdateStatus(issue.id, "In Progress")}
-                            className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-accent font-semibold rounded-lg border border-blue-200 transition-colors cursor-pointer"
+                            className="px-3 py-1 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-accent dark:text-blue-300 font-semibold rounded-lg border border-blue-200 dark:border-blue-800 transition-colors cursor-pointer"
                           >
                             Start Working →
                           </button>
@@ -1155,7 +1473,7 @@ export default function MemberDashboardClient({
                               setResolvingIssueId(issue.id);
                               setResolutionText("");
                             }}
-                            className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-signal-green font-semibold rounded-lg border border-emerald-200 transition-colors cursor-pointer"
+                            className="px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-signal-green dark:text-emerald-300 font-semibold rounded-lg border border-emerald-200 dark:border-emerald-800 transition-colors cursor-pointer"
                           >
                             Mark as Resolved
                           </button>
@@ -1164,7 +1482,7 @@ export default function MemberDashboardClient({
                         <button
                           type="button"
                           onClick={() => handleDeleteIssue(issue.id)}
-                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-signal-red rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-signal-red dark:hover:text-rose-400 rounded-lg transition-colors cursor-pointer"
                           title="Delete issue"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1185,10 +1503,10 @@ export default function MemberDashboardClient({
       {activeTab === "meetings" && (
         <div className="space-y-6">
           {/* Header Strip */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-lg border border-border">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111111] p-4 rounded-xl border border-border dark:border-[#262626]">
             <div>
-              <h2 className="text-base font-semibold text-ink">Client Calls & Follow-up Logs</h2>
-              <p className="text-xs text-gray-500">
+              <h2 className="text-base font-semibold text-ink dark:text-white">Client Calls & Follow-up Logs</h2>
+              <p className="text-xs text-gray-500 dark:text-neutral-400">
                 View scheduled syncs, launch video links, or record offline phone calls & client feedback immediately.
               </p>
             </div>
@@ -1211,263 +1529,334 @@ export default function MemberDashboardClient({
               </button>
               <Link
                 href="/meetings"
-                className="px-3.5 py-1.5 bg-surface hover:bg-gray-100 text-gray-700 border border-border font-medium text-xs rounded-lg transition-colors"
+                className="px-3.5 py-1.5 bg-surface dark:bg-neutral-800 hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-700 dark:text-neutral-200 border border-border dark:border-neutral-700 font-medium text-xs rounded-lg transition-colors"
               >
                 Full Hub ↗
               </Link>
             </div>
           </div>
 
-          {/* KPI Strip */}
+          {/* KPI Strip - Interactive */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("All")}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                meetingFilter === "All"
+                  ? "bg-slate-50 dark:bg-neutral-800/80 border-slate-400 dark:border-neutral-500 ring-2 ring-slate-400/20"
+                  : "bg-white dark:bg-[#111111] border-border dark:border-[#262626] hover:border-slate-300 dark:hover:border-neutral-700"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-neutral-500 block">
                 Total Calls
               </span>
-              <div className="text-2xl font-bold text-ink mt-1 tabular-nums">{meetings.length}</div>
-              <span className="text-[11px] text-slate-500">Assigned / scheduled</span>
-            </div>
+              <div className="text-2xl font-bold text-ink dark:text-white mt-1 tabular-nums">{meetings.length}</div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Assigned / scheduled</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("Scheduled")}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                meetingFilter === "Scheduled"
+                  ? "bg-blue-50/70 dark:bg-blue-950/40 border-blue-400 dark:border-blue-700 ring-2 ring-blue-400/20"
+                  : "bg-white dark:bg-[#111111] border-border dark:border-[#262626] hover:border-blue-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent dark:text-blue-400 block">
                 Scheduled
               </span>
-              <div className="text-2xl font-bold text-accent mt-1 tabular-nums">
+              <div className="text-2xl font-bold text-accent dark:text-blue-400 mt-1 tabular-nums">
                 {meetings.filter((m) => m.status === "Scheduled").length}
               </div>
-              <span className="text-[11px] text-slate-500">Upcoming calls</span>
-            </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Upcoming calls</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("Completed")}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                meetingFilter === "Completed"
+                  ? "bg-emerald-50/70 dark:bg-emerald-950/40 border-emerald-400 dark:border-emerald-700 ring-2 ring-emerald-400/20"
+                  : "bg-white dark:bg-[#111111] border-border dark:border-[#262626] hover:border-emerald-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green dark:text-emerald-400 block">
                 Completed
               </span>
-              <div className="text-2xl font-bold text-signal-green mt-1 tabular-nums">
+              <div className="text-2xl font-bold text-signal-green dark:text-emerald-400 mt-1 tabular-nums">
                 {meetings.filter((m) => m.status === "Completed").length}
               </div>
-              <span className="text-[11px] text-slate-500">Past discussions</span>
-            </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Past discussions</span>
+            </button>
 
-            <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+            <button
+              type="button"
+              onClick={() => setMeetingFilter("Follow-up Required")}
+              className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer shadow-xs ${
+                meetingFilter === "Follow-up Required"
+                  ? "bg-amber-50/70 dark:bg-amber-950/40 border-amber-400 dark:border-amber-700 ring-2 ring-amber-400/20"
+                  : "bg-white dark:bg-[#111111] border-border dark:border-[#262626] hover:border-amber-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-amber dark:text-amber-400 block">
                 Action Items
               </span>
-              <div className="text-2xl font-bold text-signal-amber mt-1 tabular-nums">
+              <div className="text-2xl font-bold text-signal-amber dark:text-amber-400 mt-1 tabular-nums">
                 {meetings.filter((m) => m.nextFollowUpDate || m.outcome === "Follow-up Required").length}
               </div>
-              <span className="text-[11px] text-slate-500">Pending follow-ups</span>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Pending follow-ups</span>
+            </button>
+          </div>
+
+          {/* Filter Bar + Search + Maximize */}
+          <div className="bg-white dark:bg-[#111111] p-3 sm:p-3.5 rounded-xl border border-border dark:border-[#262626] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap flex-1">
+              <span className="text-xs text-gray-500 dark:text-neutral-400 font-medium">Filter:</span>
+              {["All", "Scheduled", "Completed", "Follow-up Required"].map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setMeetingFilter(filter)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    meetingFilter === filter
+                      ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                      : "bg-surface dark:bg-[#161616] text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+
+              {/* Real-time search for meetings */}
+              <div className="relative w-full sm:w-56 ml-0 sm:ml-2">
+                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 dark:text-neutral-500 text-xs">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={meetingSearchQuery}
+                  onChange={(e) => setMeetingSearchQuery(e.target.value)}
+                  placeholder="Search calls, clients..."
+                  className="w-full pl-8 pr-6 py-1 text-xs bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white placeholder:text-slate-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+                {meetingSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setMeetingSearchQuery("")}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-400 hover:text-ink dark:hover:text-white text-xs cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
+
+            {/* Maximize toggle */}
+            <button
+              type="button"
+              onClick={() => setIsMeetingTableMaximized((prev) => !prev)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors cursor-pointer flex items-center gap-1.5 self-end sm:self-auto ${
+                isMeetingTableMaximized
+                  ? "bg-accent text-white border-accent shadow-xs"
+                  : "bg-surface dark:bg-[#161616] border-border dark:border-[#262626] text-slate-700 dark:text-slate-300 hover:text-ink dark:hover:text-white"
+              }`}
+              title={isMeetingTableMaximized ? "Restore table size" : "Expand table full screen"}
+            >
+              <span>{isMeetingTableMaximized ? "🗗" : "⛶"}</span>
+              <span>{isMeetingTableMaximized ? "Compact" : "Maximize"}</span>
+            </button>
           </div>
 
-          {/* Filter Bar */}
-          <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-border">
-            <span className="text-xs text-gray-500 font-medium">Filter:</span>
-            {["All", "Scheduled", "Completed", "Follow-up Required"].map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setMeetingFilter(filter)}
-                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors cursor-pointer ${
-                  meetingFilter === filter
-                    ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
-                    : "bg-surface dark:bg-[#0a0a0a] text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
-          </div>
-
-          {/* Meetings Table */}
-          <div className="bg-white border border-border rounded-lg shadow-sm overflow-hidden">
-            {meetings.filter((m) => {
-              if (meetingFilter === "Scheduled") return m.status === "Scheduled";
-              if (meetingFilter === "Completed") return m.status === "Completed";
-              if (meetingFilter === "Follow-up Required")
-                return m.outcome === "Follow-up Required" || (m.nextFollowUpDate && new Date(m.nextFollowUpDate) >= new Date());
-              return true;
-            }).length === 0 ? (
+          {/* Meetings Table with Large Viewport & Sticky Actions */}
+          <div className={`bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-xl shadow-xs overflow-hidden flex flex-col ${isMeetingTableMaximized ? "fixed inset-2 sm:inset-4 md:inset-6 z-50 bg-white dark:bg-[#111111] p-4 sm:p-6 rounded-2xl shadow-2xl" : ""}`}>
+            {filteredMeetings.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-xs text-gray-500">No meetings found for the selected filter.</p>
+                <p className="text-xs text-gray-500 dark:text-neutral-400">
+                  {meetingSearchQuery ? "No calls match your search query." : "No meetings found for the selected filter."}
+                </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface/75 border-b border-border text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Timing & Status</th>
-                      <th className="py-3 px-4">Client & Title</th>
-                      <th className="py-3 px-4">Project</th>
-                      <th className="py-3 px-4">Platform & Link</th>
-                      <th className="py-3 px-4">Outcome & Notes</th>
-                      <th className="py-3 px-4 text-right">Actions</th>
+              <div className={`overflow-x-auto overflow-y-auto ${isMeetingTableMaximized ? "flex-1 min-h-0" : "min-h-[520px] max-h-[76vh]"}`}>
+                <table className="w-full text-left border-collapse text-xs relative">
+                  <thead className="sticky top-0 z-20 bg-surface dark:bg-[#161616] border-b border-border dark:border-[#262626] shadow-xs">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th className="py-3 px-4 min-w-[150px]">Timing & Status</th>
+                      <th className="py-3 px-4 min-w-[200px]">Client & Title</th>
+                      <th className="py-3 px-4 min-w-[140px]">Project</th>
+                      <th className="py-3 px-4 min-w-[140px]">Platform & Link</th>
+                      <th className="py-3 px-4 min-w-[200px]">Outcome & Notes</th>
+                      <th className="sticky right-0 z-30 bg-surface dark:bg-[#161616] py-3 px-4 min-w-[150px] text-right font-semibold shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.6)]">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border text-xs">
-                    {meetings
-                      .filter((m) => {
-                        if (meetingFilter === "Scheduled") return m.status === "Scheduled";
-                        if (meetingFilter === "Completed") return m.status === "Completed";
-                        if (meetingFilter === "Follow-up Required")
-                          return (
-                            m.outcome === "Follow-up Required" ||
-                            (m.nextFollowUpDate && new Date(m.nextFollowUpDate) >= new Date())
-                          );
-                        return true;
-                      })
-                      .map((m) => {
-                        const isExpanded = expandedMeetingIds.has(m.id);
-                        return (
-                          <React.Fragment key={m.id}>
-                            <tr className="hover:bg-surface/50 transition-colors">
-                              <td className="py-3 px-4 align-top whitespace-nowrap">
-                                <div className="flex flex-col gap-1">
-                                  <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                                      m.status === "Completed"
-                                        ? "bg-signal-green/10 text-signal-green border border-signal-green/20"
-                                        : m.status === "Cancelled"
-                                        ? "bg-gray-100 text-gray-500"
-                                        : "bg-blue-50 text-accent border border-blue-200"
-                                    }`}
-                                  >
-                                    {m.status}
-                                  </span>
-                                  <span className="font-semibold text-ink tabular-nums">
-                                    {new Date(m.scheduledAt).toLocaleDateString(undefined, {
-                                      month: "short",
-                                      day: "numeric",
-                                    })}
-                                  </span>
-                                  <span className="text-[11px] text-gray-500 tabular-nums">
-                                    {new Date(m.scheduledAt).toLocaleTimeString(undefined, {
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}{" "}
-                                    ({m.durationMinutes}m)
-                                  </span>
-                                </div>
-                              </td>
-
-                              <td className="py-3 px-4 align-top">
-                                <div className="font-semibold text-ink">{m.title}</div>
-                                <div className="text-gray-600 text-[11px] mt-0.5">
-                                  <span className="font-medium">{m.clientName}</span>
-                                  {m.clientPhone && (
-                                    <span className="text-gray-400 ml-1.5">· {m.clientPhone}</span>
-                                  )}
-                                </div>
-                                <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-surface text-gray-600 border border-border font-medium">
-                                  {m.type}
+                  <tbody className="divide-y divide-border dark:divide-[#262626] text-xs">
+                    {filteredMeetings.map((m) => {
+                      const isExpanded = expandedMeetingIds.has(m.id);
+                      return (
+                        <React.Fragment key={m.id}>
+                          <tr className="hover:bg-surface/50 dark:hover:bg-neutral-800/40 transition-colors">
+                            <td className="py-3.5 px-4 align-top whitespace-nowrap">
+                              <div className="flex flex-col gap-1">
+                                <span
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                                    m.status === "Completed"
+                                      ? "bg-signal-green/10 text-signal-green border border-signal-green/20"
+                                      : m.status === "Cancelled"
+                                      ? "bg-gray-100 text-gray-500 dark:bg-neutral-800 dark:text-neutral-400"
+                                      : "bg-blue-50 text-accent border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                  }`}
+                                >
+                                  {m.status}
                                 </span>
-                              </td>
+                                <span className="font-semibold text-ink dark:text-white tabular-nums">
+                                  {new Date(m.scheduledAt).toLocaleDateString(undefined, {
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                                <span className="text-[11px] text-gray-500 dark:text-neutral-400 tabular-nums">
+                                  {new Date(m.scheduledAt).toLocaleTimeString(undefined, {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}{" "}
+                                  ({m.durationMinutes}m)
+                                </span>
+                              </div>
+                            </td>
 
-                              <td className="py-3 px-4 align-top">
-                                {m.projectId ? (
-                                  <Link
-                                    href={`/projects/${m.projectId}`}
-                                    className="font-medium text-accent hover:underline"
-                                  >
-                                    {m.projectName}
-                                  </Link>
-                                ) : (
-                                  <span className="text-gray-400 italic">General</span>
+                            <td className="py-3.5 px-4 align-top">
+                              <div className="font-semibold text-ink dark:text-white">{m.title}</div>
+                              <div className="text-gray-600 dark:text-neutral-300 text-[11px] mt-0.5">
+                                <span className="font-medium">{m.clientName}</span>
+                                {m.clientPhone && (
+                                  <span className="text-gray-400 ml-1.5">· {m.clientPhone}</span>
                                 )}
-                              </td>
+                              </div>
+                              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded bg-surface dark:bg-[#161616] text-gray-600 dark:text-neutral-300 border border-border dark:border-[#262626] font-medium">
+                                {m.type}
+                              </span>
+                            </td>
 
-                              <td className="py-3 px-4 align-top">
-                                <div className="flex flex-col gap-1">
-                                  <span className="font-medium text-gray-700">{m.platform}</span>
-                                  {m.meetingLink ? (
-                                    <a
-                                      href={m.meetingLink}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-[11px] font-semibold text-accent hover:underline inline-flex items-center gap-1"
-                                    >
-                                      Join Call ↗
-                                    </a>
-                                  ) : (
-                                    <span className="text-[11px] text-gray-400">No link</span>
-                                  )}
-                                </div>
-                              </td>
+                            <td className="py-3.5 px-4 align-top">
+                              {m.projectId ? (
+                                <Link
+                                  href={`/projects/${m.projectId}`}
+                                  className="font-medium text-accent dark:text-blue-400 hover:underline"
+                                >
+                                  {m.projectName}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-400 dark:text-neutral-500 italic">General</span>
+                              )}
+                            </td>
 
-                              <td className="py-3 px-4 align-top">
-                                <div className="flex flex-col gap-1">
-                                  {m.outcome && (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-accent border border-blue-200">
-                                      {m.outcome}
-                                    </span>
-                                  )}
-                                  {m.notes ? (
-                                    <p className="text-[11px] text-gray-500 line-clamp-1">{m.notes}</p>
-                                  ) : (
-                                    <span className="text-[11px] text-gray-400 italic">No notes logged</span>
-                                  )}
-                                </div>
-                              </td>
-
-                              <td className="py-3 px-4 align-top text-right whitespace-nowrap">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => setActiveFollowUpMeeting(m)}
-                                    className="px-2.5 py-1 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 rounded transition-colors cursor-pointer"
+                            <td className="py-3.5 px-4 align-top">
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium text-gray-700 dark:text-neutral-200">{m.platform}</span>
+                                {m.meetingLink ? (
+                                  <a
+                                    href={m.meetingLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[11px] font-semibold text-accent dark:text-blue-400 hover:underline inline-flex items-center gap-1"
                                   >
-                                    Log Follow-up
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setExpandedMeetingIds((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(m.id)) next.delete(m.id);
-                                        else next.add(m.id);
-                                        return next;
-                                      });
-                                    }}
-                                    className="p-1 text-gray-400 hover:text-ink text-xs rounded hover:bg-gray-100"
-                                  >
-                                    {isExpanded ? "▲" : "▼"}
-                                  </button>
+                                    Join Call ↗
+                                  </a>
+                                ) : (
+                                  <span className="text-[11px] text-gray-400 dark:text-neutral-500">No link</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 align-top">
+                              <div className="flex flex-col gap-1">
+                                {m.outcome && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 dark:bg-blue-950/40 text-accent dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                                    {m.outcome}
+                                  </span>
+                                )}
+                                {m.notes ? (
+                                  <p className="text-[11px] text-gray-500 dark:text-neutral-400 line-clamp-2">{m.notes}</p>
+                                ) : (
+                                  <span className="text-[11px] text-gray-400 dark:text-neutral-500 italic">No notes logged</span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Sticky Actions */}
+                            <td className="sticky right-0 z-10 bg-white dark:bg-[#111111] group-hover:bg-[#f8fafc] dark:group-hover:bg-[#181818] py-3.5 px-4 align-top text-right whitespace-nowrap shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.08)] dark:shadow-[-8px_0_12px_-4px_rgba(0,0,0,0.6)]">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveFollowUpMeeting(m)}
+                                  className="px-2.5 py-1 text-[11px] font-medium text-accent dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  Log Follow-up
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setExpandedMeetingIds((prev) => {
+                                      const next = new Set(prev);
+                                      if (next.has(m.id)) next.delete(m.id);
+                                      else next.add(m.id);
+                                      return next;
+                                    });
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-ink dark:hover:text-white text-xs rounded hover:bg-gray-100 dark:hover:bg-neutral-800 cursor-pointer"
+                                  title={isExpanded ? "Collapse notes" : "Expand notes"}
+                                >
+                                  {isExpanded ? "▲" : "▼"}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {isExpanded && (
+                            <tr className="bg-surface/40 dark:bg-neutral-900/60 border-b border-border dark:border-[#262626]">
+                              <td colSpan={6} className="p-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                                  <div className="p-3 bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-xl">
+                                    <h5 className="font-semibold text-gray-700 dark:text-neutral-200 mb-1">Agenda</h5>
+                                    <p className="text-gray-600 dark:text-neutral-400 whitespace-pre-line">
+                                      {m.agenda || "No agenda set."}
+                                    </p>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-xl">
+                                    <h5 className="font-semibold text-gray-700 dark:text-neutral-200 mb-1">Discussion Notes</h5>
+                                    <p className="text-gray-600 dark:text-neutral-400 whitespace-pre-line">
+                                      {m.notes || "No notes logged."}
+                                    </p>
+                                  </div>
+                                  <div className="p-3 bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-xl">
+                                    <h5 className="font-semibold text-gray-700 dark:text-neutral-200 mb-1">Action Items</h5>
+                                    <p className="text-gray-600 dark:text-neutral-400 whitespace-pre-line">
+                                      {m.actionItems || "No action items recorded."}
+                                    </p>
+                                  </div>
                                 </div>
                               </td>
                             </tr>
-
-                            {isExpanded && (
-                              <tr className="bg-surface/40 border-b border-border">
-                                <td colSpan={6} className="p-4">
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                                    <div className="p-3 bg-white border border-border rounded-md">
-                                      <h5 className="font-semibold text-gray-700 mb-1">Agenda</h5>
-                                      <p className="text-gray-600 whitespace-pre-line">
-                                        {m.agenda || "No agenda set."}
-                                      </p>
-                                    </div>
-                                    <div className="p-3 bg-white border border-border rounded-md">
-                                      <h5 className="font-semibold text-gray-700 mb-1">Discussion Notes</h5>
-                                      <p className="text-gray-600 whitespace-pre-line">
-                                        {m.notes || "No notes logged."}
-                                      </p>
-                                    </div>
-                                    <div className="p-3 bg-white border border-border rounded-md">
-                                      <h5 className="font-semibold text-gray-700 mb-1">Action Items</h5>
-                                      <p className="text-gray-600 whitespace-pre-line">
-                                        {m.actionItems || "No action items recorded."}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
+
+            {/* Meetings Footer Summary */}
+            <div className="px-4 py-2.5 bg-surface dark:bg-[#161616] border-t border-border dark:border-[#262626] flex items-center justify-between text-xs text-slate-500 dark:text-neutral-400">
+              <span className="font-semibold text-ink dark:text-white tabular-nums">
+                Showing {filteredMeetings.length} of {meetings.length} calls
+              </span>
+              <span className="text-[11px]">
+                {meetings.filter((m) => m.status === "Scheduled").length} Upcoming · {meetings.filter((m) => m.status === "Completed").length} Completed
+              </span>
+            </div>
           </div>
         </div>
       )}
@@ -1482,32 +1871,39 @@ export default function MemberDashboardClient({
         defaultAssignedToId={modalDefaults.assignedToId}
         defaultTitle={modalDefaults.title}
         onSuccess={(created) => {
-          const formatted: MemberIssueData = {
-            id: created.id,
-            projectId: created.projectId,
-            projectName: created.project?.name || "Project",
-            title: created.title,
-            description: created.description,
-            priority: created.priority,
-            status: created.status,
-            resolution: created.resolution,
-            createdAt: new Date(created.createdAt).toISOString(),
-            updatedAt: new Date(created.updatedAt).toISOString(),
-            resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
-            raisedBy: {
-              id: created.raisedBy.id,
-              name: created.raisedBy.name,
-              email: created.raisedBy.email,
-            },
-            assignedTo: created.assignedTo
-              ? {
-                  id: created.assignedTo.id,
-                  name: created.assignedTo.name,
-                  email: created.assignedTo.email,
-                }
-              : null,
-          };
-          setIssues((prev) => [formatted, ...prev]);
+          if (created) {
+            const formatted: MemberIssueData = {
+              id: created.id,
+              projectId: created.projectId,
+              projectName: created.project?.name || projects.find((p) => p.id === created.projectId)?.name || "General Project",
+              title: created.title,
+              description: created.description,
+              path: created.path || null,
+              module: created.module || "User Side",
+              priority: created.priority,
+              status: created.status,
+              resolution: created.resolution,
+              attachmentUrl: created.attachmentUrl,
+              attachmentName: created.attachmentName,
+              attachmentType: created.attachmentType,
+              createdAt: new Date(created.createdAt).toISOString(),
+              updatedAt: new Date(created.updatedAt).toISOString(),
+              resolvedAt: created.resolvedAt ? new Date(created.resolvedAt).toISOString() : null,
+              raisedBy: {
+                id: created.raisedBy?.id || currentUserId,
+                name: created.raisedBy?.name || memberName,
+                email: created.raisedBy?.email || "",
+              },
+              assignedTo: created.assignedTo
+                ? {
+                    id: created.assignedTo.id,
+                    name: created.assignedTo.name,
+                    email: created.assignedTo.email,
+                  }
+                : null,
+            };
+            setIssues((prev) => [formatted, ...prev]);
+          }
         }}
       />
 
@@ -1666,6 +2062,8 @@ export default function MemberDashboardClient({
                     ...i,
                     title: updated.title,
                     description: updated.description,
+                    path: updated.path !== undefined ? updated.path : i.path,
+                    module: updated.module !== undefined ? updated.module : i.module,
                     priority: updated.priority,
                     status: updated.status,
                     resolution: updated.resolution,

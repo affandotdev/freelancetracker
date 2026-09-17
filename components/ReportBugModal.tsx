@@ -45,6 +45,7 @@ export default function ReportBugModal({
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Critical">("Medium");
   const [description, setDescription] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   // Attachment state
   const [attachmentMode, setAttachmentMode] = useState<"file" | "link">("file");
@@ -59,6 +60,31 @@ export default function ReportBugModal({
   const [videoLinkTitle, setVideoLinkTitle] = useState("");
   const [isConvertingFile, setIsConvertingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isDirty = Boolean(
+    (title.trim() && title.trim() !== defaultTitle) ||
+    description.trim().length > 0 ||
+    path.trim().length > 0 ||
+    module !== "User Side" ||
+    priority !== "Medium" ||
+    (selectedProjectId && selectedProjectId !== defaultProjectId) ||
+    (selectedMemberId && selectedMemberId !== defaultAssignedToId) ||
+    attachedFile !== null ||
+    videoLinkUrl.trim().length > 0
+  );
+
+  const handleAttemptClose = () => {
+    if (isDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    onClose();
+  };
 
   const processSelectedFile = (file: File) => {
     const MAX_SIZE = 15 * 1024 * 1024;
@@ -107,6 +133,21 @@ export default function ReportBugModal({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false);
+        } else {
+          handleAttemptClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isDirty, showDiscardConfirm]);
+
+  useEffect(() => {
     if (isOpen) {
       setSelectedProjectId(defaultProjectId || "");
 
@@ -126,6 +167,10 @@ export default function ReportBugModal({
       if (defaultTitle) setTitle(defaultTitle);
       setPath("");
       setModule("User Side");
+      setDescription("");
+      setAttachedFile(null);
+      setVideoLinkUrl("");
+      setShowDiscardConfirm(false);
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
 
@@ -192,10 +237,10 @@ export default function ReportBugModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={handleAttemptClose}
     >
       <div
-        className="bg-white dark:bg-[#0a0a0a] max-w-lg w-full rounded-xl border border-border dark:border-[#262626] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-ink dark:text-white"
+        className="bg-white dark:bg-[#0a0a0a] max-w-lg w-full rounded-xl border border-border dark:border-[#262626] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-ink dark:text-white relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -211,7 +256,7 @@ export default function ReportBugModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-ink dark:hover:text-white hover:bg-surface dark:hover:bg-neutral-900 transition-colors text-sm cursor-pointer"
           >
             ✕
@@ -474,7 +519,7 @@ export default function ReportBugModal({
           <div className="flex items-center justify-end gap-2 pt-4 border-t border-border dark:border-[#262626]">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleAttemptClose}
               className="px-3.5 py-1.5 rounded-lg border border-border dark:border-[#262626] text-slate-600 dark:text-slate-300 hover:bg-surface dark:hover:bg-neutral-900 text-xs font-medium transition-colors cursor-pointer"
             >
               Cancel
@@ -488,6 +533,46 @@ export default function ReportBugModal({
             </button>
           </div>
         </form>
+
+        {/* Discard Confirmation Dialog */}
+        {showDiscardConfirm && (
+          <div
+            className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-white dark:bg-[#141414] rounded-xl border border-border dark:border-[#262626] shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 text-ink dark:text-white">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-lg shrink-0 border border-amber-200 dark:border-amber-800/60">
+                  ⚠️
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Discard Unsaved Bug Report?
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-neutral-400 leading-relaxed">
+                    You have unsaved changes in this issue report. If you close now, your entered details and attachments will be discarded.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border dark:border-[#262626]">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border dark:border-[#262626] text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-surface dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  Keep Editing
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDiscard}
+                  className="px-3.5 py-1.5 bg-signal-red hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  Discard & Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

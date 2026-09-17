@@ -63,6 +63,7 @@ export default function EditIssueModal({
   const [resolution, setResolution] = useState("");
   const [isPending, startTransition] = useTransition();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false);
 
   useEffect(() => {
     if (issue && isOpen) {
@@ -75,18 +76,84 @@ export default function EditIssueModal({
       setAssignedToId(issue.assignedTo?.id || "");
       setProjectId(issue.projectId || "");
       setResolution(issue.resolution || "");
+      setShowDiscardConfirm(false);
     }
   }, [issue, isOpen]);
 
-  if (!isOpen || !issue) return null;
+  // Combine and deduplicate assignable members, ensuring the currently assigned worker is always in the list
+  const assignableMembers = React.useMemo(() => {
+    const list = teamMembers.filter(
+      (m) =>
+        m.role !== "SUPER_ADMIN" &&
+        !m.name?.toLowerCase().includes("super admin") &&
+        !m.email?.toLowerCase().includes("admin@")
+    );
 
-  // Filter assignable workers (exclude super admins)
-  const assignableMembers = teamMembers.filter(
-    (m) =>
-      m.role !== "SUPER_ADMIN" &&
-      !m.name.toLowerCase().includes("super admin") &&
-      !m.email.toLowerCase().includes("admin@")
+    if (issue?.assignedTo && !list.some((m) => m.id === issue.assignedTo?.id)) {
+      list.unshift({
+        id: issue.assignedTo.id,
+        name: issue.assignedTo.name,
+        email: issue.assignedTo.email,
+      });
+    }
+
+    return list;
+  }, [teamMembers, issue?.assignedTo]);
+
+  // Available project list
+  const availableProjects = React.useMemo(() => {
+    const list = [...projects];
+    if (issue?.projectId && !list.some((p) => p.id === issue.projectId)) {
+      list.unshift({
+        id: issue.projectId,
+        name: issue.projectName || "Current Project",
+      });
+    }
+    return list;
+  }, [projects, issue?.projectId, issue?.projectName]);
+
+  const isDirty = Boolean(
+    issue &&
+      (title !== (issue.title || "") ||
+        path !== (issue.path || "") ||
+        module !== (issue.module || "User Side") ||
+        description !== (issue.description || "") ||
+        priority !== issue.priority ||
+        status !== issue.status ||
+        assignedToId !== (issue.assignedTo?.id || "") ||
+        (projectId && projectId !== issue.projectId) ||
+        resolution !== (issue.resolution || ""))
   );
+
+  const handleAttemptClose = () => {
+    if (isDirty) {
+      setShowDiscardConfirm(true);
+    } else {
+      onClose();
+    }
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardConfirm(false);
+    onClose();
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showDiscardConfirm) {
+          setShowDiscardConfirm(false);
+        } else {
+          handleAttemptClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, isDirty, showDiscardConfirm]);
+
+  if (!isOpen || !issue) return null;
 
   const canDelete =
     isSuperAdmin ||
@@ -157,10 +224,10 @@ export default function EditIssueModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
+      onClick={handleAttemptClose}
     >
       <div
-        className="bg-white dark:bg-[#0a0a0a] rounded-xl border border-border dark:border-[#262626] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-ink dark:text-white"
+        className="bg-white dark:bg-[#0a0a0a] rounded-xl border border-border dark:border-[#262626] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] text-ink dark:text-white relative"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
@@ -181,7 +248,7 @@ export default function EditIssueModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleAttemptClose}
             className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-ink dark:hover:text-white hover:bg-surface dark:hover:bg-neutral-900 transition-colors text-sm cursor-pointer"
           >
             ✕
@@ -260,36 +327,33 @@ export default function EditIssueModal({
 
           {/* Project & Assigned Worker (2-column layout) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {/* Project */}
-            {projects.length > 0 && isSuperAdmin ? (
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-200 block">
-                  Project <span className="text-signal-red">*</span>
-                </label>
+            {/* Project Dropdown */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+                Project <span className="text-signal-red">*</span>
+              </label>
+              {availableProjects.length > 0 ? (
                 <select
+                  required
                   value={projectId}
                   onChange={(e) => setProjectId(e.target.value)}
                   className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
                 >
-                  {projects.map((p) => (
+                  <option value="">-- Select Project --</option>
+                  {availableProjects.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {p.name} {p.client ? `(${p.client})` : ""}
                     </option>
                   ))}
                 </select>
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-200 block">
-                  Project
-                </label>
+              ) : (
                 <div className="px-3 py-2 bg-surface dark:bg-[#111111] border border-border dark:border-[#262626] rounded-lg text-slate-700 dark:text-slate-300 font-medium truncate">
                   {issue.projectName || "Current Project"}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Assigned Member (Required) */}
+            {/* Assigned Member (Required Dropdown) */}
             <div className="space-y-1.5">
               <label className="font-semibold text-slate-700 dark:text-slate-200 block">
                 Assigned Worker <span className="text-signal-red">*</span>
@@ -303,7 +367,7 @@ export default function EditIssueModal({
                 <option value="">-- Select Worker (Required) --</option>
                 {assignableMembers.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} ({m.email})
+                    {m.name} {m.email ? `(${m.email})` : ""}
                   </option>
                 ))}
               </select>
@@ -410,7 +474,7 @@ export default function EditIssueModal({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleAttemptClose}
                 disabled={isPending || isDeleting}
                 className="px-3.5 py-1.5 rounded-lg border border-border dark:border-[#262626] text-slate-600 dark:text-slate-300 hover:bg-surface dark:hover:bg-neutral-900 text-xs font-medium transition-colors cursor-pointer"
               >
@@ -426,6 +490,46 @@ export default function EditIssueModal({
             </div>
           </div>
         </form>
+
+        {/* Discard Confirmation Dialog */}
+        {showDiscardConfirm && (
+          <div
+            className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-white dark:bg-[#141414] rounded-xl border border-border dark:border-[#262626] shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 text-ink dark:text-white">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-lg shrink-0 border border-amber-200 dark:border-amber-800/60">
+                  ⚠️
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-ink dark:text-white">
+                    Discard Unsaved Changes?
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-neutral-400 leading-relaxed">
+                    You have unsaved edits on this defect report. If you close now, your changes will be discarded.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border dark:border-[#262626]">
+                <button
+                  type="button"
+                  onClick={() => setShowDiscardConfirm(false)}
+                  className="px-3 py-1.5 rounded-lg border border-border dark:border-[#262626] text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-surface dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+                >
+                  Keep Editing
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDiscard}
+                  className="px-3.5 py-1.5 bg-signal-red hover:bg-rose-700 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                >
+                  Discard & Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

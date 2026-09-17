@@ -13,8 +13,18 @@ export default async function IssuesPage() {
   let rawTeamMembers: any[] = [];
 
   try {
+    const issueWhere = session.role === "SUPER_ADMIN"
+      ? {}
+      : {
+          OR: [
+            { assignedToId: session.userId },
+            { raisedById: session.userId },
+          ],
+        };
+
     const [issues, projects, teamMembers] = await Promise.all([
       (prisma as any).issue.findMany({
+        where: issueWhere,
         orderBy: [{ createdAt: "desc" }],
         include: {
           project: {
@@ -52,6 +62,8 @@ export default async function IssuesPage() {
     clientName: issue.project?.client || null,
     title: issue.title,
     description: issue.description,
+    path: issue.path || null,
+    module: issue.module || "User Side",
     priority: issue.priority,
     status: issue.status,
     resolution: issue.resolution,

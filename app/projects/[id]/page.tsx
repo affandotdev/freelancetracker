@@ -23,6 +23,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   const resolvedParams = await params;
   const { id } = resolvedParams;
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
 
   const project = await prisma.project.findUnique({
     where: { id },
@@ -43,6 +44,14 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         },
       },
       issues: {
+        where: isSuperAdmin
+          ? undefined
+          : {
+              OR: [
+                { assignedToId: session.userId },
+                { raisedById: session.userId },
+              ],
+            },
         orderBy: [{ createdAt: "desc" }],
         include: {
           raisedBy: {
@@ -112,6 +121,8 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     projectName: project.name,
     title: issue.title,
     description: issue.description,
+    path: issue.path || null,
+    module: issue.module || "User Side",
     priority: issue.priority,
     status: issue.status,
     resolution: issue.resolution,
@@ -178,10 +189,20 @@ export default async function ProjectDetailPage({ params }: PageProps) {
   return (
     <ProjectDetailClient
       project={{
-        ...project,
+        id: project.id,
+        name: project.name,
+        client: project.client,
+        clientEmail: project.clientEmail,
+        category: project.category,
+        priority: project.priority,
+        status: project.status,
+        progress: project.progress,
+        totalAmount: project.totalAmount,
+        receivedAmount: project.receivedAmount,
+        deadline: project.deadline ? project.deadline.toISOString() : null,
+        description: project.description,
         createdAt: project.createdAt.toISOString(),
         updatedAt: project.updatedAt.toISOString(),
-        deadline: project.deadline ? project.deadline.toISOString() : null,
       }}
       initialAttachments={attachments}
       initialTasks={tasks}

@@ -718,22 +718,22 @@ export default function AdminWorksMonitor({
           })}
         </div>
       ) : (
-        /* TABLE MONITORING VIEW */
-        <div className="bg-white rounded-lg border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px] border-collapse table-zebra">
-              <thead>
-                <tr className="bg-surface border-b border-border text-gray-500 font-medium text-[11px]">
-                  <th className="py-2.5 px-4">Deliverable & Project</th>
-                  <th className="py-2.5 px-4">Assigned Worker</th>
-                  <th className="py-2.5 px-4">Status</th>
-                  <th className="py-2.5 px-4">Progress</th>
-                  <th className="py-2.5 px-4">Deadline</th>
-                  <th className="py-2.5 px-4">Blockers / Updates</th>
-                  <th className="py-2.5 px-4 text-right">Actions</th>
+        /* TABLE MONITORING VIEW (TABLE-ONLY SCROLLING) */
+        <div className="bg-white dark:bg-[#111111] rounded-xl border border-border dark:border-[#262626] overflow-hidden shadow-xs flex flex-col">
+          <div className="overflow-x-auto max-h-[calc(100vh-320px)] min-h-[420px] overflow-y-auto">
+            <table className="w-full text-left text-[13px] border-collapse relative">
+              <thead className="sticky top-0 z-10 bg-surface dark:bg-[#161616] border-b border-border dark:border-[#262626] shadow-xs">
+                <tr className="text-gray-500 dark:text-gray-400 font-medium text-[11px] uppercase tracking-wider">
+                  <th className="py-3 px-4">Deliverable & Project</th>
+                  <th className="py-3 px-4">Assigned Worker</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Progress</th>
+                  <th className="py-3 px-4">Deadline</th>
+                  <th className="py-3 px-4">Blockers / Updates</th>
+                  <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border">
+              <tbody className="divide-y divide-border dark:divide-[#262626]">
                 {filteredTasks.map((task) => {
                   const duration = getProjectDuration(task.deadline, task.status);
 

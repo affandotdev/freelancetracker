@@ -158,9 +158,11 @@ model Issue {
   project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title          String
   description    String?   @db.Text
+  module         String?   @default("User Side") // Admin Side | User Side | Client Portal | API / Backend | Public / Landing
   priority       String    @default("Medium") // Low | Medium | High | Critical
   status         String    @default("Open")   // Open | In Progress | Resolved | Closed
   resolution     String?   @db.Text
+  path           String?   // Route, URL path, screen, or file path where bug occurs
   attachmentUrl  String?   @db.Text           // Base64 data URI, external URL, or JSON array of attachments
   attachmentName String?                      // Original file name or attachment label
   attachmentType String?                      // 'image' | 'video' | 'file' | 'multiple'

@@ -13,9 +13,19 @@ export default async function MeetingsPage() {
   let rawTeamMembers: any[] = [];
 
   try {
+    const meetingWhere = session.role === "SUPER_ADMIN"
+      ? {}
+      : {
+          OR: [
+            { assignedToId: session.userId },
+            { createdById: session.userId },
+          ],
+        };
+
     const [meetings, projects, teamMembers] = await Promise.all([
       (prisma as any).meeting
         ? (prisma as any).meeting.findMany({
+            where: meetingWhere,
             orderBy: [{ scheduledAt: "desc" }],
             include: {
               project: {
