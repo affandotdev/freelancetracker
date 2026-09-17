@@ -4,6 +4,7 @@ import React, { useState, useTransition, useMemo } from "react";
 import Link from "next/link";
 import { updateIssueStatusAction, reassignIssueAction, deleteIssueAction } from "@/lib/actions";
 import ReportBugModal from "./ReportBugModal";
+import EditIssueModal from "./EditIssueModal";
 import IssueAttachmentViewer from "./IssueAttachmentViewer";
 
 export interface IssueMonitoringItem {
@@ -81,6 +82,9 @@ export default function AdminBugsMonitor({
   // Report bug modal state
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [prefilledMemberId, setPrefilledMemberId] = useState<string>("");
+
+  // Edit issue modal state
+  const [editingIssue, setEditingIssue] = useState<IssueMonitoringItem | null>(null);
 
   const assignableMembers = useMemo(() => {
     return teamMembers.filter(
@@ -697,6 +701,16 @@ export default function AdminBugsMonitor({
                         {/* Actions */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingIssue(issue)}
+                              title="Edit issue details"
+                              className="px-2 py-1 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span>✏️</span>
+                              <span>Edit</span>
+                            </button>
+
                             {isOpen && (
                               <button
                                 type="button"
@@ -995,14 +1009,22 @@ export default function AdminBugsMonitor({
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setEditingIssue(issue)}
+                      className="px-2.5 py-1 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <span>✏️ Edit</span>
+                    </button>
+
                     {isOpen && (
                       <button
                         type="button"
                         disabled={isPending}
                         onClick={() => handleUpdateStatus(issue.id, "In Progress")}
-                        className="px-2.5 py-1 text-xs font-medium text-accent bg-surface hover:bg-slate-100 border border-border rounded-lg transition-colors cursor-pointer"
+                        className="px-2.5 py-1 bg-surface hover:bg-slate-100 text-accent border border-border font-medium rounded-lg text-xs transition-colors cursor-pointer"
                       >
-                        Start Work
+                        Start Fix
                       </button>
                     )}
                     {!isResolved && (
@@ -1079,6 +1101,47 @@ export default function AdminBugsMonitor({
           }}
         />
       )}
+
+      {/* Edit Issue Modal */}
+      <EditIssueModal
+        isOpen={Boolean(editingIssue)}
+        onClose={() => setEditingIssue(null)}
+        issue={editingIssue}
+        projects={projects}
+        teamMembers={assignableMembers}
+        isSuperAdmin={true}
+        onSuccess={(updated) => {
+          setIssues((prev) =>
+            prev.map((i) =>
+              i.id === updated.id
+                ? {
+                    ...i,
+                    title: updated.title,
+                    description: updated.description,
+                    priority: updated.priority,
+                    status: updated.status,
+                    resolution: updated.resolution,
+                    projectId: updated.projectId,
+                    projectName: updated.project?.name || i.projectName,
+                    assignedTo: updated.assignedTo
+                      ? {
+                          id: updated.assignedTo.id,
+                          name: updated.assignedTo.name,
+                          email: updated.assignedTo.email,
+                        }
+                      : null,
+                    resolvedAt: updated.resolvedAt
+                      ? new Date(updated.resolvedAt).toISOString()
+                      : null,
+                  }
+                : i
+            )
+          );
+        }}
+        onDelete={(deletedId) => {
+          setIssues((prev) => prev.filter((i) => i.id !== deletedId));
+        }}
+      />
     </div>
   );
 }

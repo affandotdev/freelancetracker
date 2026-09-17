@@ -37,14 +37,11 @@ export default function ReportBugModal({
   defaultTitle = "",
   onSuccess,
 }: ReportBugModalProps) {
-  const [selectedProjectId, setSelectedProjectId] = useState(
-    defaultProjectId || projects[0]?.id || ""
-  );
+  const [selectedProjectId, setSelectedProjectId] = useState(defaultProjectId || "");
   const [selectedMemberId, setSelectedMemberId] = useState(defaultAssignedToId || "");
   const [title, setTitle] = useState(defaultTitle || "");
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Critical">("Medium");
   const [description, setDescription] = useState("");
-  const [memberSearch, setMemberSearch] = useState("");
   const [isPending, startTransition] = useTransition();
 
   // Attachment state
@@ -109,10 +106,15 @@ export default function ReportBugModal({
 
   useEffect(() => {
     if (isOpen) {
-      if (defaultProjectId) setSelectedProjectId(defaultProjectId);
-      else if (!selectedProjectId && projects.length > 0) setSelectedProjectId(projects[0].id);
+      if (defaultProjectId) {
+        setSelectedProjectId(defaultProjectId);
+      } else if (projects.length === 1) {
+        setSelectedProjectId(projects[0].id);
+      } else {
+        setSelectedProjectId("");
+      }
 
-      if (defaultAssignedToId !== undefined) {
+      if (defaultAssignedToId) {
         const isTargetAdmin = teamMembers.find(
           (m) =>
             m.id === defaultAssignedToId &&
@@ -121,7 +123,10 @@ export default function ReportBugModal({
               m.email.toLowerCase().includes("admin@"))
         );
         setSelectedMemberId(isTargetAdmin ? "" : defaultAssignedToId);
+      } else {
+        setSelectedMemberId("");
       }
+
       if (defaultTitle) setTitle(defaultTitle);
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
@@ -135,32 +140,17 @@ export default function ReportBugModal({
       !m.email.toLowerCase().includes("admin@")
   );
 
-  const filteredMembers = nonAdminMembers.filter((m) => {
-    if (!memberSearch.trim()) return true;
-    const q = memberSearch.toLowerCase();
-    return m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
-  });
-
-  const selectedMember = nonAdminMembers.find((m) => m.id === selectedMemberId);
-  const selectedProject = projects.find((p) => p.id === selectedProjectId);
-
-  const quickTags = [
-    "Mobile layout broken",
-    "Button not responding",
-    "API 500 error",
-    "Form validation error",
-    "Data not saving",
-    "UI alignment glitch",
-  ];
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !selectedProjectId) return;
+    if (!title.trim() || !selectedProjectId) {
+      alert("Please select a project and enter an issue title.");
+      return;
+    }
 
     const formData = new FormData();
     formData.append("projectId", selectedProjectId);
-    formData.append("title", title);
-    formData.append("description", description);
+    formData.append("title", title.trim());
+    formData.append("description", description.trim());
     formData.append("priority", priority);
     formData.append("assignedToId", selectedMemberId || "none");
 
@@ -182,7 +172,6 @@ export default function ReportBugModal({
         onClose();
         setTitle("");
         setDescription("");
-        setMemberSearch("");
         setAttachedFile(null);
         setVideoLinkUrl("");
         setVideoLinkTitle("");
@@ -193,204 +182,158 @@ export default function ReportBugModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      onClick={onClose}
+    >
       <div
-        className="bg-white max-w-xl w-full my-8 rounded-lg border border-border shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white dark:bg-[#0a0a0a] max-w-lg w-full rounded-xl border border-border dark:border-[#262626] shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-ink dark:text-white"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-surface border-b border-border flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-border dark:border-[#262626] flex items-center justify-between shrink-0">
           <div className="space-y-0.5">
-            <h3 className="text-base font-semibold text-ink">
-              Report Issue
+            <h3 className="text-sm font-semibold text-ink dark:text-white">
+              🐛 Report Issue / Defect
             </h3>
-            <p className="text-[12px] text-gray-500">
-              Report a defect, link it to the project, and assign it to a team member.
+            <p className="text-[12px] text-slate-500 dark:text-slate-400">
+              Only required fields: select project and enter issue title.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-400 hover:text-ink text-sm font-bold cursor-pointer"
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-ink dark:hover:text-white hover:bg-surface dark:hover:bg-neutral-900 transition-colors text-sm cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-[13px]">
-          {/* STEP 1: SELECT RESPONSIBLE MEMBER */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="block text-[12px] font-medium text-gray-700">
-                1. Assign To (Optional)
-              </label>
-              <span className="text-[11px] text-gray-400">
-                {selectedMember ? (
-                  <strong className="text-accent font-medium">{selectedMember.name}</strong>
-                ) : (
-                  "Unassigned"
-                )}
-              </span>
-            </div>
-
-            {teamMembers.length > 4 && (
-              <input
-                type="text"
-                value={memberSearch}
-                onChange={(e) => setMemberSearch(e.target.value)}
-                placeholder="Search member..."
-                className="w-full px-3 py-1.5 text-[12px] bg-white border border-border rounded-md focus:outline-none"
-              />
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
-              <button
-                type="button"
-                onClick={() => setSelectedMemberId("")}
-                className={`p-2 rounded-md border text-left transition-colors cursor-pointer flex items-center gap-2 ${
-                  selectedMemberId === ""
-                    ? "bg-blue-50/50 border-accent text-accent font-medium"
-                    : "bg-surface border-border text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                <div className="min-w-0">
-                  <p className="text-[12px] truncate font-medium">Unassigned</p>
-                </div>
-              </button>
-
-              {filteredMembers.map((member) => {
-                const isSelected = selectedMemberId === member.id;
-                return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => setSelectedMemberId(member.id)}
-                    className={`p-2 rounded-md border text-left transition-colors cursor-pointer flex items-center gap-2 ${
-                      isSelected
-                        ? "bg-blue-50/50 border-accent text-accent font-medium"
-                        : "bg-surface border-border text-ink hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-[12px] truncate font-medium">{member.name}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* STEP 2: SELECT PROJECT */}
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="block text-[12px] font-medium text-gray-700">
-              2. Target Project <span className="text-signal-red">*</span>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-xs">
+          {/* Project Selection (Required) */}
+          <div className="space-y-1.5">
+            <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+              Project <span className="text-signal-red">*</span>
             </label>
             <select
               required
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md focus:outline-none cursor-pointer"
+              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
             >
+              <option value="">-- Select Project (Required) --</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} {p.client ? `(Client: ${p.client})` : ""}
+                  {p.name} {p.client ? `(${p.client})` : ""}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* STEP 3: ISSUE TITLE */}
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="block text-[12px] font-medium text-gray-700">
-              3. Issue Title <span className="text-signal-red">*</span>
+          {/* Issue Title (Required) */}
+          <div className="space-y-1.5">
+            <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+              Issue Title <span className="text-signal-red">*</span>
             </label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Header dropdown closes unexpectedly on mobile"
-              className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md focus:outline-none"
+              placeholder="e.g. Broken checkout form validation on mobile"
+              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white font-medium text-xs"
             />
+          </div>
 
-            <div className="flex flex-wrap items-center gap-1 pt-1">
-              <span className="text-[11px] text-gray-400">Suggestions:</span>
-              {quickTags.map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setTitle(tag)}
-                  className="text-[11px] px-2 py-0.5 rounded bg-surface hover:bg-gray-100 border border-border text-gray-600 cursor-pointer"
-                >
-                  {tag}
-                </button>
-              ))}
+          {/* Assign Worker (Optional) & Priority */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Assign Member */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+                Assign Worker (Optional)
+              </label>
+              <select
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="w-full px-2.5 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg text-ink dark:text-white font-medium text-xs focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
+              >
+                <option value="">-- Unassigned --</option>
+                {nonAdminMembers.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Priority */}
+            <div className="space-y-1.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+                Priority
+              </label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(["Low", "Medium", "High", "Critical"] as const).map((p) => {
+                  const isSelected = priority === p;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => setPriority(p)}
+                      className={`py-1.5 px-1 rounded-md text-center transition-all cursor-pointer text-[11px] font-medium border ${
+                        isSelected
+                          ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs font-semibold"
+                          : "bg-surface dark:bg-[#111111] border-border dark:border-[#262626] text-slate-600 dark:text-slate-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* STEP 4: PRIORITY */}
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="block text-[12px] font-medium text-gray-700">
-              4. Severity & Priority
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(["Low", "Medium", "High", "Critical"] as const).map((p) => {
-                const isSelected = priority === p;
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPriority(p)}
-                    className={`p-2 rounded-md border text-center transition-colors cursor-pointer text-[12px] ${
-                      isSelected
-                        ? "bg-black text-white dark:bg-white dark:text-black font-medium border-black dark:border-white shadow-xs"
-                        : "bg-surface dark:bg-[#0a0a0a] border-border dark:border-[#262626] text-gray-600 dark:text-gray-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* STEP 5: DESCRIPTION */}
-          <div className="space-y-1.5 pt-2 border-t border-border">
-            <label className="block text-[12px] font-medium text-gray-700">
-              5. Details / Steps to Reproduce
+          {/* Description (Optional) */}
+          <div className="space-y-1.5">
+            <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+              Description & Steps to Reproduce (Optional)
             </label>
             <textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="1. Open product page&#10;2. Click checkout button&#10;3. Notice error dialog appears"
-              className="w-full p-2.5 text-[13px] bg-white border border-border rounded-md focus:outline-none resize-none"
+              placeholder="Provide any helpful details, browser/device info, or steps to reproduce..."
+              className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white text-xs leading-relaxed resize-none font-medium"
             />
           </div>
 
-          {/* STEP 6: ATTACHMENTS */}
-          <div className="space-y-2 pt-2 border-t border-border">
+          {/* Attachment / Screen Recording (Optional) */}
+          <div className="space-y-2 pt-2 border-t border-border dark:border-[#262626]">
             <div className="flex items-center justify-between">
-              <label className="block text-[12px] font-medium text-gray-700">
-                6. Attachment (Optional)
+              <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+                Evidence / Attachment (Optional)
               </label>
-              <div className="flex items-center gap-1 bg-surface p-0.5 rounded border border-border text-[11px]">
+              <div className="flex items-center gap-1 bg-surface dark:bg-[#141414] p-0.5 rounded-md border border-border dark:border-[#262626]">
                 <button
                   type="button"
                   onClick={() => setAttachmentMode("file")}
-                  className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
-                    attachmentMode === "file" ? "bg-white text-ink shadow-xs" : "text-gray-500"
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                    attachmentMode === "file"
+                      ? "bg-white dark:bg-black text-ink dark:text-white shadow-xs"
+                      : "text-slate-500 hover:text-ink dark:hover:text-white"
                   }`}
                 >
-                  File
+                  File / Paste
                 </button>
                 <button
                   type="button"
                   onClick={() => setAttachmentMode("link")}
-                  className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
-                    attachmentMode === "link" ? "bg-white text-ink shadow-xs" : "text-gray-500"
+                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors cursor-pointer ${
+                    attachmentMode === "link"
+                      ? "bg-white dark:bg-black text-ink dark:text-white shadow-xs"
+                      : "text-slate-500 hover:text-ink dark:hover:text-white"
                   }`}
                 >
                   Video Link
@@ -399,95 +342,88 @@ export default function ReportBugModal({
             </div>
 
             {attachmentMode === "file" ? (
-              <div className="space-y-2">
+              <div>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*,video/*,.pdf,.txt,.log,.zip,.csv"
-                  className="hidden"
+                  accept="image/*,video/*,.pdf,.zip"
                   onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) processSelectedFile(file);
+                    if (e.target.files && e.target.files[0]) {
+                      processSelectedFile(e.target.files[0]);
+                    }
                   }}
+                  className="hidden"
                 />
 
-                {!attachedFile ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) processSelectedFile(file);
-                    }}
-                    className="border border-dashed border-border hover:border-accent bg-surface rounded-md p-4 text-center cursor-pointer transition-colors"
-                  >
-                    <p className="text-[12px] font-medium text-ink">
-                      Click to upload screenshot or file
-                    </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Max 15MB • or paste image (Ctrl+V)
-                    </p>
-                  </div>
-                ) : (
-                  <div className="p-2.5 bg-surface border border-border rounded-md flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[12px] font-medium text-ink truncate">{attachedFile.name}</p>
-                      <p className="text-[11px] text-gray-400">
-                        {(attachedFile.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
+                {attachedFile ? (
+                  <div className="flex items-center justify-between p-2.5 bg-surface dark:bg-[#111111] rounded-lg border border-border dark:border-[#262626]">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="text-sm">
+                        {attachedFile.type === "image"
+                          ? "🖼️"
+                          : attachedFile.type === "video"
+                          ? "🎥"
+                          : "📄"}
+                      </span>
+                      <span className="font-medium text-slate-700 dark:text-slate-200 truncate">
+                        {attachedFile.name}
+                      </span>
+                      <span className="text-[10px] text-slate-400 tabular-nums">
+                        ({(attachedFile.size / 1024).toFixed(0)} KB)
+                      </span>
                     </div>
-
                     <button
                       type="button"
-                      onClick={() => {
-                        setAttachedFile(null);
-                        if (fileInputRef.current) fileInputRef.current.value = "";
-                      }}
-                      className="text-[12px] text-signal-red hover:underline cursor-pointer"
+                      onClick={() => setAttachedFile(null)}
+                      className="text-signal-red hover:text-red-700 text-xs font-semibold p-1 cursor-pointer"
                     >
                       Remove
                     </button>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isConvertingFile}
+                    className="w-full p-3 border border-dashed border-border dark:border-[#262626] rounded-lg text-center hover:bg-surface dark:hover:bg-[#111111] transition-colors cursor-pointer text-slate-500 dark:text-slate-400"
+                  >
+                    <span>
+                      {isConvertingFile
+                        ? "Processing file..."
+                        : "📎 Click to upload screenshot/file or press Ctrl+V to paste screenshot"}
+                    </span>
+                  </button>
                 )}
               </div>
             ) : (
-              <div className="space-y-2 bg-surface p-3 rounded-md border border-border">
-                <div>
-                  <input
-                    type="url"
-                    value={videoLinkUrl}
-                    onChange={(e) => setVideoLinkUrl(e.target.value)}
-                    placeholder="https://www.loom.com/share/... or video URL"
-                    className="w-full px-3 py-1.5 text-[12px] bg-white border border-border rounded-md focus:outline-none"
-                  />
-                </div>
+              <div className="space-y-2">
+                <input
+                  type="url"
+                  value={videoLinkUrl}
+                  onChange={(e) => setVideoLinkUrl(e.target.value)}
+                  placeholder="https://loom.com/share/... or Google Drive link"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white text-xs font-medium"
+                />
               </div>
             )}
           </div>
 
           {/* Modal Footer */}
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border">
-            <div className="text-[12px] text-gray-500">
-              {selectedMember && <span>Assignee: {selectedMember.name}</span>}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isPending || !title.trim() || !selectedProjectId}
-                className="px-4 py-1.5 bg-signal-red hover:bg-red-700 text-white text-[12px] font-medium rounded-md disabled:opacity-50 transition-colors cursor-pointer"
-              >
-                {isPending ? "Submitting..." : "Report Issue"}
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-2 pt-4 border-t border-border dark:border-[#262626]">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3.5 py-1.5 rounded-lg border border-border dark:border-[#262626] text-slate-600 dark:text-slate-300 hover:bg-surface dark:hover:bg-neutral-900 text-xs font-medium transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isPending || isConvertingFile}
+              className="px-4 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white rounded-lg text-xs font-semibold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isPending ? "Submitting..." : "Report Issue"}
+            </button>
           </div>
         </form>
       </div>

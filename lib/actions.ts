@@ -1291,8 +1291,83 @@ export async function reassignIssueAction(formData: FormData) {
 }
 
 /**
+ * Update an existing issue/bug (title, description, priority, status, assigned member, resolution).
+ * Accessible to Super Admin, the reporter, or the assigned member.
+ */
+export async function updateIssueAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const issueId = (formData.get("issueId") as string)?.trim();
+  const title = (formData.get("title") as string)?.trim();
+  const description = (formData.get("description") as string)?.trim() || null;
+  const priority = (formData.get("priority") as string)?.trim() || "Medium";
+  const status = (formData.get("status") as string)?.trim() || "Open";
+  const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
+  const resolution = (formData.get("resolution") as string)?.trim() || null;
+  const projectId = (formData.get("projectId") as string)?.trim();
+
+  if (!issueId || !title) {
+    throw new Error("Issue ID and title are required.");
+  }
+
+  const issue = await (prisma as any).issue.findUnique({
+    where: { id: issueId },
+  });
+
+  if (!issue) {
+    throw new Error("Issue not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isReporter = issue.raisedById === session.userId;
+  const isAssigned = issue.assignedToId === session.userId;
+
+  if (!isSuperAdmin && !isReporter && !isAssigned) {
+    throw new Error("Unauthorized: Only the assigned member, reporter, or Super Admin can edit this issue.");
+  }
+
+  let targetAssigneeId = assignedToId && assignedToId !== "none" ? assignedToId : null;
+  if (targetAssigneeId) {
+    const targetUser = await prisma.user.findUnique({ where: { id: targetAssigneeId } });
+    if (targetUser && (targetUser.role === "SUPER_ADMIN" || targetUser.email.toLowerCase().includes("admin@"))) {
+      targetAssigneeId = null; // Cannot be assigned to admin
+    }
+  }
+
+  const isResolvedOrClosed = status === "Resolved" || status === "Closed";
+
+  const updated = await (prisma as any).issue.update({
+    where: { id: issueId },
+    data: {
+      title,
+      description,
+      priority,
+      status,
+      assignedToId: targetAssigneeId,
+      resolution,
+      resolvedAt: isResolvedOrClosed ? (issue.resolvedAt || new Date()) : null,
+      ...(projectId && isSuperAdmin ? { projectId } : {}),
+    },
+    include: {
+      project: { select: { id: true, name: true } },
+      raisedBy: { select: { id: true, name: true, email: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/issues");
+  revalidatePath(`/projects/${updated.projectId}`);
+  revalidatePath("/");
+  if (updated.assignedToId) {
+    revalidatePath(`/team/${updated.assignedToId}`);
+  }
+
+  return updated;
+}
+
+/**
  * Delete an issue.
- * Accessible to Super Admin or the user who reported it.
+ * Accessible to Super Admin, the reporter, or the assigned member.
  */
 export async function deleteIssueAction(issueId: string) {
   const session = await requireAuth();
@@ -1311,9 +1386,10 @@ export async function deleteIssueAction(issueId: string) {
 
   const isSuperAdmin = session.role === "SUPER_ADMIN";
   const isReporter = issue.raisedById === session.userId;
+  const isAssigned = issue.assignedToId === session.userId;
 
-  if (!isSuperAdmin && !isReporter) {
-    throw new Error("Unauthorized: Only the reporter or Super Admin can delete this issue.");
+  if (!isSuperAdmin && !isReporter && !isAssigned) {
+    throw new Error("Unauthorized: Only the reporter, assigned member, or Super Admin can delete this issue.");
   }
 
   await (prisma as any).issue.delete({

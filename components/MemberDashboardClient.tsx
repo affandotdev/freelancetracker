@@ -9,7 +9,8 @@ import ScheduleMeetingModal from "./ScheduleMeetingModal";
 import LogMeetingFollowUpModal from "./LogMeetingFollowUpModal";
 import LogDirectMeetingModal from "./LogDirectMeetingModal";
 import EditTaskModal, { EditableTaskData } from "./EditTaskModal";
-import { updateIssueStatusAction, updateMeetingStatusAction } from "@/lib/actions";
+import EditIssueModal from "./EditIssueModal";
+import { updateIssueStatusAction, updateMeetingStatusAction, deleteIssueAction } from "@/lib/actions";
 
 export interface MemberIssueData {
   id: string;
@@ -137,6 +138,7 @@ export default function MemberDashboardClient({
   });
 
   const [taskToEdit, setTaskToEdit] = useState<EditableTaskData | null>(null);
+  const [editingIssue, setEditingIssue] = useState<MemberIssueData | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Inline resolution state
@@ -230,6 +232,18 @@ export default function MemberDashboardClient({
         alert(err?.message || "Failed to update bug status.");
       }
     });
+  };
+
+  const handleDeleteIssue = async (issueId: string) => {
+    if (!confirm("Are you sure you want to delete this issue? This action cannot be undone.")) {
+      return;
+    }
+    try {
+      await deleteIssueAction(issueId);
+      setIssues((prev) => prev.filter((i) => i.id !== issueId));
+    } catch (err: any) {
+      alert(err?.message || "Failed to delete issue");
+    }
   };
 
   const getPriorityBadgeClass = (priority: string) => {
@@ -841,6 +855,15 @@ export default function MemberDashboardClient({
                             {/* Actions */}
                             <td className="py-3.5 px-4 text-right">
                               <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingIssue(issue)}
+                                  className="px-2.5 py-1 bg-surface hover:bg-slate-200 text-slate-700 border border-border font-medium rounded text-[11px] transition-colors cursor-pointer"
+                                  title="Edit Defect"
+                                >
+                                  ✏️ Edit
+                                </button>
+
                                 {isOpen && (
                                   <button
                                     type="button"
@@ -872,6 +895,17 @@ export default function MemberDashboardClient({
                                     Resolved
                                   </span>
                                 )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteIssue(issue.id)}
+                                  className="p-1 hover:bg-red-50 text-slate-400 hover:text-signal-red rounded transition-colors cursor-pointer"
+                                  title="Delete issue"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
                               </div>
                             </td>
                           </tr>
@@ -1094,6 +1128,14 @@ export default function MemberDashboardClient({
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setEditingIssue(issue)}
+                          className="px-3 py-1 bg-surface hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-border transition-colors cursor-pointer"
+                        >
+                          ✏️ Edit
+                        </button>
+
                         {isOpen && (
                           <button
                             type="button"
@@ -1118,6 +1160,17 @@ export default function MemberDashboardClient({
                             Mark as Resolved
                           </button>
                         )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteIssue(issue.id)}
+                          className="p-1.5 hover:bg-red-50 text-slate-400 hover:text-signal-red rounded-lg transition-colors cursor-pointer"
+                          title="Delete issue"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1593,6 +1646,48 @@ export default function MemberDashboardClient({
                 : t
             )
           );
+        }}
+      />
+
+      {/* Edit Issue Modal */}
+      <EditIssueModal
+        isOpen={!!editingIssue}
+        onClose={() => setEditingIssue(null)}
+        issue={editingIssue}
+        projects={projects}
+        teamMembers={assignableMembers}
+        isSuperAdmin={false}
+        currentUserId={currentUserId}
+        onSuccess={(updated) => {
+          setIssues((prev) =>
+            prev.map((i) =>
+              i.id === updated.id
+                ? {
+                    ...i,
+                    title: updated.title,
+                    description: updated.description,
+                    priority: updated.priority,
+                    status: updated.status,
+                    resolution: updated.resolution,
+                    projectId: updated.projectId,
+                    projectName: updated.project?.name || i.projectName,
+                    assignedTo: updated.assignedTo
+                      ? {
+                          id: updated.assignedTo.id,
+                          name: updated.assignedTo.name,
+                          email: updated.assignedTo.email,
+                        }
+                      : null,
+                    resolvedAt: updated.resolvedAt
+                      ? new Date(updated.resolvedAt).toISOString()
+                      : null,
+                  }
+                : i
+            )
+          );
+        }}
+        onDelete={(deletedId) => {
+          setIssues((prev) => prev.filter((i) => i.id !== deletedId));
         }}
       />
     </div>

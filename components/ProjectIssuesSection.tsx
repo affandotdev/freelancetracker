@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { updateIssueStatusAction, deleteIssueAction } from "@/lib/actions";
 import ReportBugModal from "./ReportBugModal";
+import EditIssueModal from "./EditIssueModal";
 import IssueAttachmentViewer from "./IssueAttachmentViewer";
 
 export interface ProjectIssueItem {
@@ -48,6 +49,7 @@ export default function ProjectIssuesSection({
 }: ProjectIssuesSectionProps) {
   const [issues, setIssues] = useState<ProjectIssueItem[]>(initialIssues);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingIssue, setEditingIssue] = useState<ProjectIssueItem | null>(null);
   const [selectedMemberToReport, setSelectedMemberToReport] = useState<string | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
 
@@ -327,6 +329,16 @@ export default function ProjectIssuesSection({
                         {/* Actions */}
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingIssue(issue)}
+                              title="Edit issue details"
+                              className="px-2 py-1 bg-blue-50 dark:bg-neutral-800 hover:bg-blue-100 dark:hover:bg-neutral-700 text-accent dark:text-white border border-blue-200 dark:border-neutral-700 font-semibold rounded text-[11px] transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span>✏️</span>
+                              <span>Edit</span>
+                            </button>
+
                             {isOpen && (
                               <button
                                 type="button"
@@ -498,6 +510,44 @@ export default function ProjectIssuesSection({
               ...prev,
             ]);
           }
+        }}
+      />
+
+      {/* Edit Issue Modal */}
+      <EditIssueModal
+        isOpen={Boolean(editingIssue)}
+        onClose={() => setEditingIssue(null)}
+        issue={editingIssue}
+        projects={[{ id: projectId, name: projectName }]}
+        teamMembers={teamMembers}
+        onSuccess={(updated) => {
+          setIssues((prev) =>
+            prev.map((i) =>
+              i.id === updated.id
+                ? {
+                    ...i,
+                    title: updated.title,
+                    description: updated.description,
+                    priority: updated.priority,
+                    status: updated.status,
+                    resolution: updated.resolution,
+                    assignedTo: updated.assignedTo
+                      ? {
+                          id: updated.assignedTo.id,
+                          name: updated.assignedTo.name,
+                          email: updated.assignedTo.email,
+                        }
+                      : null,
+                    resolvedAt: updated.resolvedAt
+                      ? new Date(updated.resolvedAt).toISOString()
+                      : null,
+                  }
+                : i
+            )
+          );
+        }}
+        onDelete={(deletedId) => {
+          setIssues((prev) => prev.filter((i) => i.id !== deletedId));
         }}
       />
     </div>
