@@ -62,15 +62,15 @@ export default function ReportBugModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDirty = Boolean(
-    (title.trim() && title.trim() !== defaultTitle) ||
-    description.trim().length > 0 ||
-    path.trim().length > 0 ||
+    (title.length > 0 && title !== defaultTitle) ||
+    description.length > 0 ||
+    path.length > 0 ||
     module !== "User Side" ||
     priority !== "Medium" ||
-    (selectedProjectId && selectedProjectId !== defaultProjectId) ||
-    (selectedMemberId && selectedMemberId !== defaultAssignedToId) ||
+    (selectedProjectId !== "" && selectedProjectId !== (defaultProjectId || "")) ||
+    (selectedMemberId !== "" && selectedMemberId !== (defaultAssignedToId || "")) ||
     attachedFile !== null ||
-    videoLinkUrl.trim().length > 0
+    videoLinkUrl.length > 0
   );
 
   const handleAttemptClose = () => {
@@ -147,6 +147,37 @@ export default function ReportBugModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen, isDirty, showDiscardConfirm]);
 
+  // Prevent accidental page reload / tab close when dirty
+  useEffect(() => {
+    if (!isOpen || !isDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isOpen, isDirty]);
+
+  // Support browser back navigation: show discard confirmation if changes exist
+  useEffect(() => {
+    if (!isOpen) return;
+    window.history.pushState({ modalOpen: true }, "");
+
+    const handlePopState = () => {
+      if (isDirty) {
+        window.history.pushState({ modalOpen: true }, "");
+        setShowDiscardConfirm(true);
+      } else {
+        onClose();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [isOpen, isDirty]);
+
   useEffect(() => {
     if (isOpen) {
       setSelectedProjectId(defaultProjectId || "");
@@ -164,12 +195,14 @@ export default function ReportBugModal({
         setSelectedMemberId("");
       }
 
-      if (defaultTitle) setTitle(defaultTitle);
+      setTitle(defaultTitle || "");
       setPath("");
       setModule("User Side");
+      setPriority("Medium");
       setDescription("");
       setAttachedFile(null);
       setVideoLinkUrl("");
+      setVideoLinkTitle("");
       setShowDiscardConfirm(false);
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
@@ -538,9 +571,15 @@ export default function ReportBugModal({
         {showDiscardConfirm && (
           <div
             className="absolute inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDiscardConfirm(false);
+            }}
           >
-            <div className="bg-white dark:bg-[#141414] rounded-xl border border-border dark:border-[#262626] shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 text-ink dark:text-white">
+            <div
+              className="bg-white dark:bg-[#141414] rounded-xl border border-border dark:border-[#262626] shadow-2xl max-w-sm w-full p-5 space-y-4 animate-in zoom-in-95 duration-150 text-ink dark:text-white"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center text-lg shrink-0 border border-amber-200 dark:border-amber-800/60">
                   ⚠️
