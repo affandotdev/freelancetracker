@@ -1087,6 +1087,7 @@ export async function createIssueAction(formData: FormData) {
   const title = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
   const path = (formData.get("path") as string)?.trim() || null;
+  const module = (formData.get("module") as string)?.trim() || "User Side";
   const priority = (formData.get("priority") as string)?.trim() || "Medium";
   const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
 
@@ -1151,6 +1152,7 @@ export async function createIssueAction(formData: FormData) {
       title,
       description,
       path,
+      module,
       priority,
       status: "Open",
       raisedById: session.userId,
@@ -1307,6 +1309,7 @@ export async function updateIssueAction(formData: FormData) {
   const title = (formData.get("title") as string)?.trim();
   const description = (formData.get("description") as string)?.trim() || null;
   const path = (formData.get("path") as string)?.trim() || null;
+  const module = (formData.get("module") as string)?.trim() || "User Side";
   const priority = (formData.get("priority") as string)?.trim() || "Medium";
   const status = (formData.get("status") as string)?.trim() || "Open";
   const assignedToId = (formData.get("assignedToId") as string)?.trim() || null;
@@ -1351,6 +1354,7 @@ export async function updateIssueAction(formData: FormData) {
       title,
       description,
       path,
+      module,
       priority,
       status,
       assignedToId: targetAssigneeId,

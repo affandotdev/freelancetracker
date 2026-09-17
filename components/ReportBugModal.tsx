@@ -41,6 +41,7 @@ export default function ReportBugModal({
   const [selectedMemberId, setSelectedMemberId] = useState(defaultAssignedToId || "");
   const [title, setTitle] = useState(defaultTitle || "");
   const [path, setPath] = useState("");
+  const [module, setModule] = useState<string>("User Side");
   const [priority, setPriority] = useState<"Low" | "Medium" | "High" | "Critical">("Medium");
   const [description, setDescription] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -124,6 +125,7 @@ export default function ReportBugModal({
 
       if (defaultTitle) setTitle(defaultTitle);
       setPath("");
+      setModule("User Side");
     }
   }, [isOpen, defaultProjectId, defaultAssignedToId, defaultTitle, projects, teamMembers]);
 
@@ -152,6 +154,7 @@ export default function ReportBugModal({
     formData.append("projectId", selectedProjectId);
     formData.append("title", title.trim());
     if (path.trim()) formData.append("path", path.trim());
+    formData.append("module", module || "User Side");
     formData.append("description", description.trim());
     formData.append("priority", priority);
     formData.append("assignedToId", selectedMemberId);
@@ -174,6 +177,7 @@ export default function ReportBugModal({
         onClose();
         setTitle("");
         setPath("");
+        setModule("User Side");
         setSelectedMemberId("");
         setDescription("");
         setAttachedFile(null);
@@ -267,6 +271,41 @@ export default function ReportBugModal({
               placeholder="e.g. /dashboard/settings, components/TaskCard.tsx, or /api/auth"
               className="w-full px-3 py-2 bg-white dark:bg-[#050505] border border-border dark:border-[#262626] rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink dark:text-white font-medium text-xs placeholder:text-slate-400"
             />
+          </div>
+
+          {/* Module / Side (Admin Side vs User Side etc.) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-slate-700 dark:text-slate-200 block">
+                Module / Side <span className="text-signal-red">*</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Where defect occurs</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+              {[
+                { id: "Admin Side", label: "🛡️ Admin Side" },
+                { id: "User Side", label: "👤 User Side" },
+                { id: "Client Portal", label: "🏢 Client Portal" },
+                { id: "API / Backend", label: "⚡ API / Backend" },
+                { id: "Public / Landing", label: "🌐 Public / Landing" },
+              ].map((m) => {
+                const isSelected = module === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setModule(m.id)}
+                    className={`py-1.5 px-2 rounded-lg text-center transition-all cursor-pointer text-xs font-medium border ${
+                      isSelected
+                        ? "bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-xs font-semibold"
+                        : "bg-surface dark:bg-[#111111] border-border dark:border-[#262626] text-slate-600 dark:text-slate-300 hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Assign Worker (Required) & Priority */}
