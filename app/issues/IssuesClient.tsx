@@ -61,6 +61,12 @@ export default function IssuesClient({
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
+  // View Mode: Table (default) vs Cards
+  const [viewMode, setViewMode] = useState<"table" | "cards">("table");
+
+  // Expanded Rows in Table View
+  const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(new Set());
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -84,7 +90,7 @@ export default function IssuesClient({
 
   const isSuperAdmin = currentUser.role === "SUPER_ADMIN";
 
-  // Only non-admin workers can be assigned bugs (Admin cannot be assigned bugs)
+  // Only non-admin workers can be assigned bugs
   const assignableMembers = useMemo(() => {
     return teamMembers.filter(
       (m) =>
@@ -94,57 +100,65 @@ export default function IssuesClient({
     );
   }, [teamMembers]);
 
+  // Toggle expanded row
+  const toggleRowExpansion = (id: string) => {
+    setExpandedIssueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
   // Filter calculation
-  const filteredIssues = issues.filter((issue) => {
-    // Search
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      const matchTitle = issue.title.toLowerCase().includes(q);
-      const matchDesc = issue.description?.toLowerCase().includes(q) || false;
-      const matchProject = issue.projectName.toLowerCase().includes(q);
-      const matchReporter = issue.raisedBy.name.toLowerCase().includes(q);
-      const matchAssignee = issue.assignedTo?.name.toLowerCase().includes(q) || false;
-      if (!matchTitle && !matchDesc && !matchProject && !matchReporter && !matchAssignee) {
+  const filteredIssues = useMemo(() => {
+    return issues.filter((issue) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = issue.title.toLowerCase().includes(q);
+        const matchDesc = issue.description?.toLowerCase().includes(q) || false;
+        const matchProject = issue.projectName.toLowerCase().includes(q);
+        const matchReporter = issue.raisedBy.name.toLowerCase().includes(q);
+        const matchAssignee = issue.assignedTo?.name.toLowerCase().includes(q) || false;
+        if (!matchTitle && !matchDesc && !matchProject && !matchReporter && !matchAssignee) {
+          return false;
+        }
+      }
+
+      if (statusFilter !== "All" && issue.status !== statusFilter) {
         return false;
       }
-    }
 
-    // Status filter
-    if (statusFilter !== "All" && issue.status !== statusFilter) {
-      return false;
-    }
+      if (projectFilter !== "All" && issue.projectId !== projectFilter) {
+        return false;
+      }
 
-    // Project filter
-    if (projectFilter !== "All" && issue.projectId !== projectFilter) {
-      return false;
-    }
+      if (assigneeFilter === "assigned_to_me") {
+        if (issue.assignedTo?.id !== currentUser.id) return false;
+      } else if (assigneeFilter === "reported_by_me") {
+        if (issue.raisedBy.id !== currentUser.id) return false;
+      } else if (assigneeFilter === "unassigned") {
+        if (issue.assignedTo) return false;
+      } else if (assigneeFilter !== "All") {
+        if (issue.assignedTo?.id !== assigneeFilter) return false;
+      }
 
-    // Assignee filter
-    if (assigneeFilter === "assigned_to_me") {
-      if (issue.assignedTo?.id !== currentUser.id) return false;
-    } else if (assigneeFilter === "reported_by_me") {
-      if (issue.raisedBy.id !== currentUser.id) return false;
-    } else if (assigneeFilter === "unassigned") {
-      if (issue.assignedTo) return false;
-    } else if (assigneeFilter !== "All") {
-      if (issue.assignedTo?.id !== assigneeFilter) return false;
-    }
+      if (priorityFilter !== "All" && issue.priority !== priorityFilter) {
+        return false;
+      }
 
-    // Priority filter
-    if (priorityFilter !== "All" && issue.priority !== priorityFilter) {
-      return false;
-    }
+      return true;
+    });
+  }, [issues, searchQuery, statusFilter, projectFilter, assigneeFilter, priorityFilter, currentUser.id]);
 
-    return true;
-  });
-
-  // KPI calculations
   const totalCount = issues.length;
   const openCount = issues.filter((i) => i.status === "Open").length;
   const inProgressCount = issues.filter((i) => i.status === "In Progress").length;
   const resolvedCount = issues.filter((i) => i.status === "Resolved" || i.status === "Closed").length;
 
-  // Handlers
   const handleOpenReportModal = (memberId = "", projectId = "", title = "") => {
     setModalDefaults({
       projectId: projectId || projects[0]?.id || "",
@@ -231,28 +245,28 @@ export default function IssuesClient({
   const getPriorityBadgeClass = (priority: string) => {
     switch (priority) {
       case "Critical":
-        return "bg-rose-100 text-rose-800 border-rose-200";
+        return "bg-red-50 text-signal-red border-red-200";
       case "High":
-        return "bg-amber-100 text-amber-800 border-amber-200";
+        return "bg-amber-50 text-signal-amber border-amber-200";
       case "Medium":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-accent border-blue-200";
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-surface text-slate-700 border-border";
     }
   };
 
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "Open":
-        return "bg-rose-50 text-rose-700 border-rose-200";
+        return "bg-red-50 text-signal-red border-red-200";
       case "In Progress":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-blue-50 text-accent border-blue-200";
       case "Resolved":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        return "bg-emerald-50 text-signal-green border-emerald-200";
       case "Closed":
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-surface text-slate-700 border-border";
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-surface text-slate-700 border-border";
     }
   };
 
@@ -262,128 +276,122 @@ export default function IssuesClient({
       <div className="flex items-center justify-between">
         <BackButton fallbackHref="/" label="Back to Dashboard" />
 
-        <button
-          type="button"
-          onClick={() => handleOpenReportModal()}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
-        >
-          <span>🐛</span>
-          <span>+ Report Bug / Issue</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View Switcher: Table vs Cards */}
+          <div className="flex p-0.5 bg-surface border border-border rounded-lg text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                viewMode === "table"
+                  ? "bg-white text-ink font-semibold shadow-xs border border-border/80"
+                  : "text-slate-500 hover:text-ink"
+              }`}
+            >
+              <span>Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
+                viewMode === "cards"
+                  ? "bg-white text-ink font-semibold shadow-xs border border-border/80"
+                  : "text-slate-500 hover:text-ink"
+              }`}
+            >
+              <span>Cards</span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleOpenReportModal()}
+            className="inline-flex items-center px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
+          >
+            + Report Issue
+          </button>
+        </div>
       </div>
 
-      {/* Page Header Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-md border border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              Live Issue Tracking
-            </span>
-            <span className="text-xs text-slate-400">Project Quality & Bug Reports</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+      {/* Header */}
+      <div>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold text-ink tracking-tight">
             Issues & Bug Tracker
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300/90 max-w-2xl">
-            Report bugs against projects, assign deliverables to team members, track resolution progress, and verify fixes in real-time.
-          </p>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10 text-center shrink-0 min-w-[150px]">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300 block">
-            Resolution Rate
-          </span>
-          <span className="text-2xl font-black text-white">
-            {totalCount > 0 ? Math.round((resolvedCount / totalCount) * 100) : 100}%
-          </span>
-          <span className="text-[10px] text-slate-400 block">
-            {resolvedCount} of {totalCount} closed
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-surface text-slate-700 border border-border">
+            Quality Control
           </span>
         </div>
+        <p className="text-xs text-slate-500 mt-1">
+          Report bugs against projects, assign deliverables to team members, track resolution progress, and verify fixes.
+        </p>
       </div>
 
-      {/* QUICK REPORT: CLICK ANY TEAM MEMBER */}
+      {/* Quick Report Bar */}
       {assignableMembers.length > 0 && (
-        <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-2.5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🎯</span>
-              <h3 className="text-xs sm:text-sm font-bold text-slate-800">
-                Quick Bug Report Against Team Members
-              </h3>
-            </div>
+        <div className="bg-white p-4 rounded-lg border border-border shadow-xs space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+            <h3 className="text-xs font-semibold text-ink">
+              Quick Report Against Team Member
+            </h3>
             <span className="text-[11px] text-slate-400">
-              Click any teammate to immediately file an issue against their deliverable:
+              Click a member to immediately file an issue:
             </span>
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {assignableMembers.map((m) => {
-              const initials = m.name
-                .split(" ")
-                .map((w) => w[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2);
-
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => handleOpenReportModal(m.id)}
-                  className="px-3 py-2 rounded-2xl border bg-rose-50/50 hover:bg-rose-100/80 border-rose-200 text-rose-900 shadow-2xs hover:border-rose-300 transition-all cursor-pointer flex items-center gap-2 shrink-0"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-[10px]">
-                    {initials}
-                  </div>
-                  <div className="text-left leading-tight">
-                    <p className="text-xs font-bold truncate">{m.name}</p>
-                    <p className="text-[9px] text-rose-600/80 font-semibold">Report bug →</p>
-                  </div>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {assignableMembers.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleOpenReportModal(m.id)}
+                className="px-2.5 py-1 rounded-lg border border-border bg-surface hover:bg-slate-100 text-ink text-xs font-medium transition-colors cursor-pointer shrink-0"
+              >
+                {m.name} →
+              </button>
+            ))}
           </div>
         </div>
       )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Total Issues
-          </span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{totalCount}</div>
-          <span className="text-[11px] text-slate-500">Across all projects</span>
+        <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Total issues
+          </p>
+          <div className="text-2xl font-bold text-ink tracking-tight tabular-nums">{totalCount}</div>
+          <p className="text-[11px] text-slate-400 mt-1">Across all projects</p>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-200/60 bg-rose-50/20 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500">
-            Open Bugs
-          </span>
-          <div className="text-2xl font-black text-rose-600 mt-1">{openCount}</div>
-          <span className="text-[11px] text-rose-600/80">Pending investigation</span>
+        <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Open
+          </p>
+          <div className="text-2xl font-bold text-signal-red tracking-tight tabular-nums">{openCount}</div>
+          <p className="text-[11px] text-signal-red font-medium mt-1">Pending investigation</p>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-blue-200/60 bg-blue-50/20 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-blue-500">
-            In Progress
-          </span>
-          <div className="text-2xl font-black text-blue-600 mt-1">{inProgressCount}</div>
-          <span className="text-[11px] text-blue-600/80">Being resolved</span>
+        <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            In progress
+          </p>
+          <div className="text-2xl font-bold text-accent tracking-tight tabular-nums">{inProgressCount}</div>
+          <p className="text-[11px] text-slate-400 mt-1">Being resolved</p>
         </div>
 
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200/60 bg-emerald-50/20 shadow-2xs">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-500">
-            Resolved & Closed
-          </span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{resolvedCount}</div>
-          <span className="text-[11px] text-emerald-600/80">Fix shipped</span>
+        <div className="bg-white p-4 rounded-lg border border-border shadow-xs">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
+            Resolved
+          </p>
+          <div className="text-2xl font-bold text-signal-green tracking-tight tabular-nums">{resolvedCount}</div>
+          <p className="text-[11px] text-signal-green font-medium mt-1">Fix shipped</p>
         </div>
       </div>
 
       {/* Filter Control Bar */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/80 shadow-2xs space-y-3">
+      <div className="bg-white p-3.5 rounded-lg border border-border shadow-xs space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Search Input */}
           <div className="relative flex-1">
@@ -392,13 +400,12 @@ export default function IssuesClient({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search issues by title, project, member, or notes..."
-              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500"
+              className="w-full px-3 py-1.5 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent placeholder:text-slate-400 text-ink"
             />
-            <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
           </div>
 
           {/* Status Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-bold overflow-x-auto">
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
             {[
               { key: "All", label: `All (${totalCount})` },
               { key: "Open", label: `Open (${openCount})` },
@@ -409,10 +416,10 @@ export default function IssuesClient({
                 key={tab.key}
                 type="button"
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
+                className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap cursor-pointer tabular-nums ${
                   statusFilter === tab.key
-                    ? "bg-white text-slate-900 shadow-2xs"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-ink text-white font-semibold"
+                    : "text-slate-600 hover:bg-surface border border-transparent"
                 }`}
               >
                 {tab.label}
@@ -422,14 +429,14 @@ export default function IssuesClient({
         </div>
 
         {/* Secondary Dropdown Filters */}
-        <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-slate-100 text-xs">
-          <span className="text-slate-400 font-semibold">Filters:</span>
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border text-xs">
+          <span className="text-slate-400 font-medium">Filters:</span>
 
           {/* Project Dropdown */}
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+            className="px-2.5 py-1 bg-white border border-border rounded-lg text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
           >
             <option value="All">All Projects</option>
             {projects.map((p) => (
@@ -443,7 +450,7 @@ export default function IssuesClient({
           <select
             value={assigneeFilter}
             onChange={(e) => setAssigneeFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+            className="px-2.5 py-1 bg-white border border-border rounded-lg text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
           >
             <option value="All">All Assignees</option>
             <option value="assigned_to_me">Assigned to Me</option>
@@ -460,7 +467,7 @@ export default function IssuesClient({
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+            className="px-2.5 py-1 bg-white border border-border rounded-lg text-ink font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
           >
             <option value="All">All Priorities</option>
             <option value="Critical">Critical</option>
@@ -483,7 +490,7 @@ export default function IssuesClient({
                 setAssigneeFilter("All");
                 setPriorityFilter("All");
               }}
-              className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer ml-auto"
+              className="text-xs font-medium text-accent hover:underline cursor-pointer ml-auto"
             >
               Reset Filters
             </button>
@@ -491,31 +498,331 @@ export default function IssuesClient({
         </div>
       </div>
 
-      {/* Issues Feed / List */}
+      {/* Issues Display: Table View (Primary) vs Card View */}
       {filteredIssues.length === 0 ? (
-        <div className="bg-white p-12 border border-slate-200/80 rounded-3xl text-center space-y-3 shadow-2xs">
-          <span className="text-4xl">🎉</span>
-          <h3 className="text-base font-bold text-slate-800">
-            {issues.length === 0 ? "No issues reported yet!" : "No issues match the active filters."}
+        <div className="bg-white p-8 border border-dashed border-border rounded-lg text-center space-y-2 shadow-xs">
+          <h3 className="text-sm font-semibold text-ink">
+            {issues.length === 0 ? "No issues reported yet" : "No issues match the active filters"}
           </h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {issues.length === 0
-              ? "All assigned projects are running smoothly. Report a bug whenever an unexpected behavior or defect is discovered."
-              : "Try adjusting your filters or search query to see other issue reports."}
+              ? "All assigned projects are running smoothly. Report an issue whenever a defect is discovered."
+              : "Try adjusting your filters or search query."}
           </p>
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+            className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer inline-block"
           >
-            + Report a Bug
+            + Report Issue
           </button>
         </div>
+      ) : viewMode === "table" ? (
+        /* TABLE FORMAT (PRIMARY) */
+        <div className="bg-white border border-border rounded-lg shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-surface border-b border-border text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="py-3 px-4 w-10 text-center">#</th>
+                  <th className="py-3 px-4 min-w-[240px]">Issue / Defect</th>
+                  <th className="py-3 px-4 min-w-[140px]">Project</th>
+                  <th className="py-3 px-4 w-28">Priority</th>
+                  <th className="py-3 px-4 w-28">Status</th>
+                  <th className="py-3 px-4 min-w-[150px]">Assigned To</th>
+                  <th className="py-3 px-4 min-w-[130px]">Reported By</th>
+                  <th className="py-3 px-4 min-w-[140px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredIssues.map((issue, idx) => {
+                  const isOpen = issue.status === "Open";
+                  const isResolved = issue.status === "Resolved" || issue.status === "Closed";
+                  const canEdit =
+                    isSuperAdmin ||
+                    issue.assignedTo?.id === currentUser.id ||
+                    issue.raisedBy.id === currentUser.id;
+                  const canDelete = isSuperAdmin || issue.raisedBy.id === currentUser.id;
+                  const isExpanded = expandedIssueIds.has(issue.id);
+                  const isMyIssue = issue.assignedTo?.id === currentUser.id;
+
+                  return (
+                    <React.Fragment key={issue.id}>
+                      <tr
+                        className={`hover:bg-surface/70 transition-colors group ${
+                          isMyIssue && isOpen ? "bg-red-50/20" : ""
+                        } ${isExpanded ? "bg-surface/50" : ""}`}
+                      >
+                        {/* Index / Expand toggle */}
+                        <td className="py-3.5 px-4 text-center text-slate-400 font-medium tabular-nums">
+                          <button
+                            type="button"
+                            onClick={() => toggleRowExpansion(issue.id)}
+                            className="hover:text-ink cursor-pointer p-0.5"
+                            title={isExpanded ? "Collapse details" : "Expand details"}
+                          >
+                            {isExpanded ? "▼" : "▶"}
+                          </button>
+                        </td>
+
+                        {/* Title & snippet */}
+                        <td className="py-3.5 px-4">
+                          <div className="space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleRowExpansion(issue.id)}
+                              className="font-semibold text-ink hover:text-accent transition-colors text-left block"
+                            >
+                              {issue.title}
+                            </button>
+                            {issue.description && (
+                              <p className="text-[11px] text-slate-500 line-clamp-1 max-w-md">
+                                {issue.description}
+                              </p>
+                            )}
+                            {(issue.attachmentUrl || issue.attachmentName) && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                                <span>Evidence attached</span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Project */}
+                        <td className="py-3.5 px-4">
+                          <Link
+                            href={isSuperAdmin ? `/projects/${issue.projectId}` : "#"}
+                            className="font-medium text-slate-700 hover:text-accent transition-colors truncate block max-w-[150px]"
+                          >
+                            {issue.projectName}
+                          </Link>
+                          {issue.clientName && (
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              {issue.clientName}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Priority */}
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getPriorityBadgeClass(
+                              issue.priority
+                            )}`}
+                          >
+                            {issue.priority}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
+                              issue.status
+                            )}`}
+                          >
+                            {issue.status}
+                          </span>
+                        </td>
+
+                        {/* Assignee */}
+                        <td className="py-3.5 px-4">
+                          {canEdit ? (
+                            <select
+                              value={issue.assignedTo?.id || ""}
+                              disabled={isPending}
+                              onChange={(e) => handleReassign(issue.id, e.target.value)}
+                              className="px-2 py-1 text-xs bg-white border border-border rounded font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer max-w-[140px]"
+                            >
+                              <option value="">Unassigned</option>
+                              {assignableMembers.map((m) => (
+                                <option key={m.id} value={m.id}>
+                                  {m.name}
+                                </option>
+                              ))}
+                            </select>
+                          ) : issue.assignedTo ? (
+                            <span className="font-medium text-slate-800">
+                              {issue.assignedTo.name}
+                            </span>
+                          ) : (
+                            <span className="italic text-slate-400">Unassigned</span>
+                          )}
+                        </td>
+
+                        {/* Reporter & Date */}
+                        <td className="py-3.5 px-4">
+                          <span className="font-medium text-slate-700 block truncate">
+                            {issue.raisedBy.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 tabular-nums">
+                            {new Date(issue.createdAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isOpen && canEdit && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => handleUpdateStatus(issue.id, "In Progress")}
+                                className="px-2 py-1 bg-surface hover:bg-slate-100 text-accent border border-border font-medium rounded text-[11px] transition-colors cursor-pointer"
+                              >
+                                Start
+                              </button>
+                            )}
+
+                            {!isResolved && canEdit && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => {
+                                  toggleRowExpansion(issue.id);
+                                  setResolvingIssueId(issue.id);
+                                  setResolutionText("");
+                                }}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-signal-green border border-emerald-200 font-medium rounded text-[11px] transition-colors cursor-pointer"
+                              >
+                                Resolve
+                              </button>
+                            )}
+
+                            {isResolved && canEdit && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => handleUpdateStatus(issue.id, "Open")}
+                                className="px-2 py-1 text-slate-600 hover:text-ink hover:bg-surface border border-border rounded text-[11px] transition-colors cursor-pointer"
+                              >
+                                Reopen
+                              </button>
+                            )}
+
+                            {canDelete && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteIssue(issue.id)}
+                                disabled={isPending}
+                                title="Delete issue"
+                                className="text-slate-400 hover:text-signal-red p-1 transition-colors cursor-pointer text-xs"
+                              >
+                                ✕
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expandable Details Row */}
+                      {isExpanded && (
+                        <tr className="bg-surface/70 border-b border-border">
+                          <td colSpan={8} className="p-4 sm:p-5">
+                            <div className="space-y-4 max-w-4xl mx-auto bg-white p-4 rounded-lg border border-border">
+                              {/* Full description */}
+                              {issue.description ? (
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                                    Description & Steps to Reproduce
+                                  </span>
+                                  <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-md border border-border">
+                                    {issue.description}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic">No extra description provided.</p>
+                              )}
+
+                              {/* Evidence / Attachments */}
+                              {(issue.attachmentUrl || issue.attachmentName) && (
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                                    Attached Bug Screenshot / Screen Recording
+                                  </span>
+                                  <IssueAttachmentViewer
+                                    attachmentUrl={issue.attachmentUrl}
+                                    attachmentName={issue.attachmentName}
+                                    attachmentType={issue.attachmentType}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Resolution Note if resolved */}
+                              {issue.resolution && (
+                                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-signal-green space-y-0.5">
+                                  <span className="font-semibold flex items-center gap-1.5">
+                                    <span>Resolution Note:</span>
+                                    {issue.resolvedAt && (
+                                      <span className="font-normal text-slate-500 text-[11px] tabular-nums">
+                                        ({new Date(issue.resolvedAt).toLocaleDateString("en-US", {
+                                          month: "short",
+                                          day: "numeric",
+                                        })})
+                                      </span>
+                                    )}
+                                  </span>
+                                  <p className="whitespace-pre-wrap leading-relaxed text-emerald-950">
+                                    {issue.resolution}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Inline Resolve Box */}
+                              {resolvingIssueId === issue.id && (
+                                <div className="bg-surface p-3.5 rounded-lg border border-border space-y-2">
+                                  <label className="block text-xs font-semibold text-slate-700">
+                                    How did you resolve this bug?
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    required
+                                    value={resolutionText}
+                                    onChange={(e) => setResolutionText(e.target.value)}
+                                    placeholder="e.g. Fixed input validation in checkout handler, tested on Safari & Chrome."
+                                    className="w-full p-2.5 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setResolvingIssueId(null);
+                                        setResolutionText("");
+                                      }}
+                                      className="px-3 py-1 text-xs text-slate-600 bg-white hover:bg-surface border border-border rounded-lg cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isPending || !resolutionText.trim()}
+                                      onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
+                                      className="px-3.5 py-1 bg-signal-green hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                                    >
+                                      {isPending ? "Saving..." : "Confirm Resolution"}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="space-y-4">
+        /* CARDS FORMAT (ALTERNATIVE) */
+        <div className="space-y-3">
           {filteredIssues.map((issue) => {
             const isOpen = issue.status === "Open";
-            const isInProgress = issue.status === "In Progress";
             const isResolved = issue.status === "Resolved" || issue.status === "Closed";
             const canEdit =
               isSuperAdmin ||
@@ -526,29 +833,23 @@ export default function IssuesClient({
             return (
               <div
                 key={issue.id}
-                className={`bg-white p-5 sm:p-6 rounded-3xl border transition-all shadow-2xs space-y-4 ${
-                  isOpen
-                    ? "border-rose-200/80 hover:border-rose-300"
-                    : isInProgress
-                    ? "border-blue-200/80 hover:border-blue-300"
-                    : "border-slate-200/80 opacity-90"
-                }`}
+                className="bg-white p-5 rounded-lg border border-border shadow-xs space-y-3"
               >
                 {/* Header line */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {/* Priority Badge */}
                     <span
-                      className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${getPriorityBadgeClass(
+                      className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getPriorityBadgeClass(
                         issue.priority
                       )}`}
                     >
-                      {issue.priority} Priority
+                      {issue.priority}
                     </span>
 
                     {/* Status Badge */}
                     <span
-                      className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${getStatusBadgeClass(
+                      className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
                         issue.status
                       )}`}
                     >
@@ -558,15 +859,15 @@ export default function IssuesClient({
                     {/* Project Pill */}
                     <Link
                       href={isSuperAdmin ? `/projects/${issue.projectId}` : "#"}
-                      className="text-[11px] font-bold text-slate-600 hover:text-blue-600 bg-slate-100 px-2.5 py-0.5 rounded-full transition-colors"
+                      className="text-[11px] font-medium text-slate-600 hover:text-accent bg-surface px-2 py-0.5 rounded border border-border transition-colors"
                     >
-                      📁 {issue.projectName}
+                      {issue.projectName}
                     </Link>
                   </div>
 
                   {/* Timestamp & Delete */}
-                  <div className="flex items-center gap-2 text-slate-400 text-xs shrink-0">
-                    <span>
+                  <div className="flex items-center gap-2 text-slate-400 text-[11px] shrink-0">
+                    <span className="tabular-nums">
                       {new Date(issue.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -581,28 +882,21 @@ export default function IssuesClient({
                         onClick={() => handleDeleteIssue(issue.id)}
                         disabled={isPending}
                         title="Delete issue"
-                        className="p-1 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="text-slate-400 hover:text-signal-red transition-colors cursor-pointer text-xs"
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                          />
-                        </svg>
+                        Delete
                       </button>
                     )}
                   </div>
                 </div>
 
                 {/* Title & Description */}
-                <div className="space-y-1.5">
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                <div className="space-y-1">
+                  <h2 className="text-sm font-semibold text-ink">
                     {issue.title}
                   </h2>
                   {issue.description && (
-                    <p className="text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed bg-slate-50/70 p-3.5 rounded-2xl border border-slate-100">
+                    <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-lg border border-border">
                       {issue.description}
                     </p>
                   )}
@@ -617,13 +911,13 @@ export default function IssuesClient({
                   )}
                 </div>
 
-                {/* Resolution Note if resolved */}
+                {/* Resolution Note */}
                 {issue.resolution && (
-                  <div className="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span>✓ Resolution:</span>
+                  <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-signal-green space-y-0.5">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <span>Resolution:</span>
                       {issue.resolvedAt && (
-                        <span className="font-normal text-emerald-700 text-[10px]">
+                        <span className="font-normal text-slate-500 text-[11px] tabular-nums">
                           ({new Date(issue.resolvedAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
@@ -631,15 +925,15 @@ export default function IssuesClient({
                         </span>
                       )}
                     </span>
-                    <p className="whitespace-pre-wrap leading-relaxed">{issue.resolution}</p>
+                    <p className="whitespace-pre-wrap leading-relaxed text-emerald-950">{issue.resolution}</p>
                   </div>
                 )}
 
                 {/* Inline Resolve Box */}
                 {resolvingIssueId === issue.id && (
-                  <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2">
-                    <label className="block text-xs font-bold text-slate-700">
-                      Resolution Explanation (How was this fixed?)
+                  <div className="bg-surface p-3 rounded-lg border border-border space-y-2">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Resolution explanation:
                     </label>
                     <textarea
                       rows={2}
@@ -647,7 +941,7 @@ export default function IssuesClient({
                       value={resolutionText}
                       onChange={(e) => setResolutionText(e.target.value)}
                       placeholder="e.g. Fixed input validation in checkout handler, tested on Safari & Chrome."
-                      className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full p-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
                     />
                     <div className="flex justify-end gap-2">
                       <button
@@ -656,7 +950,7 @@ export default function IssuesClient({
                           setResolvingIssueId(null);
                           setResolutionText("");
                         }}
-                        className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200/60 rounded-xl"
+                        className="px-2.5 py-1 text-xs text-slate-600 hover:bg-surface border border-border rounded-lg"
                       >
                         Cancel
                       </button>
@@ -664,27 +958,25 @@ export default function IssuesClient({
                         type="button"
                         disabled={isPending || !resolutionText.trim()}
                         onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
-                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-2xs cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1 bg-signal-green hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
                       >
-                        {isPending ? "Resolving..." : "Confirm Fix & Resolve"}
+                        {isPending ? "Saving..." : "Confirm Resolution"}
                       </button>
                     </div>
                   </div>
                 )}
 
                 {/* Footer Meta & Action Buttons */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2.5 border-t border-border text-xs">
                   {/* People involved */}
-                  <div className="flex flex-wrap items-center gap-4">
-                    {/* Reporter */}
+                  <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-1.5 text-slate-500">
                       <span>Reported by:</span>
-                      <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                      <span className="font-semibold text-ink">
                         {issue.raisedBy.name}
                       </span>
                     </div>
 
-                    {/* Assigned Member */}
                     <div className="flex items-center gap-1.5 text-slate-500">
                       <span>Assigned to:</span>
                       {canEdit ? (
@@ -692,7 +984,7 @@ export default function IssuesClient({
                           value={issue.assignedTo?.id || ""}
                           disabled={isPending}
                           onChange={(e) => handleReassign(issue.id, e.target.value)}
-                          className="px-2 py-0.5 bg-slate-50 border border-slate-200 rounded-md font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                          className="px-2 py-0.5 bg-white border border-border rounded-md font-medium text-ink focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent cursor-pointer"
                         >
                           <option value="">Unassigned</option>
                           {assignableMembers.map((m) => (
@@ -702,7 +994,7 @@ export default function IssuesClient({
                           ))}
                         </select>
                       ) : issue.assignedTo ? (
-                        <span className="font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <span className="font-semibold text-ink">
                           {issue.assignedTo.name}
                         </span>
                       ) : (
@@ -719,9 +1011,9 @@ export default function IssuesClient({
                           type="button"
                           disabled={isPending}
                           onClick={() => handleUpdateStatus(issue.id, "In Progress")}
-                          className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold rounded-xl transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-surface hover:bg-slate-100 text-accent border border-border font-medium rounded-lg transition-colors cursor-pointer text-xs"
                         >
-                          Start Working →
+                          Start Working
                         </button>
                       )}
 
@@ -733,9 +1025,9 @@ export default function IssuesClient({
                             setResolvingIssueId(issue.id);
                             setResolutionText("");
                           }}
-                          className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold rounded-xl transition-colors cursor-pointer"
+                          className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-signal-green border border-emerald-200 font-medium rounded-lg transition-colors cursor-pointer text-xs"
                         >
-                          ✓ Resolve Bug
+                          Resolve
                         </button>
                       )}
 
@@ -744,9 +1036,9 @@ export default function IssuesClient({
                           type="button"
                           disabled={isPending}
                           onClick={() => handleUpdateStatus(issue.id, "Open")}
-                          className="px-2.5 py-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          className="px-2.5 py-1 text-slate-500 hover:text-ink hover:bg-surface border border-border rounded-lg transition-colors cursor-pointer text-xs"
                         >
-                          Reopen Bug
+                          Reopen
                         </button>
                       )}
                     </div>

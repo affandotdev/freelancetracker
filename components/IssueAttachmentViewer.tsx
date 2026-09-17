@@ -36,7 +36,6 @@ export default function IssueAttachmentViewer({
 
   if (!attachmentUrl) return null;
 
-  // Parse if JSON array or single item
   let items: AttachmentData[] = [];
   if (attachmentUrl.trim().startsWith("[") && attachmentUrl.trim().endsWith("]")) {
     try {
@@ -53,7 +52,6 @@ export default function IssueAttachmentViewer({
 
   if (items.length === 0) return null;
 
-  // Helper to determine item media type
   const detectType = (item: AttachmentData) => {
     if (item.type) return item.type;
     const url = item.url.toLowerCase();
@@ -65,17 +63,17 @@ export default function IssueAttachmentViewer({
 
   return (
     <>
-      <div className={`mt-2.5 pt-2.5 border-t border-slate-100 ${compact ? "space-y-1.5" : "space-y-2"}`}>
+      <div className={`mt-2 pt-2 border-t border-border ${compact ? "space-y-1" : "space-y-1.5"}`}>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[11px] font-bold tracking-wider uppercase text-slate-500 flex items-center gap-1">
-            📎 {items.length > 1 ? `Attachments (${items.length})` : "Bug Evidence / Attachment"}
+          <span className="text-[11px] font-medium text-gray-500">
+            {items.length > 1 ? `Attachments (${items.length})` : "Attachment"}
           </span>
         </div>
 
         <div className="flex flex-wrap gap-2 items-center">
           {items.map((item, index) => {
             const kind = detectType(item);
-            const title = item.name || (kind === "image" ? "Screenshot" : kind === "video" ? "Screen Recording" : "Attachment");
+            const title = item.name || (kind === "image" ? "Screenshot" : kind === "video" ? "Recording" : "Attachment");
             const isLoom = /loom\.com/i.test(item.url);
             const isYoutube = /youtube\.com|youtu\.be/i.test(item.url);
 
@@ -84,68 +82,55 @@ export default function IssueAttachmentViewer({
                 <div
                   key={index}
                   onClick={() => setLightboxItem(item)}
-                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-slate-200/90 shadow-2xs hover:shadow-md transition-all bg-slate-900/5 hover:border-rose-300"
+                  className="group relative cursor-pointer overflow-hidden rounded-md border border-border bg-surface hover:border-accent transition-colors"
                 >
                   <img
                     src={item.url}
                     alt={title}
                     className={`${
-                      compact ? "h-16 w-24" : "h-24 sm:h-28 w-36 sm:w-44"
-                    } object-cover group-hover:scale-105 transition-transform duration-200`}
+                      compact ? "h-14 w-20" : "h-20 w-32"
+                    } object-cover`}
                   />
-                  <div className="absolute inset-0 bg-slate-950/0 group-hover:bg-slate-950/30 transition-colors flex items-center justify-center">
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity px-2 py-1 bg-white/90 text-slate-800 text-[10px] font-bold rounded-lg shadow-sm">
-                      🔍 Enlarge
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity px-1.5 py-0.5 bg-white/90 text-ink text-[10px] font-medium rounded shadow-sm">
+                      Preview
                     </span>
-                  </div>
-                  <div className="absolute bottom-1 left-1 right-1 px-1.5 py-0.5 bg-slate-900/70 backdrop-blur-xs rounded text-[9px] font-medium text-white truncate">
-                    🖼️ {title}
                   </div>
                 </div>
               );
             }
 
             if (kind === "video") {
-              // If external video link
               const isExternal = item.url.startsWith("http://") || item.url.startsWith("https://");
               return (
                 <div
                   key={index}
-                  className="flex items-center gap-2 p-2 bg-rose-50/80 hover:bg-rose-100/80 border border-rose-200 rounded-xl transition-colors max-w-full"
+                  className="flex items-center gap-2 p-1.5 bg-surface border border-border rounded-md text-[12px]"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                    🎥
-                  </div>
-                  <div className="min-w-0 flex-1 pr-1">
-                    <p className="text-xs font-bold text-rose-950 truncate">{title}</p>
-                    <p className="text-[10px] text-rose-600 truncate">
-                      {isLoom ? "Loom Screen Recording" : isYoutube ? "YouTube Video Demo" : "Video Recording"}
-                    </p>
-                  </div>
+                  <span className="text-gray-500 font-medium">Video</span>
+                  <span className="font-medium text-ink truncate max-w-xs">{title}</span>
                   {isExternal ? (
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0 flex items-center gap-1"
+                      className="px-2 py-0.5 bg-accent text-white text-[11px] font-medium rounded hover:bg-blue-700 transition-colors"
                     >
-                      <span>Play</span>
-                      <span className="text-[10px]">↗</span>
+                      Open Link →
                     </a>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setLightboxItem(item)}
-                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg transition-colors shrink-0 cursor-pointer"
+                      className="px-2 py-0.5 bg-accent text-white text-[11px] font-medium rounded hover:bg-blue-700 transition-colors cursor-pointer"
                     >
-                      Watch Video
+                      Play
                     </button>
                   )}
                 </div>
               );
             }
 
-            // Generic File or Log
             return (
               <a
                 key={index}
@@ -153,16 +138,10 @@ export default function IssueAttachmentViewer({
                 download={title}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors max-w-full"
+                className="flex items-center gap-2 p-1.5 bg-surface border border-border rounded-md text-[12px] text-ink hover:text-accent"
               >
-                <div className="w-8 h-8 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
-                  📄
-                </div>
-                <div className="min-w-0 flex-1 pr-2">
-                  <p className="text-xs font-bold text-slate-800 truncate">{title}</p>
-                  <p className="text-[10px] text-slate-400">Click to view / download</p>
-                </div>
-                <span className="text-xs font-bold text-indigo-600 shrink-0">⬇ Download</span>
+                <span className="truncate">{title}</span>
+                <span className="text-accent text-[11px]">Download</span>
               </a>
             );
           })}
@@ -172,39 +151,33 @@ export default function IssueAttachmentViewer({
       {/* LIGHTBOX MODAL */}
       {lightboxItem && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
           onClick={() => setLightboxItem(null)}
         >
           <div
-            className="relative max-w-4xl w-full max-h-[92vh] flex flex-col bg-slate-900 rounded-3xl overflow-hidden shadow-2xl border border-slate-700/60"
+            className="relative max-w-4xl w-full max-h-[90vh] flex flex-col bg-white rounded-lg overflow-hidden border border-border shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header bar */}
-            <div className="px-5 py-3.5 bg-slate-800/90 border-b border-slate-700/80 flex items-center justify-between text-white">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-lg">
-                  {detectType(lightboxItem) === "image" ? "🖼️" : "🎥"}
-                </span>
-                <p className="text-sm font-bold truncate">
-                  {lightboxItem.name || "Bug Evidence Preview"}
-                </p>
-              </div>
+            <div className="px-4 py-3 bg-surface border-b border-border flex items-center justify-between text-ink">
+              <p className="text-[13px] font-medium truncate">
+                {lightboxItem.name || "Attachment Preview"}
+              </p>
 
               <div className="flex items-center gap-2">
                 <a
                   href={lightboxItem.url}
-                  download={lightboxItem.name || "bug-evidence"}
+                  download={lightboxItem.name || "attachment"}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
+                  className="px-2.5 py-1 text-[12px] font-medium text-gray-700 hover:bg-gray-100 border border-border rounded"
                 >
-                  <span>⬇</span>
-                  <span className="hidden sm:inline">Save File</span>
+                  Download
                 </a>
                 <button
                   type="button"
                   onClick={() => setLightboxItem(null)}
-                  className="w-8 h-8 rounded-full bg-slate-700/70 hover:bg-slate-600 flex items-center justify-center text-white text-sm font-bold transition-colors cursor-pointer"
+                  className="text-gray-400 hover:text-ink text-sm font-bold cursor-pointer"
                 >
                   ✕
                 </button>
@@ -212,28 +185,27 @@ export default function IssueAttachmentViewer({
             </div>
 
             {/* Content Display */}
-            <div className="p-2 sm:p-4 flex-1 flex items-center justify-center overflow-auto max-h-[calc(92vh-60px)]">
+            <div className="p-4 flex-1 flex items-center justify-center overflow-auto max-h-[calc(90vh-60px)]">
               {detectType(lightboxItem) === "image" ? (
                 <img
                   src={lightboxItem.url}
                   alt={lightboxItem.name || "Evidence"}
-                  className="max-w-full max-h-[78vh] object-contain rounded-xl shadow-lg"
+                  className="max-w-full max-h-[75vh] object-contain rounded"
                 />
               ) : detectType(lightboxItem) === "video" ? (
                 <video
                   src={lightboxItem.url}
                   controls
                   autoPlay
-                  className="max-w-full max-h-[78vh] rounded-xl bg-black"
+                  className="max-w-full max-h-[75vh] rounded bg-black"
                 />
               ) : (
-                <div className="text-center p-8 space-y-3">
-                  <p className="text-4xl">📄</p>
-                  <p className="text-sm text-slate-300 font-bold">{lightboxItem.name}</p>
+                <div className="text-center p-8 space-y-2">
+                  <p className="text-[13px] text-ink font-medium">{lightboxItem.name}</p>
                   <a
                     href={lightboxItem.url}
                     download={lightboxItem.name || "attachment"}
-                    className="inline-block px-4 py-2 bg-rose-600 text-white rounded-xl font-bold text-xs"
+                    className="inline-block px-3.5 py-1.5 bg-accent text-white rounded text-[12px] font-medium"
                   >
                     Download File
                   </a>

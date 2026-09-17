@@ -5,6 +5,9 @@ import Link from "next/link";
 import TaskStatusBadge from "@/components/TaskStatusBadge";
 import BackButton from "@/components/BackButton";
 import ReportBugModal from "@/components/ReportBugModal";
+import ScheduleMeetingModal from "@/components/ScheduleMeetingModal";
+import LogMeetingFollowUpModal from "@/components/LogMeetingFollowUpModal";
+import LogDirectMeetingModal from "@/components/LogDirectMeetingModal";
 import {
   updateTaskAction,
   addTaskUpdateAction,
@@ -12,13 +15,49 @@ import {
   raiseObjectionAction,
   resolveObjectionAction,
   deleteTaskAction,
+  updateMeetingStatusAction,
 } from "@/lib/actions";
 import { getProjectDuration, formatDeadlineDate } from "@/lib/dateUtils";
+
+export interface TaskMeetingData {
+  id: string;
+  projectId: string | null;
+  projectName: string | null;
+  projectClient: string | null;
+  clientName: string;
+  clientEmail: string | null;
+  clientPhone: string | null;
+  title: string;
+  type: string;
+  platform: string;
+  meetingLink: string | null;
+  scheduledAt: string;
+  durationMinutes: number;
+  status: string;
+  agenda: string | null;
+  notes: string | null;
+  actionItems: string | null;
+  outcome: string | null;
+  nextFollowUpDate: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  assignedTo?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+  createdBy?: {
+    id: string;
+    name: string;
+    email: string;
+  } | null;
+}
 
 export interface TaskDetailData {
   id: string;
   projectId: string;
   projectName: string;
+  projectClient?: string | null;
   title: string;
   description?: string | null;
   status: string;
@@ -54,7 +93,8 @@ interface TaskDetailClientProps {
   task: TaskDetailData;
   isSuperAdmin: boolean;
   currentUserId: string;
-  teamMembers?: { id: string; name: string; email: string }[];
+  teamMembers?: { id: string; name: string; email: string; role?: string }[];
+  initialMeetings?: TaskMeetingData[];
 }
 
 export default function TaskDetailClient({
@@ -62,6 +102,7 @@ export default function TaskDetailClient({
   isSuperAdmin,
   currentUserId,
   teamMembers = [],
+  initialMeetings = [],
 }: TaskDetailClientProps) {
   const [status, setStatus] = useState(task.status);
   const [progress, setProgress] = useState(task.progress);
@@ -73,6 +114,22 @@ export default function TaskDetailClient({
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
   const [isPending, startTransition] = useTransition();
+
+  // Meetings state
+  const [meetings, setMeetings] = useState<TaskMeetingData[]>(initialMeetings);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isDirectMeetingModalOpen, setIsDirectMeetingModalOpen] = useState(false);
+  const [activeFollowUpMeeting, setActiveFollowUpMeeting] = useState<TaskMeetingData | null>(null);
+  const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set());
+
+  const toggleMeetingExpand = (mId: string) => {
+    setExpandedMeetingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(mId)) next.delete(mId);
+      else next.add(mId);
+      return next;
+    });
+  };
 
   const [updates, setUpdates] = useState(task.updates);
   const [deletingUpdateId, setDeletingUpdateId] = useState<string | null>(null);
@@ -238,10 +295,9 @@ export default function TaskDetailClient({
           <button
             type="button"
             onClick={() => setIsBugModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-surface text-slate-700 border border-border rounded-lg text-xs font-medium transition-colors cursor-pointer"
           >
-            <span>🐛</span>
-            <span>Report Bug on this Task</span>
+            Report Defect on Task
           </button>
 
           {isSuperAdmin && (
@@ -249,7 +305,7 @@ export default function TaskDetailClient({
               type="button"
               onClick={handleDeleteTask}
               disabled={isPending}
-              className="text-xs font-semibold text-rose-600 hover:text-rose-800 hover:underline"
+              className="text-xs font-medium text-signal-red hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
             >
               Delete Task
             </button>
@@ -258,44 +314,44 @@ export default function TaskDetailClient({
       </div>
 
       {/* Task Header Card */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-6">
+      <div className="bg-white p-6 sm:p-7 rounded-lg border border-border shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-1.5 min-w-0">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-              📁 {task.projectName}
+          <div className="space-y-1 min-w-0">
+            <span className="text-xs font-semibold text-slate-400 block uppercase tracking-wider">
+              {task.projectName}
             </span>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-xl font-bold text-ink tracking-tight">
               {task.title}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
             <TaskStatusBadge status={status} />
             {openObjections.length > 0 && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
-                ⚠️ Blocked ({openObjections.length})
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-50 text-signal-red text-xs font-semibold border border-red-200 tabular-nums">
+                Blocked ({openObjections.length})
               </span>
             )}
           </div>
         </div>
 
         {task.description && (
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+          <div className="bg-surface p-4 rounded-lg border border-border text-xs sm:text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
             {task.description}
           </div>
         )}
 
         {/* Status & Progress Controller */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-border">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Task Status
             </label>
             <select
               value={status}
               disabled={isPending}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold cursor-pointer"
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink cursor-pointer"
             >
               <option value="To Do">To Do</option>
               <option value="In Progress">In Progress</option>
@@ -307,10 +363,10 @@ export default function TaskDetailClient({
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+              <label className="block text-xs font-semibold text-slate-700">
                 Work Completion
               </label>
-              <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-semibold text-accent tabular-nums bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
                 {progress}%
               </span>
             </div>
@@ -322,21 +378,21 @@ export default function TaskDetailClient({
               value={progress}
               disabled={isPending}
               onChange={(e) => handleProgressChange(Number(e.target.value))}
-              className="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 mt-2"
+              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-accent mt-2"
             />
           </div>
         </div>
 
         {/* Meta Info Bar: Assignee & Deadline */}
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-border text-xs">
           <div className="flex items-center gap-2">
-            <span className="text-slate-400 font-semibold">Assigned To:</span>
+            <span className="text-slate-500 font-medium">Assigned To:</span>
             {isSuperAdmin && teamMembers.length > 0 ? (
               <select
                 value={assignedToId}
                 disabled={isPending}
                 onChange={(e) => handleAssigneeChange(e.target.value)}
-                className="px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-800 cursor-pointer"
+                className="px-2.5 py-1 text-xs bg-white border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink cursor-pointer"
               >
                 <option value="">Unassigned</option>
                 {teamMembers.map((m) => (
@@ -346,7 +402,7 @@ export default function TaskDetailClient({
                 ))}
               </select>
             ) : task.assignedTo ? (
-              <span className="font-bold text-slate-800">
+              <span className="font-semibold text-ink">
                 {task.assignedTo.name} ({task.assignedTo.email})
               </span>
             ) : (
@@ -356,18 +412,18 @@ export default function TaskDetailClient({
 
           {task.deadline && (
             <div className="flex items-center gap-2">
-              <span className="text-slate-400 font-semibold">Target Deadline:</span>
-              <span className="font-bold text-slate-800">
+              <span className="text-slate-500 font-medium">Target Deadline:</span>
+              <span className="font-semibold text-ink tabular-nums">
                 {formatDeadlineDate(task.deadline)}
               </span>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                className={`text-[11px] font-medium px-2 py-0.5 rounded border ${
                   duration.statusType === "overdue"
-                    ? "bg-rose-50 text-rose-700 border-rose-200"
-                    : "bg-blue-50 text-blue-700 border-blue-200"
+                    ? "bg-red-50 text-signal-red border-red-200"
+                    : "bg-surface text-slate-700 border-border"
                 }`}
               >
-                ⏱️ {duration.label}
+                {duration.label}
               </span>
             </div>
           )}
@@ -375,12 +431,12 @@ export default function TaskDetailClient({
       </div>
 
       {/* Objections & Blockers Section */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-5">
+      <div className="bg-white p-6 sm:p-7 rounded-lg border border-border shadow-xs space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span>⚠️ Roadblocks & Objections</span>
-              <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+            <h2 className="text-base font-bold text-ink flex items-center gap-2">
+              <span>Roadblocks & Objections</span>
+              <span className="text-xs font-semibold text-slate-600 bg-surface px-2 py-0.5 rounded border border-border tabular-nums">
                 {task.objections.length}
               </span>
             </h2>
@@ -392,15 +448,15 @@ export default function TaskDetailClient({
           <button
             type="button"
             onClick={() => setIsObjectionModalOpen(true)}
-            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-signal-red border border-red-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
           >
-            + Raise an Objection
+            + Raise Objection
           </button>
         </div>
 
         {task.objections.length === 0 ? (
           <p className="text-xs text-slate-400 italic py-2">
-            No objections raised on this task. Everything is clear!
+            No objections raised on this task. Work is proceeding smoothly.
           </p>
         ) : (
           <div className="space-y-3">
@@ -410,29 +466,29 @@ export default function TaskDetailClient({
               return (
                 <div
                   key={obj.id}
-                  className={`p-4 rounded-2xl border space-y-2.5 transition-all ${
+                  className={`p-4 rounded-lg border space-y-2.5 transition-colors ${
                     isOpen
-                      ? "bg-rose-50/50 border-rose-200"
-                      : "bg-slate-50 border-slate-200/80"
+                      ? "bg-red-50/40 border-red-200"
+                      : "bg-surface border-border"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                        className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${
                           isOpen
-                            ? "bg-rose-200 text-rose-800"
-                            : "bg-emerald-100 text-emerald-800"
+                            ? "bg-red-100 text-signal-red border border-red-200"
+                            : "bg-emerald-100 text-signal-green border border-emerald-200"
                         }`}
                       >
                         {isOpen ? "Open Blocker" : "Resolved"}
                       </span>
-                      <span className="text-xs font-bold text-slate-700">
+                      <span className="text-xs font-semibold text-slate-700">
                         {obj.raisedBy.name}
                       </span>
                     </div>
 
-                    <span className="text-[10px] text-slate-400 font-medium">
+                    <span className="text-[11px] text-slate-400 tabular-nums">
                       {new Date(obj.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -442,13 +498,13 @@ export default function TaskDetailClient({
                     </span>
                   </div>
 
-                  <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-xs text-ink whitespace-pre-wrap leading-relaxed">
                     {obj.message}
                   </p>
 
                   {obj.resolution && (
-                    <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
-                      <span className="font-bold block">Resolution Note:</span>
+                    <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
+                      <span className="font-semibold block">Resolution Note:</span>
                       <p className="whitespace-pre-wrap">{obj.resolution}</p>
                     </div>
                   )}
@@ -459,7 +515,7 @@ export default function TaskDetailClient({
                       {resolvingId === obj.id ? (
                         <form
                           onSubmit={(e) => handleResolveObjection(e, obj.id)}
-                          className="space-y-2 bg-white p-3 rounded-xl border border-slate-200"
+                          className="space-y-2 bg-white p-3 rounded-lg border border-border"
                         >
                           <textarea
                             rows={2}
@@ -467,7 +523,7 @@ export default function TaskDetailClient({
                             value={resolutionText}
                             onChange={(e) => setResolutionText(e.target.value)}
                             placeholder="Add resolution explanation..."
-                            className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full p-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
                           />
                           <div className="flex justify-end gap-2">
                             <button
@@ -476,14 +532,14 @@ export default function TaskDetailClient({
                                 setResolvingId(null);
                                 setResolutionText("");
                               }}
-                              className="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                              className="px-2.5 py-1 text-xs text-slate-600 hover:bg-surface border border-border rounded-md"
                             >
                               Cancel
                             </button>
                             <button
                               type="submit"
                               disabled={isPending}
-                              className="px-3 py-1 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs cursor-pointer"
+                              className="px-3 py-1 text-xs font-semibold text-white bg-signal-green hover:bg-green-700 rounded-md shadow-xs cursor-pointer"
                             >
                               Confirm Resolution
                             </button>
@@ -493,9 +549,9 @@ export default function TaskDetailClient({
                         <button
                           type="button"
                           onClick={() => setResolvingId(obj.id)}
-                          className="text-xs font-bold text-emerald-700 hover:underline cursor-pointer"
+                          className="text-xs font-semibold text-signal-green hover:underline cursor-pointer"
                         >
-                          ✓ Resolve Objection
+                          Resolve Objection
                         </button>
                       )}
                     </div>
@@ -507,12 +563,177 @@ export default function TaskDetailClient({
         )}
       </div>
 
+      {/* Client Meetings & Updates Section */}
+      <div className="bg-white p-6 sm:p-7 rounded-lg border border-border shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border">
+          <div>
+            <h2 className="text-base font-bold text-ink flex items-center gap-2">
+              <span>Client Meetings & Updates</span>
+              <span className="text-xs font-semibold text-slate-600 bg-surface px-2 py-0.5 rounded border border-border tabular-nums">
+                {meetings.length}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Client discussions, call logs, feedback outcomes, and scheduled syncs for this deliverable.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsDirectMeetingModalOpen(true)}
+              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <span>+ Log Meeting / Call</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsScheduleModalOpen(true)}
+              className="px-3 py-1.5 bg-white hover:bg-surface text-slate-700 border border-border rounded-lg text-xs font-medium transition-colors cursor-pointer"
+            >
+              Schedule Call
+            </button>
+          </div>
+        </div>
+
+        {meetings.length === 0 ? (
+          <div className="py-6 text-center bg-surface/50 border border-dashed border-border rounded-lg space-y-2">
+            <p className="text-xs text-slate-500">
+              No meetings or client discussions recorded yet for this task.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsDirectMeetingModalOpen(true)}
+              className="text-xs text-purple-700 hover:text-purple-900 font-semibold underline cursor-pointer"
+            >
+              Record an ad-hoc client phone call or discussion update
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {meetings.map((m) => {
+              const isScheduled = m.status === "Scheduled";
+              const isCompleted = m.status === "Completed";
+
+              return (
+                <div
+                  key={m.id}
+                  className={`p-4 rounded-lg border transition-all space-y-3 ${
+                    isScheduled
+                      ? "bg-purple-50/30 border-purple-200/80"
+                      : "bg-surface border-border"
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded ${
+                            isCompleted
+                              ? "bg-emerald-100 text-signal-green border border-emerald-200"
+                              : isScheduled
+                              ? "bg-purple-100 text-purple-700 border border-purple-200"
+                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                          }`}
+                        >
+                          {m.status}
+                        </span>
+
+                        <span className="text-xs font-semibold text-ink">
+                          {m.title}
+                        </span>
+
+                        <span className="text-[11px] text-slate-500 font-medium">
+                          with <span className="font-semibold text-slate-700">{m.clientName}</span> ({m.platform})
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+                        <span>
+                          {new Date(m.scheduledAt).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                        <span>•</span>
+                        <span>{m.durationMinutes} mins</span>
+                        {m.assignedTo && (
+                          <>
+                            <span>•</span>
+                            <span>Assigned: {m.assignedTo.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {m.meetingLink && isScheduled && (
+                        <a
+                          href={m.meetingLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 text-xs font-semibold text-white bg-accent hover:bg-blue-700 rounded-md transition-colors inline-flex items-center gap-1"
+                        >
+                          <span>Join Call</span>
+                          <span>↗</span>
+                        </a>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveFollowUpMeeting(m)}
+                        className="px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-md transition-colors cursor-pointer"
+                      >
+                        {m.notes ? "Edit Notes / Outcome" : "Log Notes & Outcome"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Outcome Tag */}
+                  {m.outcome && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-400 font-medium">Outcome:</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 bg-white border border-border rounded text-slate-700">
+                        {m.outcome}
+                      </span>
+                      {m.nextFollowUpDate && (
+                        <span className="text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                          Next Follow-up: {new Date(m.nextFollowUpDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Notes / Discussion Feedback */}
+                  {m.notes && (
+                    <div className="bg-white p-3 rounded-md border border-border text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      <span className="font-semibold text-slate-900 block mb-0.5">Discussion Summary & Feedback:</span>
+                      {m.notes}
+                    </div>
+                  )}
+
+                  {/* Action Items */}
+                  {m.actionItems && (
+                    <div className="bg-slate-50 p-2.5 rounded-md border border-slate-200 text-xs text-slate-700 whitespace-pre-wrap">
+                      <span className="font-semibold text-slate-900 block mb-0.5">Action Items:</span>
+                      {m.actionItems}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Task Work Updates Log */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-6">
+      <div className="bg-white p-6 sm:p-7 rounded-lg border border-border shadow-xs space-y-5">
         <div>
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <span>📝 Work Updates Log</span>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+          <h2 className="text-base font-bold text-ink flex items-center gap-2">
+            <span>Work Updates Log</span>
+            <span className="text-xs font-semibold text-slate-600 bg-surface px-2 py-0.5 rounded border border-border tabular-nums">
               {updates.length}
             </span>
           </h2>
@@ -529,13 +750,13 @@ export default function TaskDetailClient({
             value={updateText}
             onChange={(e) => setUpdateText(e.target.value)}
             placeholder="What did you just finish or work on? (e.g. Completed header redesign, starting on checkout flow next...)"
-            className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium leading-relaxed resize-none"
+            className="w-full p-3 text-xs sm:text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium leading-relaxed resize-none text-ink placeholder:text-slate-400"
           />
           <div className="flex justify-end">
             <button
               type="submit"
               disabled={isPending || !updateText.trim()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+              className="px-4 py-2 bg-accent hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
             >
               {isPending ? "Posting..." : "Post Update"}
             </button>
@@ -543,10 +764,10 @@ export default function TaskDetailClient({
         </form>
 
         {/* Updates Feed */}
-        <div className="space-y-3 pt-2">
+        <div className="space-y-2.5 pt-1">
           {updates.length === 0 ? (
             <p className="text-xs text-slate-400 italic py-2">
-              No updates posted yet. Be the first to share your progress!
+              No updates posted yet.
             </p>
           ) : (
             updates.map((up) => {
@@ -555,15 +776,15 @@ export default function TaskDetailClient({
               return (
                 <div
                   key={up.id}
-                  className="group p-4 bg-slate-50/70 hover:bg-slate-50/95 rounded-2xl border border-slate-100 transition-colors space-y-1.5"
+                  className="group p-3.5 bg-surface hover:bg-slate-100/70 rounded-lg border border-border transition-colors space-y-1.5"
                 >
-                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-semibold">
-                    <span className="flex items-center gap-1.5 text-slate-600">
-                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 font-medium">
+                    <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent" />
                       Task Update
                     </span>
                     <div className="flex items-center gap-2.5">
-                      <span>
+                      <span className="tabular-nums">
                         {new Date(up.createdAt).toLocaleDateString("en-US", {
                           month: "short",
                           day: "numeric",
@@ -577,33 +798,18 @@ export default function TaskDetailClient({
                           onClick={() => handleDeleteUpdate(up.id)}
                           disabled={deletingUpdateId === up.id}
                           title="Delete this update"
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-2 py-0.5 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-signal-red hover:bg-red-50 px-1.5 py-0.5 rounded transition-colors cursor-pointer disabled:opacity-50"
                         >
                           {deletingUpdateId === up.id ? (
-                            <span className="text-rose-500 font-bold">Deleting...</span>
+                            <span className="text-signal-red font-semibold">Deleting...</span>
                           ) : (
-                            <>
-                              <svg
-                                className="w-3.5 h-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
-                              </svg>
-                              <span>Delete</span>
-                            </>
+                            <span>Delete</span>
                           )}
                         </button>
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-xs text-ink whitespace-pre-wrap leading-relaxed">
                     {up.text}
                   </p>
                 </div>
@@ -616,22 +822,22 @@ export default function TaskDetailClient({
       {/* Raise Objection Modal */}
       {isObjectionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span>⚠️ Raise an Objection</span>
+          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-lg shadow-xl border border-border space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <h3 className="text-base font-bold text-ink">
+                Raise an Objection / Roadblock
               </h3>
               <button
                 type="button"
                 onClick={() => setIsObjectionModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+                className="text-slate-400 hover:text-ink text-sm font-semibold cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <p className="text-xs text-slate-500">
-              Describe what is blocking your progress. The Super Admin will be notified in their Objections inbox.
+              Describe what is blocking your progress. The agency owner will be notified in their Objections inbox.
             </p>
 
             <form onSubmit={handleRaiseObjection} className="space-y-4">
@@ -641,21 +847,21 @@ export default function TaskDetailClient({
                 value={objectionMessage}
                 onChange={(e) => setObjectionMessage(e.target.value)}
                 placeholder="e.g. Waiting on client's Stripe test keys, cannot proceed with payment gateway testing."
-                className="w-full p-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-500 leading-relaxed"
+                className="w-full p-3 text-xs sm:text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent leading-relaxed text-ink placeholder:text-slate-400 resize-none"
               />
 
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsObjectionModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-3.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-border hover:bg-surface rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending || !objectionMessage.trim()}
-                  className="px-5 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-semibold text-white bg-signal-red hover:bg-red-700 rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
                 >
                   {isPending ? "Submitting..." : "Submit Blocker"}
                 </button>
@@ -664,6 +870,7 @@ export default function TaskDetailClient({
           </div>
         </div>
       )}
+
       {/* Report Bug Modal */}
       <ReportBugModal
         isOpen={isBugModalOpen}
@@ -674,9 +881,119 @@ export default function TaskDetailClient({
         defaultAssignedToId={task.assignedTo?.id || ""}
         defaultTitle={`Defect on task: ${task.title}`}
         onSuccess={() => {
-          alert("Bug report submitted against member successfully!");
+          alert("Bug report submitted successfully");
         }}
       />
+
+      {/* Direct / Unscheduled Meeting Modal */}
+      <LogDirectMeetingModal
+        isOpen={isDirectMeetingModalOpen}
+        onClose={() => setIsDirectMeetingModalOpen(false)}
+        projects={[{ id: task.projectId, name: task.projectName, client: task.projectClient }]}
+        defaultProjectId={task.projectId}
+        defaultClientName={task.projectClient || ""}
+        defaultTitle={`Meeting update: ${task.title}`}
+        defaultAssignedToId={task.assignedTo?.id || currentUserId}
+        onMeetingLogged={(newMeeting) => {
+          setMeetings((prev) => [
+            {
+              id: newMeeting.id,
+              projectId: newMeeting.projectId,
+              projectName: task.projectName,
+              projectClient: task.projectClient || null,
+              clientName: newMeeting.clientName,
+              clientEmail: newMeeting.clientEmail || null,
+              clientPhone: newMeeting.clientPhone || null,
+              title: newMeeting.title,
+              type: newMeeting.type,
+              platform: newMeeting.platform,
+              meetingLink: newMeeting.meetingLink || null,
+              scheduledAt: typeof newMeeting.scheduledAt === "string" ? newMeeting.scheduledAt : new Date(newMeeting.scheduledAt).toISOString(),
+              durationMinutes: newMeeting.durationMinutes,
+              status: newMeeting.status,
+              agenda: newMeeting.agenda || null,
+              notes: newMeeting.notes || null,
+              actionItems: newMeeting.actionItems || null,
+              outcome: newMeeting.outcome || null,
+              nextFollowUpDate: newMeeting.nextFollowUpDate ? (typeof newMeeting.nextFollowUpDate === "string" ? newMeeting.nextFollowUpDate : new Date(newMeeting.nextFollowUpDate).toISOString()) : null,
+              completedAt: newMeeting.completedAt ? (typeof newMeeting.completedAt === "string" ? newMeeting.completedAt : new Date(newMeeting.completedAt).toISOString()) : null,
+              createdAt: new Date().toISOString(),
+              assignedTo: newMeeting.assignedTo || (task.assignedTo ? { id: task.assignedTo.id, name: task.assignedTo.name, email: task.assignedTo.email } : null),
+            },
+            ...prev,
+          ]);
+        }}
+      />
+
+      {/* Schedule Meeting Modal */}
+      <ScheduleMeetingModal
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        projects={[{ id: task.projectId, name: task.projectName, client: task.projectClient }]}
+        teamMembers={teamMembers}
+        isSuperAdmin={isSuperAdmin}
+        currentUserId={currentUserId}
+        preselectedProjectId={task.projectId}
+        defaultClientName={task.projectClient || ""}
+        defaultTitle={`Discussion on ${task.title}`}
+        defaultAssignedToId={task.assignedTo?.id || currentUserId}
+        onMeetingCreated={(created) => {
+          setMeetings((prev) => [
+            {
+              id: created.id,
+              projectId: created.projectId,
+              projectName: task.projectName,
+              projectClient: task.projectClient || null,
+              clientName: created.clientName,
+              clientEmail: created.clientEmail || null,
+              clientPhone: created.clientPhone || null,
+              title: created.title,
+              type: created.type,
+              platform: created.platform,
+              meetingLink: created.meetingLink || null,
+              scheduledAt: typeof created.scheduledAt === "string" ? created.scheduledAt : new Date(created.scheduledAt).toISOString(),
+              durationMinutes: created.durationMinutes,
+              status: created.status,
+              agenda: created.agenda || null,
+              notes: created.notes || null,
+              actionItems: created.actionItems || null,
+              outcome: created.outcome || null,
+              nextFollowUpDate: created.nextFollowUpDate ? (typeof created.nextFollowUpDate === "string" ? created.nextFollowUpDate : new Date(created.nextFollowUpDate).toISOString()) : null,
+              completedAt: created.completedAt ? (typeof created.completedAt === "string" ? created.completedAt : new Date(created.completedAt).toISOString()) : null,
+              createdAt: new Date().toISOString(),
+              assignedTo: created.assignedTo || (task.assignedTo ? { id: task.assignedTo.id, name: task.assignedTo.name, email: task.assignedTo.email } : null),
+            },
+            ...prev,
+          ]);
+        }}
+      />
+
+      {/* Log Meeting Follow Up Modal */}
+      {activeFollowUpMeeting && (
+        <LogMeetingFollowUpModal
+          isOpen={!!activeFollowUpMeeting}
+          onClose={() => setActiveFollowUpMeeting(null)}
+          meeting={activeFollowUpMeeting}
+          onSaved={(updated) => {
+            setMeetings((prev) =>
+              prev.map((m) =>
+                m.id === updated.id
+                  ? {
+                      ...m,
+                      notes: updated.notes,
+                      outcome: updated.outcome,
+                      actionItems: updated.actionItems,
+                      nextFollowUpDate: updated.nextFollowUpDate ? (typeof updated.nextFollowUpDate === "string" ? updated.nextFollowUpDate : new Date(updated.nextFollowUpDate).toISOString()) : null,
+                      status: updated.status,
+                      completedAt: updated.completedAt ? (typeof updated.completedAt === "string" ? updated.completedAt : new Date(updated.completedAt).toISOString()) : m.completedAt,
+                    }
+                  : m
+              )
+            );
+            setActiveFollowUpMeeting(null);
+          }}
+        />
+      )}
     </div>
   );
 }

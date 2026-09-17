@@ -60,11 +60,23 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch team members for task assignment dropdown
-  const rawTeamMembers = await prisma.user.findMany({
-    select: { id: true, name: true, email: true },
-    orderBy: { name: "asc" },
-  });
+  // Fetch meetings and team members
+  const [rawTeamMembers, rawMeetings] = await Promise.all([
+    prisma.user.findMany({
+      select: { id: true, name: true, email: true, role: true },
+      orderBy: { name: "asc" },
+    }),
+    (prisma as any).meeting
+      ? (prisma as any).meeting.findMany({
+          where: { projectId: id },
+          orderBy: [{ scheduledAt: "desc" }],
+          include: {
+            assignedTo: { select: { id: true, name: true, email: true, role: true } },
+            createdBy: { select: { id: true, name: true, email: true, role: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const attachments = (project.attachments || []).map((att) => ({
     id: att.id,
@@ -123,6 +135,46 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       : null,
   }));
 
+  const meetings = (rawMeetings || []).map((m: any) => ({
+    id: m.id,
+    projectId: m.projectId,
+    projectName: project.name,
+    projectClient: project.client || null,
+    clientName: m.clientName,
+    clientEmail: m.clientEmail || null,
+    clientPhone: m.clientPhone || null,
+    title: m.title,
+    type: m.type,
+    platform: m.platform,
+    meetingLink: m.meetingLink || null,
+    scheduledAt: m.scheduledAt.toISOString(),
+    durationMinutes: m.durationMinutes,
+    status: m.status,
+    agenda: m.agenda || null,
+    notes: m.notes || null,
+    actionItems: m.actionItems || null,
+    outcome: m.outcome || null,
+    nextFollowUpDate: m.nextFollowUpDate ? m.nextFollowUpDate.toISOString() : null,
+    completedAt: m.completedAt ? m.completedAt.toISOString() : null,
+    createdAt: m.createdAt.toISOString(),
+    assignedTo: m.assignedTo
+      ? {
+          id: m.assignedTo.id,
+          name: m.assignedTo.name,
+          email: m.assignedTo.email,
+          role: m.assignedTo.role,
+        }
+      : null,
+    createdBy: m.createdBy
+      ? {
+          id: m.createdBy.id,
+          name: m.createdBy.name,
+          email: m.createdBy.email,
+          role: m.createdBy.role,
+        }
+      : null,
+  }));
+
   return (
     <ProjectDetailClient
       project={{
@@ -134,7 +186,9 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       initialAttachments={attachments}
       initialTasks={tasks}
       initialIssues={issues}
+      initialMeetings={meetings}
       teamMembers={rawTeamMembers}
+      currentUserId={session.userId}
     />
   );
 }

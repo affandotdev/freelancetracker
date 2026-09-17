@@ -51,16 +51,28 @@ export default function ProjectIssuesSection({
   const [selectedMemberToReport, setSelectedMemberToReport] = useState<string | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
 
-  // Only non-admin workers can be reported on for bugs (Admin cannot be assigned bugs)
+  const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(new Set());
+
   const assignableMembers = teamMembers.filter(
     (m) =>
       !m.name.toLowerCase().includes("super admin") &&
       !m.email.toLowerCase().includes("admin@")
   );
 
-  // Inline resolution state
   const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [resolutionText, setResolutionText] = useState("");
+
+  const toggleRowExpansion = (id: string) => {
+    setExpandedIssueIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const handleUpdateStatus = (issueId: string, status: string, resolution?: string) => {
     const formData = new FormData();
@@ -111,56 +123,58 @@ export default function ProjectIssuesSection({
   const getPriorityBadgeClass = (p: string) => {
     switch (p) {
       case "Critical":
-        return "bg-rose-100 text-rose-800 border-rose-200";
+        return "bg-red-50 text-signal-red border-red-200";
       case "High":
-        return "bg-amber-100 text-amber-800 border-amber-200";
+        return "bg-amber-50 text-signal-amber border-amber-200";
       case "Medium":
-        return "bg-blue-100 text-blue-800 border-blue-200";
+        return "bg-blue-50 text-accent border-blue-200";
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-surface text-slate-700 border-border";
     }
   };
 
   const getStatusBadgeClass = (s: string) => {
     switch (s) {
       case "Open":
-        return "bg-rose-50 text-rose-700 border-rose-200";
+        return "bg-red-50 text-signal-red border-red-200";
       case "In Progress":
-        return "bg-blue-50 text-blue-700 border-blue-200";
+        return "bg-blue-50 text-accent border-blue-200";
       case "Resolved":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200";
+        return "bg-emerald-50 text-signal-green border-emerald-200";
       default:
-        return "bg-slate-100 text-slate-700 border-slate-200";
+        return "bg-surface text-slate-700 border-border";
     }
   };
 
   return (
-    <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-6">
+    <div className="bg-white p-6 sm:p-7 rounded-lg border border-border shadow-xs space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            <span>🐛 Issues & Bug Tracker</span>
-            <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+          <div className="flex items-center gap-2">
+            <h2 className="text-base font-bold text-ink tracking-tight">
+              Issues & Bug Tracker
+            </h2>
+            <span className="text-xs font-semibold text-slate-600 bg-surface px-2 py-0.5 rounded border border-border tabular-nums">
               {issues.length}
             </span>
             {openIssuesCount > 0 && (
-              <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">
+              <span className="text-xs font-semibold text-signal-red bg-red-50 px-2 py-0.5 rounded border border-red-200 tabular-nums">
                 {openIssuesCount} Open
               </span>
             )}
-          </h2>
+          </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            Log quality defects, assign them to members, and track resolution steps on this project.
+            Log quality defects, assign them to members, and track resolution steps.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Link
             href="/issues"
-            className="px-3.5 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/70 rounded-xl transition-colors"
+            className="px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-ink bg-white hover:bg-surface rounded-lg border border-border transition-colors"
           >
-            View All Issues ↗
+            All Issues
           </Link>
           <button
             type="button"
@@ -168,25 +182,20 @@ export default function ProjectIssuesSection({
               setSelectedMemberToReport(undefined);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer"
+            className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer"
           >
-            <span>🐛 + Report Bug</span>
+            + Report Bug
           </button>
         </div>
       </div>
 
       {/* Quick Bug Report Against Teammates */}
       {assignableMembers.length > 0 && (
-        <div className="bg-slate-50/80 p-3 sm:p-4 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-              <span>⚡ Quick Bug Report Against Teammates:</span>
-            </p>
-            <p className="text-[11px] text-slate-500">
-              Click any teammate below to immediately report a defect on this project against them.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="bg-surface p-3 rounded-lg border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p className="text-xs text-slate-600 font-medium">
+            Quick report against:
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
             {assignableMembers.map((m) => (
               <button
                 key={m.id}
@@ -195,181 +204,256 @@ export default function ProjectIssuesSection({
                   setSelectedMemberToReport(m.id);
                   setIsModalOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 rounded-xl text-xs font-bold text-slate-700 hover:text-rose-700 shadow-2xs transition-all cursor-pointer group"
-                title={`Report bug against ${m.name}`}
+                className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-border rounded text-xs font-medium text-ink transition-colors cursor-pointer"
               >
-                <div className="w-5 h-5 rounded-md bg-indigo-100 group-hover:bg-rose-100 text-indigo-700 group-hover:text-rose-700 flex items-center justify-center text-[10px] font-black">
-                  {m.name.slice(0, 1).toUpperCase()}
-                </div>
-                <span>{m.name.split(" ")[0]}</span>
-                <span className="text-[10px] text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                  🐛
-                </span>
+                {m.name} →
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* Issues List */}
+      {/* Issues Table */}
       {issues.length === 0 ? (
-        <div className="p-8 border-2 border-dashed border-slate-200 rounded-2xl text-center space-y-2">
-          <span className="text-2xl">✨</span>
-          <p className="text-xs font-bold text-slate-700">No bugs or defects reported on this project yet.</p>
-          <p className="text-xs text-slate-400">Click "+ Report Bug" anytime an issue is discovered.</p>
+        <div className="p-8 border border-dashed border-border rounded-lg text-center space-y-1 bg-surface/50">
+          <p className="text-xs font-semibold text-slate-700">No bugs or defects reported on this project yet.</p>
+          <p className="text-xs text-slate-500">Click &quot;+ Report Bug&quot; anytime an issue is discovered.</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {issues.map((issue) => {
-            const isOpen = issue.status === "Open";
-            const isInProgress = issue.status === "In Progress";
-            const isResolved = issue.status === "Resolved" || issue.status === "Closed";
+        <div className="bg-white border border-border rounded-lg shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-surface border-b border-border text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th className="py-3 px-4 w-10 text-center">#</th>
+                  <th className="py-3 px-4 min-w-[220px]">Issue / Defect</th>
+                  <th className="py-3 px-4 w-28">Priority</th>
+                  <th className="py-3 px-4 w-28">Status</th>
+                  <th className="py-3 px-4 min-w-[140px]">Assigned Member</th>
+                  <th className="py-3 px-4 min-w-[130px]">Reported By</th>
+                  <th className="py-3 px-4 min-w-[140px] text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {issues.map((issue) => {
+                  const isOpen = issue.status === "Open";
+                  const isResolved = issue.status === "Resolved" || issue.status === "Closed";
+                  const isExpanded = expandedIssueIds.has(issue.id);
 
-            return (
-              <div
-                key={issue.id}
-                className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/80 space-y-2.5 transition-all"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${getPriorityBadgeClass(
-                        issue.priority
-                      )}`}
-                    >
-                      {issue.priority} Priority
-                    </span>
-                    <span
-                      className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full border ${getStatusBadgeClass(
-                        issue.status
-                      )}`}
-                    >
-                      {issue.status}
-                    </span>
-                    <span className="text-xs font-bold text-slate-800">{issue.title}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 shrink-0">
-                    <span>
-                      {new Date(issue.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteIssue(issue.id)}
-                      disabled={isPending}
-                      title="Delete issue"
-                      className="p-1 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-
-                {issue.description && (
-                  <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed bg-white/70 p-2.5 rounded-xl border border-slate-100">
-                    {issue.description}
-                  </p>
-                )}
-
-                {/* Bug Evidence / Attachment */}
-                {(issue.attachmentUrl || issue.attachmentName) && (
-                  <IssueAttachmentViewer
-                    attachmentUrl={issue.attachmentUrl}
-                    attachmentName={issue.attachmentName}
-                    attachmentType={issue.attachmentType}
-                    compact
-                  />
-                )}
-
-                {issue.resolution && (
-                  <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-0.5">
-                    <span className="font-bold block">✓ Resolution:</span>
-                    <p className="whitespace-pre-wrap">{issue.resolution}</p>
-                  </div>
-                )}
-
-                {/* Inline Resolve Box */}
-                {resolvingId === issue.id && (
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                    <textarea
-                      rows={2}
-                      required
-                      value={resolutionText}
-                      onChange={(e) => setResolutionText(e.target.value)}
-                      placeholder="Explain how this bug was resolved..."
-                      className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResolvingId(null);
-                          setResolutionText("");
-                        }}
-                        className="px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-100 rounded-lg"
+                  return (
+                    <React.Fragment key={issue.id}>
+                      <tr
+                        className={`hover:bg-surface/70 transition-colors group ${
+                          isExpanded ? "bg-surface/50" : ""
+                        }`}
                       >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        disabled={isPending || !resolutionText.trim()}
-                        onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
-                        className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-2xs cursor-pointer disabled:opacity-50"
-                      >
-                        Confirm Resolution
-                      </button>
-                    </div>
-                  </div>
-                )}
+                        {/* Expand Icon */}
+                        <td className="py-3.5 px-4 text-center text-slate-400 font-medium tabular-nums">
+                          <button
+                            type="button"
+                            onClick={() => toggleRowExpansion(issue.id)}
+                            className="hover:text-ink cursor-pointer p-0.5"
+                            title={isExpanded ? "Collapse details" : "Expand details"}
+                          >
+                            {isExpanded ? "▼" : "▶"}
+                          </button>
+                        </td>
 
-                {/* Footer */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/60 text-[11px]">
-                  <div className="flex items-center gap-3 text-slate-500">
-                    <span>
-                      Raised by: <strong className="text-slate-700">{issue.raisedBy.name}</strong>
-                    </span>
-                    <span>
-                      Assigned to:{" "}
-                      <strong className="text-slate-700">
-                        {issue.assignedTo ? issue.assignedTo.name : "Unassigned"}
-                      </strong>
-                    </span>
-                  </div>
+                        {/* Title & snippet */}
+                        <td className="py-3.5 px-4">
+                          <div className="space-y-0.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleRowExpansion(issue.id)}
+                              className="font-semibold text-ink hover:text-accent transition-colors text-left block"
+                            >
+                              {issue.title}
+                            </button>
+                            {issue.description && (
+                              <p className="text-[11px] text-slate-500 line-clamp-1 max-w-md">
+                                {issue.description}
+                              </p>
+                            )}
+                            {(issue.attachmentUrl || issue.attachmentName) && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-accent bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100">
+                                <span>Evidence attached</span>
+                              </span>
+                            )}
+                          </div>
+                        </td>
 
-                  <div className="flex items-center gap-2">
-                    {isOpen && (
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => handleUpdateStatus(issue.id, "In Progress")}
-                        className="px-2.5 py-0.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Start Work →
-                      </button>
-                    )}
-                    {!isResolved && (
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => {
-                          setResolvingId(issue.id);
-                          setResolutionText("");
-                        }}
-                        className="px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        ✓ Resolve
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                        {/* Priority */}
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getPriorityBadgeClass(
+                              issue.priority
+                            )}`}
+                          >
+                            {issue.priority}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded border ${getStatusBadgeClass(
+                              issue.status
+                            )}`}
+                          >
+                            {issue.status}
+                          </span>
+                        </td>
+
+                        {/* Assigned Member */}
+                        <td className="py-3.5 px-4">
+                          <span className="font-medium text-slate-800">
+                            {issue.assignedTo ? issue.assignedTo.name : <span className="text-slate-400 italic">Unassigned</span>}
+                          </span>
+                        </td>
+
+                        {/* Reported By & Date */}
+                        <td className="py-3.5 px-4">
+                          <span className="font-medium text-slate-700 block truncate">
+                            {issue.raisedBy.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 tabular-nums">
+                            {new Date(issue.createdAt).toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isOpen && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => handleUpdateStatus(issue.id, "In Progress")}
+                                className="px-2 py-1 bg-surface hover:bg-slate-100 text-accent border border-border font-medium rounded text-[11px] transition-colors cursor-pointer"
+                              >
+                                Start
+                              </button>
+                            )}
+
+                            {!isResolved && (
+                              <button
+                                type="button"
+                                disabled={isPending}
+                                onClick={() => {
+                                  toggleRowExpansion(issue.id);
+                                  setResolvingId(issue.id);
+                                  setResolutionText("");
+                                }}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-signal-green border border-emerald-200 font-medium rounded text-[11px] transition-colors cursor-pointer"
+                              >
+                                Resolve
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteIssue(issue.id)}
+                              disabled={isPending}
+                              title="Delete issue"
+                              className="text-slate-400 hover:text-signal-red p-1 transition-colors cursor-pointer text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expandable Details Row */}
+                      {isExpanded && (
+                        <tr className="bg-surface/70 border-b border-border">
+                          <td colSpan={7} className="p-4 sm:p-5">
+                            <div className="space-y-4 max-w-4xl mx-auto bg-white p-4 rounded-lg border border-border">
+                              {/* Full description */}
+                              {issue.description ? (
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                                    Description & Steps to Reproduce
+                                  </span>
+                                  <p className="text-xs text-slate-700 whitespace-pre-wrap leading-relaxed bg-surface p-3 rounded-md border border-border">
+                                    {issue.description}
+                                  </p>
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic">No extra description provided.</p>
+                              )}
+
+                              {/* Evidence / Attachments */}
+                              {(issue.attachmentUrl || issue.attachmentName) && (
+                                <div className="space-y-1">
+                                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                                    Attached Screenshot / Screen Recording
+                                  </span>
+                                  <IssueAttachmentViewer
+                                    attachmentUrl={issue.attachmentUrl}
+                                    attachmentName={issue.attachmentName}
+                                    attachmentType={issue.attachmentType}
+                                    compact
+                                  />
+                                </div>
+                              )}
+
+                              {/* Resolution Note if resolved */}
+                              {issue.resolution && (
+                                <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-200 text-xs text-signal-green space-y-0.5">
+                                  <span className="font-semibold block">Resolution Note:</span>
+                                  <p className="whitespace-pre-wrap leading-relaxed text-emerald-950">{issue.resolution}</p>
+                                </div>
+                              )}
+
+                              {/* Inline Resolve Box */}
+                              {resolvingId === issue.id && (
+                                <div className="bg-surface p-3.5 rounded-lg border border-border space-y-2">
+                                  <label className="block text-xs font-semibold text-slate-700">
+                                    Explain How This Bug Was Resolved:
+                                  </label>
+                                  <textarea
+                                    rows={2}
+                                    required
+                                    value={resolutionText}
+                                    onChange={(e) => setResolutionText(e.target.value)}
+                                    placeholder="Explain how this bug was resolved..."
+                                    className="w-full p-2.5 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink placeholder:text-slate-400"
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setResolvingId(null);
+                                        setResolutionText("");
+                                      }}
+                                      className="px-3 py-1 text-xs text-slate-600 bg-white hover:bg-surface border border-border rounded-lg"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={isPending || !resolutionText.trim()}
+                                      onClick={() => handleUpdateStatus(issue.id, "Resolved", resolutionText)}
+                                      className="px-3.5 py-1 bg-signal-green hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-xs cursor-pointer disabled:opacity-50"
+                                    >
+                                      Confirm Resolution
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

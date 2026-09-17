@@ -60,7 +60,7 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
   return (
     <div className="space-y-6">
-      {/* Top Bar with Back Navigation */}
+      {/* Top Bar */}
       <div className="flex items-center justify-between gap-4">
         <BackButton fallbackHref="/" label="Back to Dashboard" />
       </div>
@@ -68,10 +68,10 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
       {/* Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-xl font-semibold text-ink tracking-tight">
             Team Management
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <p className="text-[13px] text-gray-500 mt-1">
             Manage your freelance workers, credentials, and task distribution.
           </p>
         </div>
@@ -82,61 +82,60 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
             setError(null);
             setIsModalOpen(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors cursor-pointer self-start sm:self-auto"
         >
-          <span>+ Add Team Member</span>
+          + Add Team Member
         </button>
       </div>
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Total Team
-          </span>
-          <div className="text-2xl font-black text-slate-900 mt-1">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Total team
+          </p>
+          <div className="text-2xl font-semibold text-ink tracking-tight tabular-nums">
             {totalMembers}
           </div>
-          <span className="text-[11px] text-slate-500">
-            {workers.length} active freelance worker{workers.length !== 1 ? "s" : ""}
-          </span>
+          <p className="text-[12px] text-gray-400 mt-1 tabular-nums">
+            {workers.length} freelance worker{workers.length !== 1 ? "s" : ""}
+          </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Active Tasks Assigned
-          </span>
-          <div className="text-2xl font-black text-blue-600 mt-1">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Active tasks assigned
+          </p>
+          <div className="text-2xl font-semibold text-accent tracking-tight tabular-nums">
             {totalActiveTasks}
           </div>
-          <span className="text-[11px] text-slate-500">
+          <p className="text-[12px] text-gray-400 mt-1">
             Across all project deliverables
-          </span>
+          </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Access Role Model
-          </span>
-          <div className="text-base font-bold text-indigo-600 mt-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-500" />
-            Super Admin + Member Isolation
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Role isolation
+          </p>
+          <div className="text-[14px] font-medium text-ink mt-1">
+            Admin & Member
           </div>
-          <span className="text-[11px] text-slate-500">
-            Workers see only their own tasks
-          </span>
+          <p className="text-[12px] text-gray-400 mt-1">
+            Members see only their assigned work
+          </p>
         </div>
       </div>
 
       {/* Members List */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-2xs">
-        <div className="p-4 bg-slate-50/70 border-b border-slate-100">
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-            All Team Accounts ({members.length})
+      <div className="bg-white border border-border rounded-lg overflow-hidden">
+        <div className="px-4 py-3 bg-surface border-b border-border">
+          <h2 className="text-[12px] font-medium text-gray-600">
+            Team Accounts ({members.length})
           </h2>
         </div>
 
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-border">
           {members.map((member) => {
             const isSelf = member.id === currentUserId;
             const isSuperAdmin = member.role === "SUPER_ADMIN";
@@ -144,17 +143,17 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
             return (
               <div
                 key={member.id}
-                className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50/70 transition-colors"
+                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-gray-50 transition-colors"
               >
                 <Link
                   href={`/team/${member.id}`}
                   className="flex items-center gap-3.5 min-w-0 flex-1 group"
                 >
                   <div
-                    className={`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold text-sm shadow-2xs shrink-0 group-hover:scale-105 transition-transform ${
+                    className={`w-9 h-9 rounded-md flex items-center justify-center font-semibold text-[13px] shrink-0 border border-border ${
                       isSuperAdmin
-                        ? "bg-amber-100 text-amber-800 border border-amber-200"
-                        : "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                        ? "bg-amber-50 text-amber-900 border-amber-200"
+                        : "bg-blue-50 text-accent border-blue-200"
                     }`}
                   >
                     {member.name.charAt(0).toUpperCase()}
@@ -162,25 +161,25 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                      <h3 className="text-[13px] font-medium text-ink group-hover:text-accent transition-colors truncate">
                         {member.name}
                       </h3>
                       {isSelf && (
-                        <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100">
+                        <span className="text-[10px] font-medium text-accent bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
                           You
                         </span>
                       )}
                       <span
-                        className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
                           isSuperAdmin
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-100 text-slate-700"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-gray-50 text-gray-700 border-border"
                         }`}
                       >
-                        {isSuperAdmin ? "Super Admin" : "Member"}
+                        {isSuperAdmin ? "Admin" : "Member"}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">
+                    <p className="text-[12px] text-gray-400 truncate mt-0.5">
                       {member.email}
                     </p>
                   </div>
@@ -188,20 +187,19 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
                 <div className="flex items-center gap-3 sm:gap-4 self-end sm:self-auto">
                   <div className="text-right mr-2 hidden sm:block">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    <span className="text-[11px] text-gray-400 block">
                       Active Tasks
                     </span>
-                    <span className="text-xs font-bold text-slate-800">
+                    <span className="text-[12px] font-medium text-ink tabular-nums">
                       {member.activeTasksCount} active ({member.completedTasksCount} done)
                     </span>
                   </div>
 
                   <Link
                     href={`/team/${member.id}`}
-                    className="px-3.5 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/80 border border-blue-200 rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 text-[12px] font-medium text-accent hover:bg-blue-50 border border-border rounded-md transition-colors"
                   >
-                    <span>View Work & Assign</span>
-                    <span>→</span>
+                    View & Assign
                   </Link>
 
                   {!isSelf && (
@@ -209,7 +207,7 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
                       type="button"
                       disabled={isPending}
                       onClick={() => handleRemoveMember(member.id, member.name)}
-                      className="px-3 py-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-xl transition-all cursor-pointer"
+                      className="px-2.5 py-1 text-[12px] font-medium text-gray-500 hover:text-signal-red hover:bg-rose-50 border border-border rounded-md transition-colors cursor-pointer"
                     >
                       Remove
                     </button>
@@ -223,57 +221,57 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
 
       {/* Add Member Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-8 rounded-3xl shadow-xl border border-slate-200/90 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white max-w-md w-full p-6 rounded-lg border border-border shadow-lg space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">
-                Add New Team Member
+              <h2 className="text-base font-semibold text-ink">
+                Add Team Member
               </h2>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
+                className="text-gray-400 hover:text-ink text-sm font-bold"
               >
                 ✕
               </button>
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl">
-                ⚠️ {error}
+              <div className="p-3 bg-rose-50 border border-rose-200 text-signal-red text-[12px] font-medium rounded-md">
+                {error}
               </div>
             )}
 
             <form onSubmit={handleCreateMember} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Full Name <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Full Name <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="text"
                   name="name"
                   required
                   placeholder="e.g. Alex Johnson"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Work Email <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Work Email <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="email"
                   name="email"
                   required
                   placeholder="alex@example.com"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Temporary Password <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Temporary Password <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="password"
@@ -281,27 +279,27 @@ export default function TeamClient({ members, currentUserId }: TeamClientProps) 
                   required
                   minLength={6}
                   placeholder="At least 6 characters"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                 />
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-gray-400 mt-1">
                   The member will use this email and password to log in.
                 </p>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                  className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  className="px-4 py-1.5 text-[12px] font-medium text-white bg-accent hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  {isPending ? "Creating Account..." : "Create Member Account"}
+                  {isPending ? "Creating..." : "Create Account"}
                 </button>
               </div>
             </form>

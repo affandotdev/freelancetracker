@@ -9,35 +9,37 @@ export default function TaskStatusBadge({
   status,
   className = "",
 }: TaskStatusBadgeProps) {
-  let badgeStyles = "bg-slate-100 text-slate-700 border-slate-200";
-  let dotColor = "bg-slate-400";
+  let badgeStyles = "bg-gray-50 text-gray-700 border-border";
+  let dotColor = "bg-gray-400";
 
   switch (status) {
     case "To Do":
-      badgeStyles = "bg-slate-100 text-slate-700 border-slate-200/80";
-      dotColor = "bg-slate-400";
+    case "Todo":
+      badgeStyles = "bg-gray-50 text-gray-700 border-border";
+      dotColor = "bg-gray-400";
       break;
     case "In Progress":
-      badgeStyles = "bg-blue-50 text-blue-700 border-blue-200/80";
-      dotColor = "bg-blue-500 animate-pulse";
+      badgeStyles = "bg-blue-50 text-accent border-blue-200";
+      dotColor = "bg-accent";
       break;
     case "In Review":
-      badgeStyles = "bg-purple-50 text-purple-700 border-purple-200/80";
-      dotColor = "bg-purple-500";
+      badgeStyles = "bg-purple-50 text-purple-700 border-purple-200";
+      dotColor = "bg-purple-600";
       break;
     case "Done":
-      badgeStyles = "bg-emerald-50 text-emerald-700 border-emerald-200/80";
-      dotColor = "bg-emerald-500";
+    case "Completed":
+      badgeStyles = "bg-emerald-50 text-signal-green border-emerald-200";
+      dotColor = "bg-signal-green";
       break;
     case "Blocked":
-      badgeStyles = "bg-rose-50 text-rose-700 border-rose-200/80 font-bold";
-      dotColor = "bg-rose-500 animate-ping";
+      badgeStyles = "bg-rose-50 text-signal-red border-rose-200";
+      dotColor = "bg-signal-red";
       break;
   }
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${badgeStyles} ${className}`}
+      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border ${badgeStyles} ${className}`}
     >
       <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
       <span>{status}</span>

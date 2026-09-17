@@ -8,29 +8,28 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-sm bg-white p-8 sm:p-10 border border-slate-200/90 rounded-3xl shadow-xl shadow-slate-200/50 space-y-6">
+      <div className="w-full max-w-sm bg-white p-7 sm:p-8 border border-border rounded-lg shadow-xs space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 text-white flex items-center justify-center font-extrabold text-lg mx-auto shadow-md shadow-blue-500/20">
+          <div className="w-10 h-10 rounded-lg bg-ink text-white flex items-center justify-center font-bold text-sm mx-auto shadow-xs">
             WP
           </div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Welcome Back
+          <h1 className="text-xl font-bold text-ink tracking-tight">
+            Sign In to WorkPlan
           </h1>
           <p className="text-xs text-slate-500">
-            Sign in to access your freelance deliverables & cashflow
+            Access your deliverables, team management & accounts ledger
           </p>
         </div>
 
         {state?.error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-2xl flex items-center gap-2">
-            <span>⚠️</span>
-            <span>{state.error}</span>
+          <div className="p-3 bg-red-50 border border-red-200 text-signal-red text-xs font-medium rounded-lg">
+            {state.error}
           </div>
         )}
 
         <form action={formAction} className="space-y-4">
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Work Email / Username
             </label>
             <input
@@ -38,13 +37,13 @@ export default function LoginPage() {
               name="email"
               required
               autoFocus
-              placeholder="e.g. admin@workplan.dev or worker@example.com"
-              className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              placeholder="admin@workplan.dev or worker@example.com"
+              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
               Password
             </label>
             <input
@@ -52,14 +51,14 @@ export default function LoginPage() {
               name="password"
               required
               placeholder="••••••••"
-              className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink placeholder:text-slate-400"
             />
           </div>
 
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all disabled:opacity-50 cursor-pointer"
+            className="w-full py-2.5 px-4 bg-accent hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
           >
             {isPending ? "Authenticating..." : "Sign In to Workspace"}
           </button>

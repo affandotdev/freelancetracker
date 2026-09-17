@@ -47,7 +47,7 @@ export default function ReportBugModal({
   const [memberSearch, setMemberSearch] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  // Attachment state (Screenshot, Video, File, or Cloud Link)
+  // Attachment state
   const [attachmentMode, setAttachmentMode] = useState<"file" | "link">("file");
   const [attachedFile, setAttachedFile] = useState<{
     file?: File;
@@ -61,9 +61,8 @@ export default function ReportBugModal({
   const [isConvertingFile, setIsConvertingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // File Processor
   const processSelectedFile = (file: File) => {
-    const MAX_SIZE = 15 * 1024 * 1024; // 15MB
+    const MAX_SIZE = 15 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
       alert("File exceeds 15MB limit. Please upload a smaller video/file or paste a Loom/Drive link.");
       return;
@@ -93,7 +92,6 @@ export default function ReportBugModal({
     reader.readAsDataURL(file);
   };
 
-  // Clipboard Paste Support (Ctrl+V screenshot directly into modal)
   useEffect(() => {
     if (!isOpen) return;
     const handlePaste = (e: ClipboardEvent) => {
@@ -109,7 +107,6 @@ export default function ReportBugModal({
     return () => window.removeEventListener("paste", handlePaste);
   }, [isOpen]);
 
-  // Keep state in sync with incoming default props when opened
   useEffect(() => {
     if (isOpen) {
       if (defaultProjectId) setSelectedProjectId(defaultProjectId);
@@ -131,7 +128,6 @@ export default function ReportBugModal({
 
   if (!isOpen) return null;
 
-  // Only non-admin workers can be assigned bugs (Admin cannot be assigned bugs)
   const nonAdminMembers = teamMembers.filter(
     (m) =>
       m.role !== "SUPER_ADMIN" &&
@@ -197,112 +193,88 @@ export default function ReportBugModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 backdrop-blur-xs animate-fade-in overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/40 overflow-y-auto">
       <div
-        className="bg-white max-w-xl w-full my-8 rounded-3xl shadow-2xl border border-slate-200/90 overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white max-w-xl w-full my-8 rounded-lg border border-border shadow-xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-5 bg-gradient-to-r from-rose-500 via-rose-600 to-rose-700 text-white flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-surface border-b border-border flex items-center justify-between shrink-0">
           <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xl">🐛</span>
-              <h3 className="text-base sm:text-lg font-black tracking-tight">
-                Report Bug Against Member & Project
-              </h3>
-            </div>
-            <p className="text-xs text-rose-100">
-              Quickly report a defect, link it to the project, and assign it to the responsible team member.
+            <h3 className="text-base font-semibold text-ink">
+              Report Issue
+            </h3>
+            <p className="text-[12px] text-gray-500">
+              Report a defect, link it to the project, and assign it to a team member.
             </p>
           </div>
 
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-sm font-bold transition-colors cursor-pointer"
+            className="text-gray-400 hover:text-ink text-sm font-bold cursor-pointer"
           >
             ✕
           </button>
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 text-xs sm:text-sm">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 text-[13px]">
           {/* STEP 1: SELECT RESPONSIBLE MEMBER */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                1. Select Member to Report Against <span className="text-rose-500">*</span>
+              <label className="block text-[12px] font-medium text-gray-700">
+                1. Assign To (Optional)
               </label>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-gray-400">
                 {selectedMember ? (
-                  <strong className="text-rose-600 font-bold">Selected: {selectedMember.name}</strong>
+                  <strong className="text-accent font-medium">{selectedMember.name}</strong>
                 ) : (
-                  "General / Unassigned"
+                  "Unassigned"
                 )}
               </span>
             </div>
 
-            {/* Quick search if > 4 members */}
             {teamMembers.length > 4 && (
               <input
                 type="text"
                 value={memberSearch}
                 onChange={(e) => setMemberSearch(e.target.value)}
-                placeholder="Search member by name or email..."
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500"
+                placeholder="Search member..."
+                className="w-full px-3 py-1.5 text-[12px] bg-white border border-border rounded-md focus:outline-none"
               />
             )}
 
-            {/* Member Selection Chips / Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-40 overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-36 overflow-y-auto pr-1">
               <button
                 type="button"
                 onClick={() => setSelectedMemberId("")}
-                className={`p-2 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                className={`p-2 rounded-md border text-left transition-colors cursor-pointer flex items-center gap-2 ${
                   selectedMemberId === ""
-                    ? "bg-rose-50/80 border-rose-300 ring-2 ring-rose-500/20 text-rose-900 font-bold shadow-2xs"
-                    : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    ? "bg-blue-50/50 border-accent text-accent font-medium"
+                    : "bg-surface border-border text-gray-600 hover:bg-gray-100"
                 }`}
               >
-                <div className="w-7 h-7 rounded-xl bg-slate-200 flex items-center justify-center font-bold text-slate-600 text-xs shrink-0">
-                  👥
-                </div>
                 <div className="min-w-0">
-                  <p className="text-xs truncate font-bold">Unassigned</p>
-                  <p className="text-[10px] text-slate-400 truncate">General project issue</p>
+                  <p className="text-[12px] truncate font-medium">Unassigned</p>
                 </div>
               </button>
 
               {filteredMembers.map((member) => {
                 const isSelected = selectedMemberId === member.id;
-                const initials = member.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
-
                 return (
                   <button
                     key={member.id}
                     type="button"
                     onClick={() => setSelectedMemberId(member.id)}
-                    className={`p-2 rounded-2xl border text-left transition-all cursor-pointer flex items-center gap-2 ${
+                    className={`p-2 rounded-md border text-left transition-colors cursor-pointer flex items-center gap-2 ${
                       isSelected
-                        ? "bg-rose-50/90 border-rose-400 ring-2 ring-rose-500/20 text-rose-950 font-bold shadow-2xs"
-                        : "bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-slate-100/90"
+                        ? "bg-blue-50/50 border-accent text-accent font-medium"
+                        : "bg-surface border-border text-ink hover:bg-gray-100"
                     }`}
                   >
-                    <div
-                      className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                        isSelected ? "bg-rose-600 text-white" : "bg-indigo-100 text-indigo-700"
-                      }`}
-                    >
-                      {initials}
-                    </div>
                     <div className="min-w-0">
-                      <p className="text-xs truncate font-bold">{member.name}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{member.email}</p>
+                      <p className="text-[12px] truncate font-medium">{member.name}</p>
                     </div>
                   </button>
                 );
@@ -311,28 +283,28 @@ export default function ReportBugModal({
           </div>
 
           {/* STEP 2: SELECT PROJECT */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              2. Select Target Project <span className="text-rose-500">*</span>
+          <div className="space-y-1.5 pt-2 border-t border-border">
+            <label className="block text-[12px] font-medium text-gray-700">
+              2. Target Project <span className="text-signal-red">*</span>
             </label>
             <select
               required
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-semibold cursor-pointer"
+              className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md focus:outline-none cursor-pointer"
             >
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
-                  📁 {p.name} {p.client ? `(Client: ${p.client})` : ""}
+                  {p.name} {p.client ? `(Client: ${p.client})` : ""}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* STEP 3: ISSUE TITLE & QUICK TAGS */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              3. Issue Title <span className="text-rose-500">*</span>
+          {/* STEP 3: ISSUE TITLE */}
+          <div className="space-y-1.5 pt-2 border-t border-border">
+            <label className="block text-[12px] font-medium text-gray-700">
+              3. Issue Title <span className="text-signal-red">*</span>
             </label>
             <input
               type="text"
@@ -340,18 +312,17 @@ export default function ReportBugModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Header dropdown closes unexpectedly on mobile"
-              className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+              className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md focus:outline-none"
             />
 
-            {/* Quick Suggestions Chips */}
-            <div className="flex flex-wrap items-center gap-1.5 pt-1">
-              <span className="text-[11px] text-slate-400 font-semibold">Quick Ideas:</span>
+            <div className="flex flex-wrap items-center gap-1 pt-1">
+              <span className="text-[11px] text-gray-400">Suggestions:</span>
               {quickTags.map((tag) => (
                 <button
                   key={tag}
                   type="button"
                   onClick={() => setTitle(tag)}
-                  className="text-[11px] px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-rose-50 hover:text-rose-700 border border-slate-200 transition-colors cursor-pointer text-slate-600"
+                  className="text-[11px] px-2 py-0.5 rounded bg-surface hover:bg-gray-100 border border-border text-gray-600 cursor-pointer"
                 >
                   {tag}
                 </button>
@@ -359,100 +330,70 @@ export default function ReportBugModal({
             </div>
           </div>
 
-          {/* STEP 4: PRIORITY SELECTOR (1-CLICK PILLS) */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              4. Bug Severity & Priority
+          {/* STEP 4: PRIORITY */}
+          <div className="space-y-1.5 pt-2 border-t border-border">
+            <label className="block text-[12px] font-medium text-gray-700">
+              4. Severity & Priority
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                {
-                  id: "Critical",
-                  label: "🔴 Critical",
-                  desc: "Blocker / Crash",
-                  active: "bg-rose-50 border-rose-300 text-rose-800 ring-2 ring-rose-500/20 font-bold",
-                },
-                {
-                  id: "High",
-                  label: "🟠 High",
-                  desc: "Major feature broken",
-                  active: "bg-amber-50 border-amber-300 text-amber-800 ring-2 ring-amber-500/20 font-bold",
-                },
-                {
-                  id: "Medium",
-                  label: "🔵 Medium",
-                  desc: "Normal defect",
-                  active: "bg-blue-50 border-blue-300 text-blue-800 ring-2 ring-blue-500/20 font-bold",
-                },
-                {
-                  id: "Low",
-                  label: "⚪ Low",
-                  desc: "Cosmetic / Small",
-                  active: "bg-slate-100 border-slate-300 text-slate-800 ring-2 ring-slate-400/20 font-bold",
-                },
-              ].map((p) => {
-                const isSelected = priority === p.id;
+              {(["Low", "Medium", "High", "Critical"] as const).map((p) => {
+                const isSelected = priority === p;
                 return (
                   <button
-                    key={p.id}
+                    key={p}
                     type="button"
-                    onClick={() => setPriority(p.id as any)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    onClick={() => setPriority(p)}
+                    className={`p-2 rounded-md border text-center transition-colors cursor-pointer text-[12px] ${
                       isSelected
-                        ? p.active
-                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                        ? "bg-ink text-white font-medium border-ink"
+                        : "bg-surface border-border text-gray-600 hover:bg-gray-100"
                     }`}
                   >
-                    <p className="text-xs font-extrabold">{p.label}</p>
-                    <p className="text-[10px] opacity-75">{p.desc}</p>
+                    {p}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* STEP 5: DESCRIPTION / STEPS */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-100">
-            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-              5. Steps to Reproduce & Details (Optional)
+          {/* STEP 5: DESCRIPTION */}
+          <div className="space-y-1.5 pt-2 border-t border-border">
+            <label className="block text-[12px] font-medium text-gray-700">
+              5. Details / Steps to Reproduce
             </label>
             <textarea
               rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="1. Open product page&#10;2. Click checkout button&#10;3. Notice error dialog appears"
-              className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium leading-relaxed resize-none"
+              className="w-full p-2.5 text-[13px] bg-white border border-border rounded-md focus:outline-none resize-none"
             />
           </div>
 
-          {/* STEP 6: ATTACH SCREENSHOT, VIDEO, OR LOGS */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
+          {/* STEP 6: ATTACHMENTS */}
+          <div className="space-y-2 pt-2 border-t border-border">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <span>📎 6. Attach Screenshot, Video or File (Optional)</span>
+              <label className="block text-[12px] font-medium text-gray-700">
+                6. Attachment (Optional)
               </label>
-              <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[11px]">
+              <div className="flex items-center gap-1 bg-surface p-0.5 rounded border border-border text-[11px]">
                 <button
                   type="button"
                   onClick={() => setAttachmentMode("file")}
-                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    attachmentMode === "file"
-                      ? "bg-white text-rose-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                  className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
+                    attachmentMode === "file" ? "bg-white text-ink shadow-xs" : "text-gray-500"
                   }`}
                 >
-                  📁 File / Media
+                  File
                 </button>
                 <button
                   type="button"
                   onClick={() => setAttachmentMode("link")}
-                  className={`px-2.5 py-1 rounded-md font-bold transition-all cursor-pointer ${
-                    attachmentMode === "link"
-                      ? "bg-white text-rose-700 shadow-xs"
-                      : "text-slate-600 hover:text-slate-900"
+                  className={`px-2 py-0.5 rounded font-medium cursor-pointer ${
+                    attachmentMode === "link" ? "bg-white text-ink shadow-xs" : "text-gray-500"
                   }`}
                 >
-                  📹 Video Link
+                  Video Link
                 </button>
               </div>
             </div>
@@ -479,56 +420,22 @@ export default function ReportBugModal({
                       const file = e.dataTransfer.files?.[0];
                       if (file) processSelectedFile(file);
                     }}
-                    className="border-2 border-dashed border-slate-200 hover:border-rose-400 bg-slate-50 hover:bg-rose-50/30 rounded-2xl p-4 sm:p-5 text-center cursor-pointer transition-all group"
+                    className="border border-dashed border-border hover:border-accent bg-surface rounded-md p-4 text-center cursor-pointer transition-colors"
                   >
-                    <div className="w-10 h-10 mx-auto rounded-2xl bg-white shadow-2xs border border-slate-200/80 flex items-center justify-center text-lg text-slate-600 group-hover:scale-110 group-hover:text-rose-600 transition-all">
-                      📷
-                    </div>
-                    <p className="mt-2 text-xs font-bold text-slate-800">
-                      Click to upload screenshot, video recording, or logs
+                    <p className="text-[12px] font-medium text-ink">
+                      Click to upload screenshot or file
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Supports PNG, JPG, MP4, WebM, PDF, logs • Max 15MB • or paste screenshot (Ctrl+V)
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      Max 15MB • or paste image (Ctrl+V)
                     </p>
                   </div>
                 ) : (
-                  <div className="p-3 bg-rose-50/70 border border-rose-200/90 rounded-2xl flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {attachedFile.type === "image" ? (
-                        <div className="w-14 h-14 rounded-xl overflow-hidden border border-rose-200 shrink-0 bg-white">
-                          <img
-                            src={attachedFile.url}
-                            alt="Screenshot preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : attachedFile.type === "video" ? (
-                        <div className="w-14 h-14 rounded-xl bg-rose-600 text-white flex items-center justify-center text-xl shrink-0 font-bold">
-                          🎥
-                        </div>
-                      ) : (
-                        <div className="w-14 h-14 rounded-xl bg-slate-200 text-slate-700 flex items-center justify-center text-xl shrink-0 font-bold">
-                          📄
-                        </div>
-                      )}
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-rose-200 text-rose-800">
-                            {attachedFile.type === "image"
-                              ? "Screenshot"
-                              : attachedFile.type === "video"
-                              ? "Video"
-                              : "Document"}
-                          </span>
-                          <span className="text-[11px] text-slate-400">
-                            {(attachedFile.size / (1024 * 1024)).toFixed(2)} MB
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-slate-800 truncate mt-0.5">
-                          {attachedFile.name}
-                        </p>
-                      </div>
+                  <div className="p-2.5 bg-surface border border-border rounded-md flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-ink truncate">{attachedFile.name}</p>
+                      <p className="text-[11px] text-gray-400">
+                        {(attachedFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </p>
                     </div>
 
                     <button
@@ -537,37 +444,22 @@ export default function ReportBugModal({
                         setAttachedFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = "";
                       }}
-                      className="px-2.5 py-1.5 bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition-colors shrink-0 cursor-pointer"
+                      className="text-[12px] text-signal-red hover:underline cursor-pointer"
                     >
-                      ✕ Remove
+                      Remove
                     </button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200/80">
+              <div className="space-y-2 bg-surface p-3 rounded-md border border-border">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Video or Cloud Recording Link (Loom, YouTube, Drive)
-                  </label>
                   <input
                     type="url"
                     value={videoLinkUrl}
                     onChange={(e) => setVideoLinkUrl(e.target.value)}
-                    placeholder="https://www.loom.com/share/... or Google Drive URL"
-                    className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                    Video Title (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={videoLinkTitle}
-                    onChange={(e) => setVideoLinkTitle(e.target.value)}
-                    placeholder="e.g. Loom video showing checkout error"
-                    className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium"
+                    placeholder="https://www.loom.com/share/... or video URL"
+                    className="w-full px-3 py-1.5 text-[12px] bg-white border border-border rounded-md focus:outline-none"
                   />
                 </div>
               </div>
@@ -575,46 +467,25 @@ export default function ReportBugModal({
           </div>
 
           {/* Modal Footer */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100">
-            <div className="text-xs text-slate-500 text-center sm:text-left">
-              <span>Assignee: </span>
-              <strong className="text-slate-800 font-bold">
-                {selectedMember ? selectedMember.name : "Unassigned"}
-              </strong>
-              {selectedProject && (
-                <span className="text-slate-400 ml-1">
-                  • Project: <strong>{selectedProject.name}</strong>
-                </span>
-              )}
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-border">
+            <div className="text-[12px] text-gray-500">
+              {selectedMember && <span>Assignee: {selectedMember.name}</span>}
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isPending || !title.trim() || !selectedProjectId}
-                className="flex-1 sm:flex-initial px-5 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white text-xs font-extrabold rounded-xl shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                className="px-4 py-1.5 bg-signal-red hover:bg-red-700 text-white text-[12px] font-medium rounded-md disabled:opacity-50 transition-colors cursor-pointer"
               >
-                {isPending ? (
-                  <>
-                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    <span>Submitting Bug Report...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>🐛</span>
-                    <span>
-                      Report Bug
-                      {selectedMember ? ` Against ${selectedMember.name.split(" ")[0]}` : ""}
-                    </span>
-                  </>
-                )}
+                {isPending ? "Submitting..." : "Report Issue"}
               </button>
             </div>
           </div>

@@ -61,8 +61,8 @@ export default function AdminWorksMonitor({
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMemberId, setSelectedMemberId] = useState<string>("all"); // 'all' | 'unassigned' | memberId
-  const [statusFilter, setStatusFilter] = useState<string>("all"); // 'all' | 'In Progress' | 'Overdue' | 'To Do' | 'Done' | 'Blocked'
+  const [selectedMemberId, setSelectedMemberId] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
 
@@ -120,7 +120,6 @@ export default function AdminWorksMonitor({
   const filteredTasks = useMemo(() => {
     let list = [...tasks];
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -132,19 +131,16 @@ export default function AdminWorksMonitor({
       );
     }
 
-    // Member filter
     if (selectedMemberId === "unassigned") {
       list = list.filter((t) => !t.assignedTo);
     } else if (selectedMemberId !== "all") {
       list = list.filter((t) => t.assignedTo?.id === selectedMemberId);
     }
 
-    // Project filter
     if (selectedProjectId !== "all") {
       list = list.filter((t) => t.projectId === selectedProjectId);
     }
 
-    // Status filter
     if (statusFilter === "Overdue") {
       list = list.filter((t) => {
         if (!t.deadline || t.status === "Done") return false;
@@ -164,7 +160,6 @@ export default function AdminWorksMonitor({
     return list;
   }, [tasks, searchQuery, selectedMemberId, selectedProjectId, statusFilter]);
 
-  // Handle inline quick reassignment
   const handleReassign = (taskId: string, newMemberId: string) => {
     startTransition(async () => {
       try {
@@ -191,7 +186,6 @@ export default function AdminWorksMonitor({
     });
   };
 
-  // Handle inline quick status update
   const handleStatusChange = (taskId: string, newStatus: string) => {
     startTransition(async () => {
       try {
@@ -215,7 +209,6 @@ export default function AdminWorksMonitor({
     });
   };
 
-  // Handle inline quick progress update
   const handleProgressChange = (taskId: string, newProgress: number) => {
     startTransition(async () => {
       try {
@@ -241,40 +234,42 @@ export default function AdminWorksMonitor({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header & Quick KPIs */}
+      {/* 1. Header & View Toggle */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span>⚡ Assigned Works & Deliverables Monitor</span>
-            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-ink tracking-tight">
+              Assigned Works & Deliverables
+            </h2>
+            <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-border">
               {stats.total} total
             </span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Real-time control room to monitor worker deliverables, progress, deadlines, roadblocks, and reassign tasks.
+          </div>
+          <p className="text-[13px] text-gray-500 mt-1">
+            Real-time monitor for worker deliverables, progress, deadlines, roadblocks, and reassignment.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           {/* View mode toggle */}
-          <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold">
+          <div className="flex items-center p-0.5 bg-surface rounded-md border border-border text-[12px] font-medium">
             <button
               type="button"
               onClick={() => setViewMode("cards")}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                viewMode === "cards" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+              className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                viewMode === "cards" ? "bg-white text-ink shadow-xs" : "text-gray-500 hover:text-ink"
               }`}
             >
-              ⊞ Cards
+              Cards
             </button>
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                viewMode === "table" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+              className={`px-2.5 py-1 rounded transition-colors cursor-pointer ${
+                viewMode === "table" ? "bg-white text-ink shadow-xs" : "text-gray-500 hover:text-ink"
               }`}
             >
-              ☰ Table
+              Table
             </button>
           </div>
         </div>
@@ -285,242 +280,182 @@ export default function AdminWorksMonitor({
         <button
           type="button"
           onClick={() => setStatusFilter("all")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "all"
-              ? "bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20 shadow-2xs"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-surface border-accent"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Works</div>
-          <div className="text-xl font-black text-slate-900 mt-0.5">{stats.total}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Across all projects</div>
+          <div className="text-[11px] font-medium text-gray-500">Total</div>
+          <div className="text-xl font-semibold text-ink mt-0.5 tabular-nums">{stats.total}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">Across projects</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === "In Progress" ? "all" : "In Progress")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "In Progress"
-              ? "bg-blue-50 border-blue-400 ring-2 ring-blue-500/20 shadow-2xs"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-blue-50 border-accent"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-blue-700">In Progress</div>
-          <div className="text-xl font-black text-blue-700 mt-0.5">{stats.inProgress}</div>
-          <div className="text-[10px] text-blue-600/80 mt-0.5">Currently active</div>
+          <div className="text-[11px] font-medium text-accent">In progress</div>
+          <div className="text-xl font-semibold text-accent mt-0.5 tabular-nums">{stats.inProgress}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">Currently active</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === "Overdue" ? "all" : "Overdue")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "Overdue"
-              ? "bg-rose-50 border-rose-400 ring-2 ring-rose-500/20 shadow-2xs"
-              : stats.overdue > 0
-              ? "bg-rose-50/40 border-rose-200/80 hover:bg-rose-50"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-rose-50 border-rose-300"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Overdue</span>
-            {stats.overdue > 0 && <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />}
-          </div>
-          <div className={`text-xl font-black mt-0.5 ${stats.overdue > 0 ? "text-rose-700" : "text-slate-900"}`}>
+          <div className="text-[11px] font-medium text-signal-red">Overdue</div>
+          <div className={`text-xl font-semibold mt-0.5 tabular-nums ${stats.overdue > 0 ? "text-signal-red" : "text-ink"}`}>
             {stats.overdue}
           </div>
-          <div className="text-[10px] text-rose-600 font-medium mt-0.5">
-            {stats.overdue > 0 ? "Needs deadline action" : "All on schedule"}
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            {stats.overdue > 0 ? "Needs action" : "On schedule"}
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === "Blocked" ? "all" : "Blocked")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "Blocked"
-              ? "bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-2xs"
-              : stats.withBlockers > 0
-              ? "bg-amber-50/40 border-amber-200/80 hover:bg-amber-50"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-amber-50 border-amber-300"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Roadblocks</div>
-          <div className={`text-xl font-black mt-0.5 ${stats.withBlockers > 0 ? "text-amber-700" : "text-slate-900"}`}>
+          <div className="text-[11px] font-medium text-signal-amber">Roadblocks</div>
+          <div className={`text-xl font-semibold mt-0.5 tabular-nums ${stats.withBlockers > 0 ? "text-signal-amber" : "text-ink"}`}>
             {stats.withBlockers}
           </div>
-          <div className="text-[10px] text-amber-600 font-medium mt-0.5">
-            {stats.withBlockers > 0 ? "Open worker objections" : "Zero blockers"}
+          <div className="text-[11px] text-gray-400 mt-0.5">
+            {stats.withBlockers > 0 ? "Open objections" : "Zero blockers"}
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === "To Do" ? "all" : "To Do")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "To Do"
-              ? "bg-slate-100 border-slate-300 ring-2 ring-slate-400/20 shadow-2xs"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-surface border-ink"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">To Do / Queued</div>
-          <div className="text-xl font-black text-slate-900 mt-0.5">{stats.todo}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Pending start</div>
+          <div className="text-[11px] font-medium text-gray-500">To do</div>
+          <div className="text-xl font-semibold text-ink mt-0.5 tabular-nums">{stats.todo}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">Pending start</div>
         </button>
 
         <button
           type="button"
           onClick={() => setStatusFilter(statusFilter === "Done" ? "all" : "Done")}
-          className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+          className={`p-3.5 rounded-lg border text-left transition-colors cursor-pointer ${
             statusFilter === "Done"
-              ? "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-2xs"
-              : "bg-white border-slate-200/80 hover:bg-slate-50"
+              ? "bg-emerald-50 border-emerald-300"
+              : "bg-white border-border hover:bg-surface"
           }`}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Completed</div>
-          <div className="text-xl font-black text-emerald-700 mt-0.5">{stats.done}</div>
-          <div className="text-[10px] text-emerald-600/80 mt-0.5">{stats.avgProgress}% Avg progress</div>
+          <div className="text-[11px] font-medium text-signal-green">Completed</div>
+          <div className="text-xl font-semibold text-signal-green mt-0.5 tabular-nums">{stats.done}</div>
+          <div className="text-[11px] text-gray-400 mt-0.5">{stats.avgProgress}% avg progress</div>
         </button>
       </div>
 
-      {/* 2. LIVE WORKER WORKLOAD MONITOR (Clickable Avatar Bar) */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-slate-200/90 shadow-2xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h3 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-              <span>👥 Filter Workload by Assigned Member</span>
-            </h3>
-            <p className="text-[11px] text-slate-400">
-              Click any teammate below to isolate and monitor only their assigned deliverables.
-            </p>
-          </div>
+      {/* 2. Worker Workload Chips */}
+      <div className="bg-white p-4 rounded-lg border border-border space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <h3 className="text-[12px] font-medium text-ink">
+            Filter by Assigned Member
+          </h3>
           {selectedMemberId !== "all" && (
             <button
               type="button"
               onClick={() => setSelectedMemberId("all")}
-              className="text-xs font-bold text-blue-600 hover:text-blue-800 self-start sm:self-auto cursor-pointer"
+              className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
             >
-              Reset to All Workers ✕
+              Reset to all
             </button>
           )}
         </div>
 
-        {/* Worker Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
-          {/* All Workers Chip */}
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={() => setSelectedMemberId("all")}
-            className={`px-3 py-2 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-2.5 py-1 rounded-md border text-[12px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               selectedMemberId === "all"
-                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                ? "bg-ink text-white border-ink"
+                : "bg-surface text-gray-700 border-border hover:bg-gray-100"
             }`}
           >
             <span>All Members</span>
-            <span
-              className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                selectedMemberId === "all" ? "bg-white/20 text-white" : "bg-slate-200 text-slate-700"
-              }`}
-            >
-              {tasks.length}
-            </span>
+            <span className="text-[10px] tabular-nums">({tasks.length})</span>
           </button>
 
-          {/* Individual Members */}
           {teamMembers.map((member) => {
             const isSelected = selectedMemberId === member.id;
             const load = memberWorkloads.map.get(member.id) || { total: 0, inProgress: 0, overdue: 0 };
-            const initial = member.name.slice(0, 1).toUpperCase();
 
             return (
               <button
                 key={member.id}
                 type="button"
                 onClick={() => setSelectedMemberId(member.id)}
-                className={`px-3 py-1.5 rounded-2xl border text-xs transition-all cursor-pointer flex items-center gap-2 ${
+                className={`px-2.5 py-1 rounded-md border text-[12px] transition-colors cursor-pointer flex items-center gap-1.5 ${
                   isSelected
-                    ? "bg-blue-50 border-blue-400 text-blue-950 font-black ring-2 ring-blue-500/20 shadow-2xs"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                    ? "bg-blue-50 border-accent text-accent font-medium"
+                    : "bg-white border-border text-gray-700 hover:bg-surface"
                 }`}
               >
-                <div
-                  className={`w-6 h-6 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                    isSelected ? "bg-blue-600 text-white" : "bg-indigo-100 text-indigo-700"
-                  }`}
-                >
-                  {initial}
-                </div>
-                <div className="text-left">
-                  <span className="font-bold truncate">{member.name.split(" ")[0]}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                      isSelected ? "bg-blue-200 text-blue-900" : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
-                    {load.total}
-                  </span>
-                  {load.overdue > 0 && (
-                    <span
-                      className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"
-                      title={`${load.overdue} overdue task(s)`}
-                    />
-                  )}
-                </div>
+                <span>{member.name.split(" ")[0]}</span>
+                <span className="text-[10px] tabular-nums text-gray-400">({load.total})</span>
               </button>
             );
           })}
 
-          {/* Unassigned Chip */}
           <button
             type="button"
             onClick={() => setSelectedMemberId("unassigned")}
-            className={`px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+            className={`px-2.5 py-1 rounded-md border text-[12px] font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               selectedMemberId === "unassigned"
-                ? "bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-500/20 shadow-2xs"
-                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                ? "bg-amber-50 border-amber-300 text-signal-amber"
+                : "bg-surface text-gray-600 border-border hover:bg-gray-100"
             }`}
           >
-            <span>⚠️ Unassigned</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-200/80 text-amber-900 font-bold">
-              {memberWorkloads.unassignedCount}
-            </span>
+            <span>Unassigned</span>
+            <span className="text-[10px] tabular-nums">({memberWorkloads.unassignedCount})</span>
           </button>
         </div>
       </div>
 
       {/* 3. Search & Filter Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Search */}
         <div className="relative w-full sm:w-80">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search deliverables, projects, workers..."
-            className="w-full pl-9 pr-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            className="w-full px-3 py-1.5 text-[12px] bg-white border border-border rounded-md focus:outline-none placeholder:text-gray-400"
           />
-          <span className="absolute left-3 top-2.5 text-xs text-slate-400">🔍</span>
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
-            >
-              ✕
-            </button>
-          )}
         </div>
 
-        {/* Project Dropdown Filter */}
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="w-full sm:w-auto px-3 py-2 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700 cursor-pointer"
+            className="w-full sm:w-auto px-2.5 py-1 text-[12px] bg-white border border-border rounded-md font-medium text-gray-700 cursor-pointer focus:outline-none"
           >
-            <option value="all">📁 All Projects ({projects.length})</option>
+            <option value="all">All Projects ({projects.length})</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name} {p.client ? `(${p.client})` : ""}
@@ -528,19 +463,18 @@ export default function AdminWorksMonitor({
             ))}
           </select>
 
-          <span className="text-xs text-slate-400 shrink-0 font-medium">
-            Showing <strong>{filteredTasks.length}</strong> of {tasks.length}
+          <span className="text-[11px] text-gray-400 tabular-nums shrink-0">
+            {filteredTasks.length} of {tasks.length}
           </span>
         </div>
       </div>
 
       {/* 4. MAIN DELIVERABLES MONITORING LIST */}
       {filteredTasks.length === 0 ? (
-        <div className="p-12 bg-white rounded-3xl border border-slate-200 text-center space-y-3">
-          <span className="text-3xl">🎯</span>
-          <h4 className="text-sm font-bold text-slate-800">No deliverables match your filter</h4>
-          <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Try clearing search keywords or switching member/status filters to see all assigned works.
+        <div className="p-8 bg-white rounded-lg border border-dashed border-border text-center space-y-2">
+          <h4 className="text-[13px] font-medium text-ink">No deliverables match your filter</h4>
+          <p className="text-[12px] text-gray-400 max-w-sm mx-auto">
+            Try clearing search keywords or switching filters.
           </p>
           <button
             type="button"
@@ -550,9 +484,9 @@ export default function AdminWorksMonitor({
               setStatusFilter("all");
               setSelectedProjectId("all");
             }}
-            className="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            className="px-3 py-1 bg-surface hover:bg-gray-100 text-ink text-[12px] font-medium rounded-md border border-border transition-colors cursor-pointer"
           >
-            Reset All Filters
+            Reset Filters
           </button>
         </div>
       ) : viewMode === "cards" ? (
@@ -565,12 +499,12 @@ export default function AdminWorksMonitor({
             return (
               <div
                 key={task.id}
-                className={`bg-white p-5 rounded-3xl border transition-all flex flex-col justify-between shadow-2xs hover:shadow-md ${
+                className={`bg-white p-5 rounded-lg border transition-colors flex flex-col justify-between space-y-4 ${
                   task.openObjectionsCount > 0
-                    ? "border-amber-300 ring-2 ring-amber-400/20"
+                    ? "border-amber-300"
                     : duration.statusType === "overdue" && task.status !== "Done"
-                    ? "border-rose-300 ring-2 ring-rose-400/20"
-                    : "border-slate-200/90 hover:border-blue-300"
+                    ? "border-rose-300"
+                    : "border-border hover:border-gray-300"
                 }`}
               >
                 {/* Card Top */}
@@ -579,30 +513,29 @@ export default function AdminWorksMonitor({
                     <div className="space-y-0.5 min-w-0">
                       <Link
                         href={`/projects/${task.projectId}`}
-                        className="text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-blue-600 truncate block"
+                        className="text-[11px] font-medium text-gray-400 hover:text-accent truncate block"
                       >
-                        📁 {task.projectName}
+                        {task.projectName}
                       </Link>
                       <Link
                         href={`/tasks/${task.id}`}
-                        className="text-sm font-extrabold text-slate-900 hover:text-blue-600 transition-colors line-clamp-1 block"
+                        className="text-[14px] font-semibold text-ink hover:text-accent transition-colors line-clamp-1 block"
                       >
                         {task.title}
                       </Link>
                     </div>
 
-                    {/* Status Pill with 1-click status cycle */}
                     <div className="shrink-0 flex items-center gap-1">
                       <select
                         value={task.status}
                         disabled={isPending}
                         onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                        className={`text-[10px] font-black uppercase px-2 py-1 rounded-xl border cursor-pointer focus:outline-none ${
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded border cursor-pointer focus:outline-none ${
                           task.status === "Done"
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                            ? "bg-emerald-50 text-signal-green border-emerald-200"
                             : task.status === "In Progress"
-                            ? "bg-blue-50 text-blue-800 border-blue-300"
-                            : "bg-slate-100 text-slate-700 border-slate-200"
+                            ? "bg-blue-50 text-accent border-blue-200"
+                            : "bg-surface text-gray-700 border-border"
                         }`}
                       >
                         <option value="To Do">To Do</option>
@@ -613,31 +546,24 @@ export default function AdminWorksMonitor({
                   </div>
 
                   {task.description && (
-                    <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed bg-slate-50/60 p-2 rounded-xl">
+                    <p className="text-[12px] text-gray-600 line-clamp-2 leading-relaxed bg-surface p-2.5 rounded-md border border-border">
                       {task.description}
                     </p>
                   )}
 
-                  {/* Progress Slider / Quick Controls */}
-                  <div className="space-y-1.5 pt-1">
+                  {/* Progress Slider */}
+                  <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="font-bold text-slate-500">Progress</span>
-                      <span className="font-black text-blue-600">{task.progress}%</span>
+                      <span className="text-gray-500">Progress</span>
+                      <span className="font-semibold text-ink tabular-nums">{task.progress}%</span>
                     </div>
-                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-300 rounded-full ${
-                          task.status === "Done"
-                            ? "bg-emerald-500"
-                            : task.progress > 60
-                            ? "bg-blue-600"
-                            : "bg-blue-400"
-                        }`}
+                        className="h-full bg-accent rounded-full transition-all duration-300"
                         style={{ width: `${task.progress}%` }}
                       />
                     </div>
 
-                    {/* Quick progress jump buttons for Super Admin */}
                     <div className="flex items-center justify-between gap-1 pt-0.5 text-[10px]">
                       {[0, 25, 50, 75, 100].map((p) => (
                         <button
@@ -645,10 +571,10 @@ export default function AdminWorksMonitor({
                           type="button"
                           disabled={isPending}
                           onClick={() => handleProgressChange(task.id, p)}
-                          className={`px-2 py-0.5 rounded-md border font-bold transition-colors cursor-pointer ${
+                          className={`px-1.5 py-0.5 rounded border transition-colors cursor-pointer tabular-nums ${
                             task.progress === p
-                              ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                              ? "bg-ink text-white border-ink font-medium"
+                              : "bg-surface text-gray-600 border-border hover:bg-gray-100"
                           }`}
                         >
                           {p}%
@@ -657,19 +583,19 @@ export default function AdminWorksMonitor({
                     </div>
                   </div>
 
-                  {/* Latest Worker Update Snippet (Monitoring transparency) */}
+                  {/* Latest Update */}
                   {task.latestUpdate && (
-                    <div className="bg-blue-50/60 p-2.5 rounded-xl border border-blue-100 text-[11px] space-y-0.5">
-                      <div className="flex items-center justify-between text-blue-800 font-bold">
-                        <span>💬 Latest Worker Update:</span>
-                        <span className="text-[10px] text-blue-500 font-normal">
+                    <div className="bg-surface p-2.5 rounded-md border border-border text-[11px] space-y-0.5">
+                      <div className="flex items-center justify-between text-gray-600 font-medium">
+                        <span>Latest Update:</span>
+                        <span className="text-[10px] text-gray-400 tabular-nums">
                           {new Date(task.latestUpdate.createdAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
                           })}
                         </span>
                       </div>
-                      <p className="text-slate-700 italic line-clamp-2">"{task.latestUpdate.text}"</p>
+                      <p className="text-gray-700 italic line-clamp-2">"{task.latestUpdate.text}"</p>
                     </div>
                   )}
 
@@ -677,32 +603,23 @@ export default function AdminWorksMonitor({
                   {task.openObjectionsCount > 0 && (
                     <Link
                       href="/objections"
-                      className="bg-amber-50 p-2 rounded-xl border border-amber-200 text-[11px] text-amber-900 font-bold flex items-center justify-between hover:bg-amber-100 transition-colors block"
+                      className="bg-amber-50 p-2 rounded-md border border-amber-200 text-[11px] text-signal-amber font-medium flex items-center justify-between hover:bg-amber-100 transition-colors block"
                     >
-                      <span className="flex items-center gap-1.5">
-                        <span>⚠️</span>
-                        <span>{task.openObjectionsCount} Roadblock reported by worker</span>
-                      </span>
+                      <span>{task.openObjectionsCount} Roadblock reported</span>
                       <span>Review →</span>
                     </Link>
                   )}
                 </div>
 
                 {/* Card Bottom / Footer Actions */}
-                <div className="pt-3 mt-3 border-t border-slate-100 space-y-2.5">
-                  {/* Assignee Strip + Quick Reassign */}
-                  <div className="flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-slate-400 text-[10px] uppercase font-bold">Worker:</span>
+                <div className="pt-2.5 border-t border-border space-y-2">
+                  <div className="flex items-center justify-between gap-2 text-[12px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-gray-400 text-[11px]">Worker:</span>
                       {task.assignedTo ? (
-                        <div className="flex items-center gap-1.5 truncate">
-                          <div className="w-5 h-5 rounded-md bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-[10px]">
-                            {task.assignedTo.name.slice(0, 1).toUpperCase()}
-                          </div>
-                          <span className="font-bold text-slate-800 truncate">{task.assignedTo.name}</span>
-                        </div>
+                        <span className="font-medium text-ink truncate">{task.assignedTo.name}</span>
                       ) : (
-                        <span className="text-amber-700 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 text-[10px]">
+                        <span className="text-signal-amber font-medium text-[11px]">
                           Unassigned
                         </span>
                       )}
@@ -711,73 +628,64 @@ export default function AdminWorksMonitor({
                     <button
                       type="button"
                       onClick={() => setReassigningTaskId(isReassigning ? null : task.id)}
-                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                      className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
                     >
-                      {isReassigning ? "Cancel" : "Reassign ⇄"}
+                      {isReassigning ? "Cancel" : "Reassign"}
                     </button>
                   </div>
 
-                  {/* Inline Reassignment Picker */}
                   {isReassigning && (
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5 animate-fade-in">
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600">
-                        Transfer Deliverable To:
-                      </label>
+                    <div className="p-2 bg-surface rounded border border-border space-y-1">
                       <select
                         defaultValue={task.assignedTo?.id || "unassigned"}
                         onChange={(e) => handleReassign(task.id, e.target.value)}
                         disabled={isPending}
-                        className="w-full px-2 py-1.5 text-xs bg-white border border-slate-200 rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        className="w-full px-2 py-1 text-[12px] bg-white border border-border rounded focus:outline-none cursor-pointer"
                       >
-                        <option value="unassigned">-- Keep Unassigned --</option>
+                        <option value="unassigned">-- Unassigned --</option>
                         {teamMembers.map((m) => (
                           <option key={m.id} value={m.id}>
-                            👤 {m.name} ({m.email})
+                            {m.name}
                           </option>
                         ))}
                       </select>
                     </div>
                   )}
 
-                  {/* Card Meta & Bottom Buttons */}
                   <div className="flex items-center justify-between gap-2 pt-1 text-[11px]">
-                    {/* Deadline urgency */}
                     {task.deadline ? (
                       <span
-                        className={`px-2 py-0.5 rounded-lg border font-bold text-[10px] flex items-center gap-1 ${
+                        className={`px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums ${
                           duration.statusType === "overdue" && task.status !== "Done"
-                            ? "bg-rose-50 text-rose-700 border-rose-300 animate-pulse"
+                            ? "bg-rose-50 text-signal-red border-rose-200"
                             : duration.statusType === "today"
-                            ? "bg-amber-50 text-amber-800 border-amber-300"
-                            : "bg-slate-50 text-slate-600 border-slate-200"
+                            ? "bg-amber-50 text-signal-amber border-amber-200"
+                            : "bg-surface text-gray-600 border-border"
                         }`}
                       >
-                        <span>⏱️</span>
-                        <span>{duration.label}</span>
+                        {duration.label}
                       </span>
                     ) : (
-                      <span className="text-slate-400 text-[10px]">No deadline</span>
+                      <span className="text-gray-400 text-[10px]">No deadline</span>
                     )}
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => {
                           setBugTargetTask(task);
                           setBugModalOpen(true);
                         }}
-                        className="px-2 py-1 text-[10px] font-bold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                        title="Report bug against this deliverable"
+                        className="px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:text-signal-red bg-surface hover:bg-gray-100 border border-border rounded transition-colors cursor-pointer"
                       >
-                        <span>🐛</span>
-                        <span>Report Bug</span>
+                        Report Bug
                       </button>
 
                       <Link
                         href={`/tasks/${task.id}`}
-                        className="px-2 py-1 text-[10px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                        className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
                       >
-                        Room →
+                        View
                       </Link>
                     </div>
                   </div>
@@ -788,47 +696,47 @@ export default function AdminWorksMonitor({
         </div>
       ) : (
         /* TABLE MONITORING VIEW */
-        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-2xs overflow-hidden">
+        <div className="bg-white rounded-lg border border-border overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-[13px] border-collapse table-zebra">
               <thead>
-                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[10px]">
-                  <th className="py-3.5 px-4">Deliverable & Project</th>
-                  <th className="py-3.5 px-4">Assigned Worker</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Progress</th>
-                  <th className="py-3.5 px-4">Deadline</th>
-                  <th className="py-3.5 px-4">Blockers / Updates</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                <tr className="bg-surface border-b border-border text-gray-500 font-medium text-[11px]">
+                  <th className="py-2.5 px-4">Deliverable & Project</th>
+                  <th className="py-2.5 px-4">Assigned Worker</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-4">Progress</th>
+                  <th className="py-2.5 px-4">Deadline</th>
+                  <th className="py-2.5 px-4">Blockers / Updates</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {filteredTasks.map((task) => {
                   const duration = getProjectDuration(task.deadline, task.status);
 
                   return (
-                    <tr key={task.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 px-4 space-y-0.5">
+                    <tr key={task.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4 space-y-0.5">
                         <Link
                           href={`/tasks/${task.id}`}
-                          className="font-bold text-slate-900 hover:text-blue-600 block text-xs"
+                          className="font-medium text-ink hover:text-accent block"
                         >
                           {task.title}
                         </Link>
                         <Link
                           href={`/projects/${task.projectId}`}
-                          className="text-[10px] font-semibold text-slate-400 hover:text-slate-700 block"
+                          className="text-[11px] text-gray-400 hover:underline block"
                         >
-                          📁 {task.projectName}
+                          {task.projectName}
                         </Link>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4">
                         <select
                           value={task.assignedTo?.id || "unassigned"}
                           onChange={(e) => handleReassign(task.id, e.target.value)}
                           disabled={isPending}
-                          className="px-2 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="px-2 py-0.5 text-[12px] bg-white border border-border rounded font-medium text-ink cursor-pointer focus:outline-none"
                         >
                           <option value="unassigned">-- Unassigned --</option>
                           {teamMembers.map((m) => (
@@ -839,17 +747,17 @@ export default function AdminWorksMonitor({
                         </select>
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4">
                         <select
                           value={task.status}
                           disabled={isPending}
                           onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                          className={`text-[10px] font-black uppercase px-2 py-1 rounded-lg border cursor-pointer ${
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded border cursor-pointer ${
                             task.status === "Done"
-                              ? "bg-emerald-50 text-emerald-800 border-emerald-300"
+                              ? "bg-emerald-50 text-signal-green border-emerald-200"
                               : task.status === "In Progress"
-                              ? "bg-blue-50 text-blue-800 border-blue-300"
-                              : "bg-slate-100 text-slate-700 border-slate-200"
+                              ? "bg-blue-50 text-accent border-blue-200"
+                              : "bg-surface text-gray-700 border-border"
                           }`}
                         >
                           <option value="To Do">To Do</option>
@@ -858,67 +766,67 @@ export default function AdminWorksMonitor({
                         </select>
                       </td>
 
-                      <td className="py-3.5 px-4 min-w-[120px]">
+                      <td className="py-3 px-4 min-w-[110px]">
                         <div className="flex items-center gap-2">
-                          <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                          <div className="w-16 bg-gray-100 h-1.5 rounded-full overflow-hidden">
                             <div
-                              className="h-full bg-blue-600 rounded-full"
+                              className="h-full bg-accent rounded-full"
                               style={{ width: `${task.progress}%` }}
                             />
                           </div>
-                          <span className="font-bold text-slate-700 text-[11px]">{task.progress}%</span>
+                          <span className="text-gray-700 text-[11px] tabular-nums font-medium">{task.progress}%</span>
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 whitespace-nowrap">
+                      <td className="py-3 px-4 whitespace-nowrap">
                         {task.deadline ? (
                           <span
-                            className={`px-2 py-0.5 rounded-lg border font-bold text-[10px] ${
+                            className={`px-2 py-0.5 rounded border text-[10px] font-medium tabular-nums ${
                               duration.statusType === "overdue" && task.status !== "Done"
-                                ? "bg-rose-50 text-rose-700 border-rose-300 animate-pulse"
-                                : "bg-slate-50 text-slate-600 border-slate-200"
+                                ? "bg-rose-50 text-signal-red border-rose-200"
+                                : "bg-surface text-gray-600 border-border"
                             }`}
                           >
                             {duration.label}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">None</span>
+                          <span className="text-gray-400 text-[11px]">None</span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4">
+                      <td className="py-3 px-4">
                         {task.openObjectionsCount > 0 ? (
                           <Link
                             href="/objections"
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200"
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-signal-amber bg-amber-50 px-2 py-0.5 rounded border border-amber-200"
                           >
-                            <span>⚠️ {task.openObjectionsCount} roadblock</span>
+                            {task.openObjectionsCount} roadblock
                           </Link>
                         ) : task.latestUpdate ? (
-                          <span className="text-[11px] text-slate-500 truncate max-w-[160px] block">
-                            💬 "{task.latestUpdate.text}"
+                          <span className="text-[11px] text-gray-500 truncate max-w-[160px] block">
+                            "{task.latestUpdate.text}"
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[10px]">—</span>
+                          <span className="text-gray-400 text-[11px]">—</span>
                         )}
                       </td>
 
-                      <td className="py-3.5 px-4 text-right space-x-1 whitespace-nowrap">
+                      <td className="py-3 px-4 text-right space-x-1.5 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => {
                             setBugTargetTask(task);
                             setBugModalOpen(true);
                           }}
-                          className="px-2 py-1 text-[10px] font-bold text-slate-600 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors cursor-pointer"
+                          className="px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:text-signal-red bg-surface hover:bg-gray-100 border border-border rounded transition-colors cursor-pointer"
                         >
-                          🐛 Bug
+                          Bug
                         </button>
                         <Link
                           href={`/tasks/${task.id}`}
-                          className="px-2 py-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors"
+                          className="px-2 py-0.5 text-[11px] font-medium text-accent bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition-colors"
                         >
-                          View →
+                          View
                         </Link>
                       </td>
                     </tr>

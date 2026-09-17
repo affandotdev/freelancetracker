@@ -1309,3 +1309,631 @@ export async function deleteIssueAction(issueId: string) {
   return { success: true };
 }
 
+/* ==========================================================================
+   MEETING & FOLLOW-UP ACTIONS
+   ========================================================================== */
+
+/**
+ * Schedule a new client meeting / follow-up call.
+ * Super Admin can assign to any team member; Members can schedule and self-assign.
+ */
+export async function createMeetingAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const title = (formData.get("title") as string)?.trim();
+  const clientName = (formData.get("clientName") as string)?.trim();
+  const clientEmail = (formData.get("clientEmail") as string)?.trim() || null;
+  const clientPhone = (formData.get("clientPhone") as string)?.trim() || null;
+  const projectId = (formData.get("projectId") as string)?.trim() || null;
+  const type = (formData.get("type") as string)?.trim() || "Client Meeting";
+  const platform = (formData.get("platform") as string)?.trim() || "Google Meet";
+  const meetingLink = (formData.get("meetingLink") as string)?.trim() || null;
+  const scheduledAtRaw = formData.get("scheduledAt") as string;
+  const durationMinutes = parseInt((formData.get("durationMinutes") as string) || "30", 10);
+  const agenda = (formData.get("agenda") as string)?.trim() || null;
+  const assignedToIdRaw = (formData.get("assignedToId") as string)?.trim() || null;
+
+  if (!title || !clientName || !scheduledAtRaw) {
+    throw new Error("Meeting title, client name, and scheduled date/time are required.");
+  }
+
+  const scheduledAt = new Date(scheduledAtRaw);
+  if (isNaN(scheduledAt.getTime())) {
+    throw new Error("Invalid scheduled date/time format.");
+  }
+
+  let assignedToId = assignedToIdRaw && assignedToIdRaw !== "none" ? assignedToIdRaw : null;
+  if (session.role !== "SUPER_ADMIN" && !assignedToId) {
+    assignedToId = session.userId;
+  }
+
+  const meeting = await (prisma as any).meeting.create({
+    data: {
+      title,
+      clientName,
+      clientEmail,
+      clientPhone,
+      projectId: projectId && projectId !== "none" ? projectId : null,
+      type,
+      platform,
+      meetingLink,
+      scheduledAt,
+      durationMinutes: isNaN(durationMinutes) ? 30 : durationMinutes,
+      agenda,
+      status: "Scheduled",
+      assignedToId,
+      createdById: session.userId,
+    },
+    include: {
+      project: { select: { id: true, name: true, client: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return meeting;
+}
+
+/**
+ * Update meeting status (e.g. Scheduled -> Completed, Rescheduled, Cancelled).
+ */
+export async function updateMeetingStatusAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const meetingId = formData.get("meetingId") as string;
+  const status = formData.get("status") as string;
+
+  if (!meetingId || !status) {
+    throw new Error("Meeting ID and status are required.");
+  }
+
+  const meeting = await (prisma as any).meeting.findUnique({
+    where: { id: meetingId },
+  });
+
+  if (!meeting) {
+    throw new Error("Meeting not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isAssigned = meeting.assignedToId === session.userId;
+  const isCreator = meeting.createdById === session.userId;
+
+  if (!isSuperAdmin && !isAssigned && !isCreator) {
+    throw new Error("Unauthorized: Only Super Admin or assigned members can update meeting status.");
+  }
+
+  const isCompleted = status === "Completed";
+  const updated = await (prisma as any).meeting.update({
+    where: { id: meetingId },
+    data: {
+      status,
+      completedAt: isCompleted ? new Date() : null,
+    },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return updated;
+}
+
+/**
+ * Log follow-up notes, discussion summary, outcome, and action items for a meeting.
+ */
+export async function addMeetingFollowUpAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const meetingId = formData.get("meetingId") as string;
+  const notes = (formData.get("notes") as string)?.trim() || null;
+  const outcome = (formData.get("outcome") as string)?.trim() || null;
+  const actionItems = (formData.get("actionItems") as string)?.trim() || null;
+  const nextFollowUpDateRaw = (formData.get("nextFollowUpDate") as string)?.trim() || null;
+  const markCompleted = formData.get("markCompleted") === "true";
+
+  if (!meetingId) {
+    throw new Error("Meeting ID is required.");
+  }
+
+  const meeting = await (prisma as any).meeting.findUnique({
+    where: { id: meetingId },
+  });
+
+  if (!meeting) {
+    throw new Error("Meeting not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isAssigned = meeting.assignedToId === session.userId;
+  const isCreator = meeting.createdById === session.userId;
+
+  if (!isSuperAdmin && !isAssigned && !isCreator) {
+    throw new Error("Unauthorized to log follow-up notes for this meeting.");
+  }
+
+  let nextFollowUpDate: Date | null = null;
+  if (nextFollowUpDateRaw) {
+    const parsed = new Date(nextFollowUpDateRaw);
+    if (!isNaN(parsed.getTime())) {
+      nextFollowUpDate = parsed;
+    }
+  }
+
+  const updateData: any = {
+    notes,
+    outcome,
+    actionItems,
+    nextFollowUpDate,
+  };
+
+  if (markCompleted) {
+    updateData.status = "Completed";
+    updateData.completedAt = new Date();
+  }
+
+  const updated = await (prisma as any).meeting.update({
+    where: { id: meetingId },
+    data: updateData,
+    include: {
+      project: { select: { id: true, name: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return updated;
+}
+
+/**
+ * Reassign meeting to another team member (Super Admin or creator).
+ */
+export async function reassignMeetingAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const meetingId = formData.get("meetingId") as string;
+  const assignedToIdRaw = (formData.get("assignedToId") as string)?.trim() || null;
+
+  if (!meetingId) {
+    throw new Error("Meeting ID is required.");
+  }
+
+  const meeting = await (prisma as any).meeting.findUnique({
+    where: { id: meetingId },
+  });
+
+  if (!meeting) {
+    throw new Error("Meeting not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  if (!isSuperAdmin) {
+    throw new Error("Unauthorized: Super Admin access required to reassign client meetings.");
+  }
+
+  const assignedToId = assignedToIdRaw && assignedToIdRaw !== "none" ? assignedToIdRaw : null;
+
+  const updated = await (prisma as any).meeting.update({
+    where: { id: meetingId },
+    data: {
+      assignedToId,
+    },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (assignedToId) {
+    revalidatePath(`/team/${assignedToId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return updated;
+}
+
+/**
+ * Delete a meeting.
+ */
+export async function deleteMeetingAction(meetingId: string) {
+  const session = await requireAuth();
+
+  if (!meetingId) {
+    throw new Error("Meeting ID is required.");
+  }
+
+  const meeting = await (prisma as any).meeting.findUnique({
+    where: { id: meetingId },
+  });
+
+  if (!meeting) {
+    throw new Error("Meeting not found.");
+  }
+
+  const isSuperAdmin = session.role === "SUPER_ADMIN";
+  const isCreator = meeting.createdById === session.userId;
+
+  if (!isSuperAdmin && !isCreator) {
+    throw new Error("Unauthorized: Only Super Admin or meeting creator can delete this meeting.");
+  }
+
+  await (prisma as any).meeting.delete({
+    where: { id: meetingId },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return { success: true };
+}
+
+/**
+ * Log a direct / unscheduled meeting update on the fly (e.g. ad-hoc client phone call or instant sync).
+ * Creates a meeting with status: 'Completed', records the notes & outcome, and self-assigns if member.
+ */
+export async function createDirectMeetingUpdateAction(formData: FormData) {
+  const session = await requireAuth();
+
+  const title = (formData.get("title") as string)?.trim() || "Ad-hoc Client Meeting";
+  const clientName = (formData.get("clientName") as string)?.trim();
+  const clientEmail = (formData.get("clientEmail") as string)?.trim() || null;
+  const clientPhone = (formData.get("clientPhone") as string)?.trim() || null;
+  const projectId = (formData.get("projectId") as string)?.trim() || null;
+  const type = (formData.get("type") as string)?.trim() || "Client Meeting";
+  const platform = (formData.get("platform") as string)?.trim() || "Phone Call";
+  const conductedAtRaw = (formData.get("conductedAt") as string)?.trim();
+  const durationMinutes = parseInt((formData.get("durationMinutes") as string) || "30", 10);
+  const notes = (formData.get("notes") as string)?.trim();
+  const outcome = (formData.get("outcome") as string)?.trim() || "Positive - Approved";
+  const actionItems = (formData.get("actionItems") as string)?.trim() || null;
+  const nextFollowUpDateRaw = (formData.get("nextFollowUpDate") as string)?.trim() || null;
+  const assignedToIdRaw = (formData.get("assignedToId") as string)?.trim() || null;
+
+  if (!clientName || !notes) {
+    throw new Error("Client name and discussion notes are required.");
+  }
+
+  const scheduledAt = conductedAtRaw ? new Date(conductedAtRaw) : new Date();
+  let nextFollowUpDate: Date | null = null;
+  if (nextFollowUpDateRaw) {
+    const parsed = new Date(nextFollowUpDateRaw);
+    if (!isNaN(parsed.getTime())) {
+      nextFollowUpDate = parsed;
+    }
+  }
+
+  let assignedToId = assignedToIdRaw && assignedToIdRaw !== "none" ? assignedToIdRaw : null;
+  if (session.role !== "SUPER_ADMIN" && !assignedToId) {
+    assignedToId = session.userId;
+  }
+
+  const meeting = await (prisma as any).meeting.create({
+    data: {
+      title,
+      clientName,
+      clientEmail,
+      clientPhone,
+      projectId: projectId && projectId !== "none" ? projectId : null,
+      type,
+      platform,
+      scheduledAt,
+      durationMinutes: isNaN(durationMinutes) ? 30 : durationMinutes,
+      status: "Completed",
+      completedAt: new Date(),
+      notes,
+      outcome,
+      actionItems,
+      nextFollowUpDate,
+      assignedToId,
+      createdById: session.userId,
+    },
+    include: {
+      project: { select: { id: true, name: true, client: true } },
+      assignedTo: { select: { id: true, name: true, email: true } },
+      createdBy: { select: { id: true, name: true, email: true } },
+    },
+  });
+
+  revalidatePath("/meetings");
+  if (meeting.projectId) {
+    revalidatePath(`/projects/${meeting.projectId}`);
+  }
+  if (meeting.assignedToId) {
+    revalidatePath(`/team/${meeting.assignedToId}`);
+  }
+  revalidatePath("/");
+
+  return meeting;
+}
+
+/* ==========================================================================
+   GLOBAL NOTIFICATION ACTIONS
+   ========================================================================== */
+
+export interface NavbarNotification {
+  id: string;
+  type: "meeting" | "bug" | "task" | "objection";
+  title: string;
+  message: string;
+  link: string;
+  createdAt: string;
+  authorName?: string;
+  authorEmail?: string;
+  priority?: "urgent" | "high" | "normal";
+  status?: string;
+}
+
+/**
+ * Fetch real-time notifications for the navbar based on the user's role and assignments.
+ */
+export async function getNavbarNotificationsAction(): Promise<NavbarNotification[]> {
+  const session = await requireAuth();
+
+  const notifications: NavbarNotification[] = [];
+
+  try {
+    if (session.role === "SUPER_ADMIN") {
+      // 1. Recent Meeting Updates submitted by members
+      const recentMeetings = (prisma as any).meeting
+        ? await (prisma as any).meeting.findMany({
+            take: 8,
+            where: {
+              OR: [
+                { notes: { not: null } },
+                { outcome: { not: null } },
+                { status: "Completed" },
+              ],
+            },
+            orderBy: { updatedAt: "desc" },
+            include: {
+              project: { select: { name: true } },
+              assignedTo: { select: { name: true, email: true } },
+              createdBy: { select: { name: true, email: true } },
+            },
+          })
+        : [];
+
+      recentMeetings.forEach((m: any) => {
+        notifications.push({
+          id: `notif-meet-${m.id}-${new Date(m.updatedAt).getTime()}`,
+          type: "meeting",
+          title: `Meeting Logged: ${m.title}`,
+          message: `${m.assignedTo?.name || m.createdBy?.name || "Member"} updated meeting with ${m.clientName}. Outcome: ${m.outcome || m.status}.`,
+          link: "/meetings",
+          createdAt: m.updatedAt.toISOString(),
+          authorName: m.assignedTo?.name || m.createdBy?.name,
+          authorEmail: m.assignedTo?.email || m.createdBy?.email,
+          priority: m.outcome === "Follow-up Required" ? "high" : "normal",
+          status: m.status,
+        });
+      });
+
+      // 2. Newly Reported & Critical Bugs
+      const recentIssues = (prisma as any).issue
+        ? await (prisma as any).issue.findMany({
+            take: 8,
+            orderBy: { createdAt: "desc" },
+            include: {
+              project: { select: { name: true } },
+              raisedBy: { select: { name: true, email: true } },
+              assignedTo: { select: { name: true, email: true } },
+            },
+          })
+        : [];
+
+      recentIssues.forEach((issue: any) => {
+        notifications.push({
+          id: `notif-bug-${issue.id}`,
+          type: "bug",
+          title: `Bug Ticket: ${issue.title}`,
+          message: `${issue.raisedBy.name} reported defect on ${issue.project.name} (${issue.priority} Priority). Assigned to ${issue.assignedTo?.name || "unassigned"}.`,
+          link: "/issues",
+          createdAt: issue.createdAt.toISOString(),
+          authorName: issue.raisedBy.name,
+          authorEmail: issue.raisedBy.email,
+          priority: issue.priority === "Critical" ? "urgent" : issue.priority === "High" ? "high" : "normal",
+          status: issue.status,
+        });
+      });
+
+      // 3. Open Objections
+      const recentObjections = await prisma.objection.findMany({
+        take: 6,
+        orderBy: { createdAt: "desc" },
+        include: {
+          raisedBy: { select: { name: true, email: true } },
+          task: {
+            include: {
+              project: { select: { name: true } },
+            },
+          },
+        },
+      });
+
+      recentObjections.forEach((obj) => {
+        notifications.push({
+          id: `notif-obj-${obj.id}`,
+          type: "objection",
+          title: `Objection on ${obj.task.title}`,
+          message: `${obj.raisedBy.name} raised a blocker: "${obj.message.slice(0, 80)}"`,
+          link: `/tasks/${obj.taskId}`,
+          createdAt: obj.createdAt.toISOString(),
+          authorName: obj.raisedBy.name,
+          authorEmail: obj.raisedBy.email,
+          priority: obj.status === "Open" ? "urgent" : "normal",
+          status: obj.status,
+        });
+      });
+
+      // 4. Task Updates
+      const recentTaskUpdates = await prisma.taskUpdate.findMany({
+        take: 6,
+        orderBy: { createdAt: "desc" },
+        include: {
+          task: {
+            include: {
+              project: { select: { name: true } },
+              assignedTo: { select: { name: true, email: true } },
+            },
+          },
+        },
+      });
+
+      recentTaskUpdates.forEach((tu) => {
+        notifications.push({
+          id: `notif-tu-${tu.id}`,
+          type: "task",
+          title: `Task Update: ${tu.task.title}`,
+          message: `${tu.task.assignedTo?.name || "Worker"} posted work progress on ${tu.task.project.name}.`,
+          link: `/tasks/${tu.taskId}`,
+          createdAt: tu.createdAt.toISOString(),
+          authorName: tu.task.assignedTo?.name,
+          authorEmail: tu.task.assignedTo?.email,
+          priority: "normal",
+        });
+      });
+    } else {
+      // MEMBER NOTIFICATIONS:
+      // 1. Assigned Meetings
+      const memberMeetings = (prisma as any).meeting
+        ? await (prisma as any).meeting.findMany({
+            where: {
+              assignedToId: session.userId,
+            },
+            orderBy: { scheduledAt: "desc" },
+            take: 8,
+            include: {
+              project: { select: { name: true } },
+              createdBy: { select: { name: true, email: true } },
+            },
+          })
+        : [];
+
+      memberMeetings.forEach((m: any) => {
+        const isUpcoming = new Date(m.scheduledAt) > new Date();
+        notifications.push({
+          id: `notif-mem-meet-${m.id}`,
+          type: "meeting",
+          title: `${isUpcoming ? "Scheduled Call" : "Meeting Log"}: ${m.title}`,
+          message: `Client meeting with ${m.clientName} (${m.platform}) on ${new Date(m.scheduledAt).toLocaleDateString()}. Status: ${m.status}.`,
+          link: "/meetings",
+          createdAt: m.createdAt.toISOString(),
+          authorName: m.createdBy?.name || "Admin",
+          priority: isUpcoming ? "high" : "normal",
+          status: m.status,
+        });
+      });
+
+      // 2. Assigned Bugs
+      const memberIssues = (prisma as any).issue
+        ? await (prisma as any).issue.findMany({
+            where: {
+              assignedToId: session.userId,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 8,
+            include: {
+              project: { select: { name: true } },
+              raisedBy: { select: { name: true, email: true } },
+            },
+          })
+        : [];
+
+      memberIssues.forEach((issue: any) => {
+        notifications.push({
+          id: `notif-mem-bug-${issue.id}`,
+          type: "bug",
+          title: `Assigned Bug: ${issue.title}`,
+          message: `${issue.raisedBy.name} assigned you a defect on ${issue.project.name} (${issue.priority} Priority). Status: ${issue.status}.`,
+          link: "/issues",
+          createdAt: issue.createdAt.toISOString(),
+          authorName: issue.raisedBy.name,
+          priority: issue.priority === "Critical" ? "urgent" : "normal",
+          status: issue.status,
+        });
+      });
+
+      // 3. Assigned Tasks
+      const memberTasks = await prisma.task.findMany({
+        where: {
+          assignedToId: session.userId,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+        include: {
+          project: { select: { name: true } },
+          objections: { where: { status: "Open" } },
+        },
+      });
+
+      memberTasks.forEach((t) => {
+        if (t.objections.length > 0) {
+          notifications.push({
+            id: `notif-mem-task-obj-${t.id}`,
+            type: "objection",
+            title: `Blocker on ${t.title}`,
+            message: `There are ${t.objections.length} open objection(s) on your assigned task.`,
+            link: `/tasks/${t.id}`,
+            createdAt: t.updatedAt.toISOString(),
+            priority: "urgent",
+            status: "Blocked",
+          });
+        } else {
+          notifications.push({
+            id: `notif-mem-task-${t.id}`,
+            type: "task",
+            title: `Deliverable: ${t.title}`,
+            message: `Task in ${t.project.name}. Progress: ${t.progress}%. Status: ${t.status}.`,
+            link: `/tasks/${t.id}`,
+            createdAt: t.createdAt.toISOString(),
+            priority: "normal",
+            status: t.status,
+          });
+        }
+      });
+    }
+
+    // Sort all notifications chronologically descending
+    notifications.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch (err) {
+    console.warn("Could not load navbar notifications:", err);
+  }
+
+  return notifications;
+}
+
+
+

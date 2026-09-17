@@ -21,11 +21,12 @@ export default async function DashboardPage() {
   if (session.role === "MEMBER") {
     let memberTasks: any[] = [];
     let memberIssues: any[] = [];
+    let memberMeetings: any[] = [];
     let projects: any[] = [];
     let teamMembers: any[] = [];
 
     try {
-      const [rawTasks, rawIssues, rawProjects, rawUsers] = await Promise.all([
+      const [rawTasks, rawIssues, rawMeetings, rawProjects, rawUsers] = await Promise.all([
         prisma.task.findMany({
           where: { assignedToId: session.userId },
           orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
@@ -35,20 +36,37 @@ export default async function DashboardPage() {
             assignedTo: { select: { id: true, name: true, email: true } },
           },
         }),
-        (prisma as any).issue.findMany({
-          where: {
-            OR: [
-              { assignedToId: session.userId },
-              { raisedById: session.userId },
-            ],
-          },
-          orderBy: [{ createdAt: "desc" }],
-          include: {
-            project: { select: { id: true, name: true } },
-            raisedBy: { select: { id: true, name: true, email: true } },
-            assignedTo: { select: { id: true, name: true, email: true } },
-          },
-        }),
+        (prisma as any).issue
+          ? (prisma as any).issue.findMany({
+              where: {
+                OR: [
+                  { assignedToId: session.userId },
+                  { raisedById: session.userId },
+                ],
+              },
+              orderBy: [{ createdAt: "desc" }],
+              include: {
+                project: { select: { id: true, name: true } },
+                raisedBy: { select: { id: true, name: true, email: true } },
+                assignedTo: { select: { id: true, name: true, email: true } },
+              },
+            })
+          : Promise.resolve([]),
+        (prisma as any).meeting
+          ? (prisma as any).meeting.findMany({
+              where: {
+                OR: [
+                  { assignedToId: session.userId },
+                  { createdById: session.userId },
+                ],
+              },
+              orderBy: [{ scheduledAt: "asc" }],
+              include: {
+                project: { select: { id: true, name: true, client: true } },
+                assignedTo: { select: { id: true, name: true, email: true } },
+              },
+            })
+          : Promise.resolve([]),
         prisma.project.findMany({
           select: { id: true, name: true, client: true },
           orderBy: { name: "asc" },
@@ -101,6 +119,36 @@ export default async function DashboardPage() {
           : null,
       }));
 
+      memberMeetings = (rawMeetings || []).map((m: any) => ({
+        id: m.id,
+        projectId: m.projectId,
+        projectName: m.project?.name || null,
+        projectClient: m.project?.client || null,
+        clientName: m.clientName,
+        clientEmail: m.clientEmail || null,
+        clientPhone: m.clientPhone || null,
+        title: m.title,
+        type: m.type,
+        platform: m.platform,
+        meetingLink: m.meetingLink || null,
+        scheduledAt: m.scheduledAt.toISOString(),
+        durationMinutes: m.durationMinutes,
+        status: m.status,
+        agenda: m.agenda || null,
+        notes: m.notes || null,
+        actionItems: m.actionItems || null,
+        outcome: m.outcome || null,
+        nextFollowUpDate: m.nextFollowUpDate ? m.nextFollowUpDate.toISOString() : null,
+        completedAt: m.completedAt ? m.completedAt.toISOString() : null,
+        assignedTo: m.assignedTo
+          ? {
+              id: m.assignedTo.id,
+              name: m.assignedTo.name,
+              email: m.assignedTo.email,
+            }
+          : null,
+      }));
+
       projects = rawProjects;
       teamMembers = rawUsers;
     } catch (err) {
@@ -113,6 +161,7 @@ export default async function DashboardPage() {
         currentUserId={session.userId}
         tasks={memberTasks}
         issues={memberIssues}
+        meetings={memberMeetings}
         projects={projects}
         teamMembers={teamMembers}
       />
@@ -176,10 +225,10 @@ export default async function DashboardPage() {
     console.warn("Could not load team metrics from database:", err);
   }
 
-  // Recent Team Activity: Task Updates + Objections (wrapped safely)
+  // Recent Team Activity: Task Updates + Objections + Meeting Logs (wrapped safely)
   let activityItems: ActivityItem[] = [];
   try {
-    const [recentUpdates, recentObjections] = await Promise.all([
+    const [recentUpdates, recentObjections, recentMeetings] = await Promise.all([
       prisma.taskUpdate.findMany({
         take: 6,
         orderBy: { createdAt: "desc" },
@@ -204,6 +253,24 @@ export default async function DashboardPage() {
           },
         },
       }),
+      (prisma as any).meeting
+        ? (prisma as any).meeting.findMany({
+            take: 6,
+            where: {
+              OR: [
+                { notes: { not: null } },
+                { outcome: { not: null } },
+                { status: "Completed" },
+              ],
+            },
+            orderBy: { updatedAt: "desc" },
+            include: {
+              project: { select: { name: true } },
+              assignedTo: { select: { name: true, email: true } },
+              createdBy: { select: { name: true, email: true } },
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
     activityItems = [
@@ -233,6 +300,21 @@ export default async function DashboardPage() {
         resolution: o.resolution,
         createdAt: o.createdAt.toISOString(),
       })),
+      ...(recentMeetings || []).map((m: any) => ({
+        id: `meeting-${m.id}`,
+        type: "meeting" as const,
+        title: "Meeting Update",
+        meetingId: m.id,
+        meetingTitle: m.title,
+        clientName: m.clientName,
+        projectName: m.project?.name,
+        authorName: m.assignedTo?.name || m.createdBy?.name || "Team Member",
+        authorEmail: m.assignedTo?.email || m.createdBy?.email,
+        content: m.notes || `Meeting status updated to ${m.status}. Outcome: ${m.outcome || "Not specified"}`,
+        status: m.status,
+        outcome: m.outcome,
+        createdAt: m.updatedAt.toISOString(),
+      })),
     ].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
@@ -240,13 +322,14 @@ export default async function DashboardPage() {
     console.warn("Could not load recent activity from database:", err);
   }
 
-  // Super Admin Assigned Works (Tasks) + Assigned Bugs (Issues) + Team Members
+  // Super Admin Assigned Works (Tasks) + Assigned Bugs (Issues) + Meetings + Team Members
   let allTasks: any[] = [];
   let allIssues: any[] = [];
+  let allMeetings: any[] = [];
   let teamMembers: any[] = [];
 
   try {
-    const [rawTasks, rawIssues, rawUsers] = await Promise.all([
+    const [rawTasks, rawIssues, rawMeetings, rawUsers] = await Promise.all([
       prisma.task.findMany({
         orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
         include: {
@@ -260,14 +343,26 @@ export default async function DashboardPage() {
           },
         },
       }),
-      (prisma as any).issue.findMany({
-        orderBy: [{ createdAt: "desc" }],
-        include: {
-          project: { select: { id: true, name: true, client: true } },
-          raisedBy: { select: { id: true, name: true, email: true } },
-          assignedTo: { select: { id: true, name: true, email: true, role: true } },
-        },
-      }),
+      (prisma as any).issue
+        ? (prisma as any).issue.findMany({
+            orderBy: [{ createdAt: "desc" }],
+            include: {
+              project: { select: { id: true, name: true, client: true } },
+              raisedBy: { select: { id: true, name: true, email: true } },
+              assignedTo: { select: { id: true, name: true, email: true, role: true } },
+            },
+          })
+        : Promise.resolve([]),
+      (prisma as any).meeting
+        ? (prisma as any).meeting.findMany({
+            orderBy: [{ scheduledAt: "desc" }],
+            include: {
+              project: { select: { id: true, name: true, client: true } },
+              assignedTo: { select: { id: true, name: true, email: true, role: true } },
+              createdBy: { select: { id: true, name: true, email: true, role: true } },
+            },
+          })
+        : Promise.resolve([]),
       prisma.user.findMany({
         select: { id: true, name: true, email: true, role: true },
         orderBy: { name: "asc" },
@@ -327,9 +422,50 @@ export default async function DashboardPage() {
         : null,
     }));
 
+    allMeetings = (rawMeetings || []).map((m: any) => ({
+      id: m.id,
+      projectId: m.projectId,
+      projectName: m.project?.name || null,
+      projectClient: m.project?.client || null,
+      clientName: m.clientName,
+      clientEmail: m.clientEmail || null,
+      clientPhone: m.clientPhone || null,
+      title: m.title,
+      type: m.type,
+      platform: m.platform,
+      meetingLink: m.meetingLink || null,
+      scheduledAt: m.scheduledAt.toISOString(),
+      durationMinutes: m.durationMinutes,
+      status: m.status,
+      agenda: m.agenda || null,
+      notes: m.notes || null,
+      actionItems: m.actionItems || null,
+      outcome: m.outcome || null,
+      nextFollowUpDate: m.nextFollowUpDate ? m.nextFollowUpDate.toISOString() : null,
+      completedAt: m.completedAt ? m.completedAt.toISOString() : null,
+      createdAt: m.createdAt.toISOString(),
+      updatedAt: m.updatedAt.toISOString(),
+      assignedTo: m.assignedTo
+        ? {
+            id: m.assignedTo.id,
+            name: m.assignedTo.name,
+            email: m.assignedTo.email,
+            role: m.assignedTo.role,
+          }
+        : null,
+      createdBy: m.createdBy
+        ? {
+            id: m.createdBy.id,
+            name: m.createdBy.name,
+            email: m.createdBy.email,
+            role: m.createdBy.role,
+          }
+        : null,
+    }));
+
     teamMembers = rawUsers;
   } catch (err) {
-    console.warn("Could not load all tasks / issues for super admin:", err);
+    console.warn("Could not load all tasks / issues / meetings for super admin:", err);
   }
 
   return (
@@ -339,6 +475,7 @@ export default async function DashboardPage() {
       recentActivity={activityItems}
       allTasks={allTasks}
       allIssues={allIssues}
+      allMeetings={allMeetings}
       teamMembers={teamMembers}
     />
   );

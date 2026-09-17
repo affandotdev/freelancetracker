@@ -129,7 +129,6 @@ export default function ProjectAccountClient({
           ...prev,
         ]);
         setIsInvoiceModalOpen(false);
-        // Automatically navigate to the print-friendly invoice
         router.push(`/invoices/${created.id}`);
       } catch (err: any) {
         setInvoiceError(err?.message || "Failed to generate invoice.");
@@ -139,31 +138,31 @@ export default function ProjectAccountClient({
 
   return (
     <div className="space-y-8">
-      {/* Top Bar with Back Navigation & Export */}
+      {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <BackButton fallbackHref="/accounts" label="Back to Accounts Ledger" />
+        <BackButton fallbackHref="/accounts" label="Back to Accounts" />
 
         <div className="flex items-center gap-2">
           <ExportCsvButton
             filename={`${project.name.toLowerCase().replace(/\s+/g, "_")}_payments`}
             data={paymentCsvData}
-            label="Export Payment History (CSV)"
+            label="Export Payments (CSV)"
           />
         </div>
       </div>
 
       {/* Project Financial Header */}
-      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/90 shadow-2xs space-y-6">
+      <div className="bg-white p-6 rounded-lg border border-border space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-              {project.category} • Client Account
+            <span className="text-[11px] font-medium text-gray-500 block">
+              {project.category} · Client Account
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl font-semibold text-ink tracking-tight">
               {project.name}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-600 font-medium">
-              Client: <span className="font-bold text-slate-900">{project.client}</span>
+            <p className="text-[13px] text-gray-600">
+              Client: <span className="font-medium text-ink">{project.client}</span>
               {project.clientEmail && ` (${project.clientEmail})`}
             </p>
           </div>
@@ -172,73 +171,73 @@ export default function ProjectAccountClient({
             <button
               type="button"
               onClick={() => setIsPaymentModalOpen(true)}
-              className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md shadow-emerald-500/20 transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-[13px] font-medium text-white bg-signal-green hover:bg-emerald-700 rounded-md transition-colors cursor-pointer"
             >
-              <span>+ Record Payment</span>
+              + Record Payment
             </button>
 
             <button
               type="button"
               onClick={() => setIsInvoiceModalOpen(true)}
-              className="px-4 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-3.5 py-1.5 text-[13px] font-medium text-ink hover:text-accent bg-surface hover:bg-gray-100 border border-border rounded-md transition-colors cursor-pointer"
             >
-              <span>+ Generate Invoice</span>
+              + Generate Invoice
             </button>
           </div>
         </div>
 
         {/* Financial KPI Summary Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-slate-100">
-          <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Total Contract Value
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-border">
+          <div className="bg-surface p-4 rounded-md border border-border">
+            <span className="text-[11px] font-medium text-gray-500 block">
+              Contract value
             </span>
-            <span className="text-xl sm:text-2xl font-black text-slate-900 block mt-0.5">
+            <span className="text-xl font-semibold text-ink block mt-0.5 tabular-nums">
               {formatCurrency(project.totalAmount)}
             </span>
           </div>
 
-          <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Total Cash Received
+          <div className="bg-surface p-4 rounded-md border border-border">
+            <span className="text-[11px] font-medium text-gray-500 block">
+              Cash received
             </span>
-            <span className="text-xl sm:text-2xl font-black text-emerald-600 block mt-0.5">
+            <span className="text-xl font-semibold text-signal-green block mt-0.5 tabular-nums">
               {formatCurrency(totalReceived)}
             </span>
-            <span className="text-[10px] text-emerald-700 font-semibold block mt-0.5">
+            <span className="text-[11px] text-signal-green font-medium block mt-0.5 tabular-nums">
               {collectionRate}% collected
             </span>
           </div>
 
-          <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-              Outstanding Balance
+          <div className="bg-surface p-4 rounded-md border border-border">
+            <span className="text-[11px] font-medium text-gray-500 block">
+              Outstanding balance
             </span>
             <span
-              className={`text-xl sm:text-2xl font-black block mt-0.5 ${
-                remainingBalance > 0 ? "text-amber-600" : "text-slate-400"
+              className={`text-xl font-semibold block mt-0.5 tabular-nums ${
+                remainingBalance > 0 ? "text-signal-amber" : "text-gray-400"
               }`}
             >
               {formatCurrency(remainingBalance)}
             </span>
-            <span className="text-[10px] text-slate-500 block mt-0.5">
-              {remainingBalance === 0 ? "Paid in full" : "Pending client payout"}
+            <span className="text-[11px] text-gray-400 block mt-0.5">
+              {remainingBalance === 0 ? "Paid in full" : "Pending settlement"}
             </span>
           </div>
         </div>
       </div>
 
       {/* Section 1: Payment History Table */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h2 className="text-base font-semibold text-ink tracking-tight flex items-center gap-2">
               <span>Payment History</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                 {payments.length}
               </span>
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-[12px] text-gray-500">
               Individual payments recorded against this project.
             </p>
           </div>
@@ -246,7 +245,7 @@ export default function ProjectAccountClient({
           <button
             type="button"
             onClick={() => setIsPaymentModalOpen(true)}
-            className="text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100/80 px-3 py-1.5 rounded-xl border border-emerald-200 transition-all cursor-pointer"
+            className="text-[12px] font-medium text-signal-green hover:underline cursor-pointer"
           >
             + Add Payment Entry
           </button>
@@ -259,16 +258,16 @@ export default function ProjectAccountClient({
       </div>
 
       {/* Section 2: Invoices List */}
-      <div className="space-y-4 pt-4">
+      <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+            <h2 className="text-base font-semibold text-ink tracking-tight flex items-center gap-2">
               <span>Invoices</span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                 {invoices.length}
               </span>
             </h2>
-            <p className="text-xs text-slate-500">
+            <p className="text-[12px] text-gray-500">
               Generated invoices for client billing and PDF export.
             </p>
           </div>
@@ -276,7 +275,7 @@ export default function ProjectAccountClient({
           <button
             type="button"
             onClick={() => setIsInvoiceModalOpen(true)}
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/80 px-3 py-1.5 rounded-xl border border-blue-200 transition-all cursor-pointer"
+            className="text-[12px] font-medium text-accent hover:underline cursor-pointer"
           >
             + Generate Invoice
           </button>
@@ -297,21 +296,21 @@ export default function ProjectAccountClient({
 
       {/* Record Payment Modal */}
       {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-xl border border-slate-200 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white max-w-md w-full p-6 rounded-lg border border-border shadow-lg space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+                <h3 className="text-base font-semibold text-ink">
                   Record Incoming Payment
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {project.name} • {project.client}
+                <p className="text-[12px] text-gray-500 mt-0.5">
+                  {project.name} · {project.client}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsPaymentModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+                className="text-gray-400 hover:text-ink text-sm"
               >
                 ✕
               </button>
@@ -328,36 +327,36 @@ export default function ProjectAccountClient({
 
       {/* Generate Invoice Modal */}
       {isInvoiceModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-xl border border-slate-200 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white max-w-md w-full p-6 rounded-lg border border-border shadow-lg space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+                <h3 className="text-base font-semibold text-ink">
                   Generate Invoice
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[12px] text-gray-500 mt-0.5">
                   Creates an auto-numbered, printable invoice document.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsInvoiceModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+                className="text-gray-400 hover:text-ink text-sm"
               >
                 ✕
               </button>
             </div>
 
             {invoiceError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl">
-                ⚠️ {invoiceError}
+              <div className="p-3 bg-rose-50 border border-rose-200 text-signal-red text-[12px] font-medium rounded-md">
+                {invoiceError}
               </div>
             )}
 
             <form onSubmit={handleCreateInvoiceSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Invoice Amount (₹) <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Invoice Amount (₹) <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="number"
@@ -366,33 +365,33 @@ export default function ProjectAccountClient({
                   required
                   value={invoiceAmount}
                   onChange={(e) => setInvoiceAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-black text-slate-900"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md font-semibold text-ink tabular-nums"
                 />
-                <div className="flex items-center gap-2 mt-2">
+                <div className="mt-1.5">
                   <button
                     type="button"
                     onClick={() => setInvoiceAmount(remainingBalance.toString())}
-                    className="text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 cursor-pointer"
+                    className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
                   >
-                    Set to Outstanding Balance ({formatCurrency(remainingBalance)})
+                    Set to outstanding balance ({formatCurrency(remainingBalance)})
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
                   Due Date (Optional)
                 </label>
                 <input
                   type="date"
                   value={invoiceDueDate}
                   onChange={(e) => setInvoiceDueDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
                   Notes / Deliverable Description
                 </label>
                 <textarea
@@ -400,24 +399,24 @@ export default function ProjectAccountClient({
                   placeholder="e.g. Milestone 2 Deliverable: Dashboard & Responsive API Integration"
                   value={invoiceNotes}
                   onChange={(e) => setInvoiceNotes(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink resize-none"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsInvoiceModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isInvoicePending}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-4 py-1.5 text-[12px] font-medium text-white bg-accent hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors cursor-pointer"
                 >
-                  {isInvoicePending ? "Generating..." : "Generate & View Invoice ↗"}
+                  {isInvoicePending ? "Generating..." : "Generate & View"}
                 </button>
               </div>
             </form>

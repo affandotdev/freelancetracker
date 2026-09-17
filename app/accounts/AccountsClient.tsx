@@ -69,7 +69,6 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
   // Filtering
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
-      // Search
       const matchesSearch =
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.client.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -77,7 +76,6 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
 
       if (!matchesSearch) return false;
 
-      // Status filter
       if (filterTab === "Paid") return p.totalAmount > 0 && p.receivedAmount >= p.totalAmount;
       if (filterTab === "Partial")
         return p.receivedAmount > 0 && p.receivedAmount < p.totalAmount;
@@ -156,7 +154,7 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
 
   return (
     <div className="space-y-6">
-      {/* Top Bar with Back Button & Export */}
+      {/* Top Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <BackButton fallbackHref="/" label="Back to Dashboard" />
         <div className="flex items-center gap-2">
@@ -167,88 +165,76 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
           />
           <Link
             href="/projects/new"
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-2xs hover:shadow-xs transition-all"
+            className="inline-flex items-center px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors"
           >
-            <span>+ Add Project</span>
+            + Add Project
           </Link>
         </div>
       </div>
 
       {/* Page Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-          <span>Accounts & Financial Ledger</span>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-            Super Admin
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-ink tracking-tight">
+            Accounts & Financial Ledger
+          </h1>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-border">
+            Admin
           </span>
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        </div>
+        <p className="text-[13px] text-gray-500 mt-1">
           Complete breakdown of client billings, collected cash, pending receivables, and payment adjustments.
         </p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Total Contracted
-            </span>
-            <span className="text-sm">💼</span>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Total contracted
+          </p>
+          <p className="text-2xl font-semibold text-ink tracking-tight tabular-nums">
             {formatCurrency(totalContractValue)}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1.5">
-            Across {projects.length} client contract{projects.length !== 1 ? "s" : ""}
+          <p className="text-[12px] text-gray-400 mt-1 tabular-nums">
+            Across {projects.length} contract{projects.length !== 1 ? "s" : ""}
           </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Cash Collected
-            </span>
-            <span className="text-sm">💰</span>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-emerald-600 tracking-tight">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Cash collected
+          </p>
+          <p className="text-2xl font-semibold text-signal-green tracking-tight tabular-nums">
             {formatCurrency(totalReceivedValue)}
           </p>
-          <p className="text-[11px] text-emerald-700 font-semibold mt-1.5">
+          <p className="text-[12px] text-signal-green font-medium mt-1 tabular-nums">
             {collectionRate}% collection rate
           </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Pending Receivables
-            </span>
-            <span className="text-sm">⏳</span>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-amber-600 tracking-tight">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Pending receivables
+          </p>
+          <p className="text-2xl font-semibold text-signal-amber tracking-tight tabular-nums">
             {formatCurrency(totalPendingValue)}
           </p>
-          <p className="text-[11px] text-slate-500 mt-1.5">
+          <p className="text-[12px] text-gray-400 mt-1">
             Awaiting client settlement
           </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Settlement Ratio
-            </span>
-            <span className="text-sm">📊</span>
-          </div>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              {collectionRate}%
-            </span>
-          </div>
-          <div className="w-full bg-slate-100 rounded-full h-2 mt-2 overflow-hidden">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Settlement ratio
+          </p>
+          <p className="text-2xl font-semibold text-ink tracking-tight tabular-nums">
+            {collectionRate}%
+          </p>
+          <div className="w-full bg-gray-100 rounded-full h-1.5 mt-2.5 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-emerald-500 to-teal-500 h-2 rounded-full transition-all duration-500"
+              className="bg-accent h-1.5 rounded-full transition-all duration-300"
               style={{ width: `${collectionRate}%` }}
             />
           </div>
@@ -256,40 +242,39 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row gap-3 items-center justify-between">
-        <div className="flex items-center gap-2 w-full sm:w-80">
-          <span className="text-slate-400 text-sm">🔍</span>
+      <div className="bg-white p-3 rounded-lg border border-border flex flex-col sm:flex-row gap-3 items-center justify-between">
+        <div className="flex items-center gap-2 w-full sm:w-80 px-2">
           <input
             type="text"
             placeholder="Search by client or project..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-none placeholder:text-slate-400 font-medium"
+            className="w-full text-[13px] bg-transparent border-none focus:outline-none placeholder:text-gray-400 font-normal"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="text-xs text-slate-400 hover:text-slate-600"
+              className="text-[11px] text-gray-400 hover:text-gray-600"
             >
-              ✕
+              Clear
             </button>
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-1 w-full sm:w-auto overflow-x-auto">
           {(["All", "Paid", "Partial", "Unpaid"] as const).map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setFilterTab(tab)}
-              className={`px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap cursor-pointer ${
+              className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 filterTab === tab
-                  ? "bg-slate-900 text-white shadow-2xs"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200/70"
+                  ? "bg-ink text-white"
+                  : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {tab === "All" && `All Accounts (${projects.length})`}
+              {tab === "All" && `All (${projects.length})`}
               {tab === "Paid" && "Paid in Full"}
               {tab === "Partial" && "Partially Paid"}
               {tab === "Unpaid" && "Unpaid"}
@@ -299,26 +284,26 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
       </div>
 
       {/* Accounts Ledger Table */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-2xs overflow-hidden">
+      <div className="bg-white border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse table-zebra">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200/70 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-                <th className="py-3.5 px-5">Client & Contact</th>
-                <th className="py-3.5 px-5">Project Title</th>
-                <th className="py-3.5 px-4 text-right">Agreed Value</th>
-                <th className="py-3.5 px-4 text-right">Received</th>
-                <th className="py-3.5 px-4 text-right">Balance</th>
-                <th className="py-3.5 px-5 text-center">Collection Status</th>
-                <th className="py-3.5 px-5 text-right">Actions</th>
+              <tr className="bg-surface border-b border-border text-[11px] font-medium text-gray-500">
+                <th className="py-3 px-4">Client & Contact</th>
+                <th className="py-3 px-4">Project Title</th>
+                <th className="py-3 px-4 text-right">Agreed Value</th>
+                <th className="py-3 px-4 text-right">Received</th>
+                <th className="py-3 px-4 text-right">Balance</th>
+                <th className="py-3 px-4 text-center">Collection Status</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-border text-[13px]">
               {filteredProjects.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <p className="text-sm font-semibold">No accounts found.</p>
-                    <p className="text-xs mt-1">Try adjusting your search query or filters.</p>
+                  <td colSpan={7} className="py-12 text-center text-gray-400">
+                    <p className="text-[13px] font-medium">No accounts found.</p>
+                    <p className="text-[12px] mt-1">Try adjusting your search query or filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -333,14 +318,14 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
                   return (
                     <tr
                       key={p.id}
-                      className="hover:bg-slate-50/70 transition-colors group"
+                      className="hover:bg-gray-50 transition-colors"
                     >
                       {/* Client */}
-                      <td className="py-4 px-5 font-semibold text-slate-900">
+                      <td className="py-3.5 px-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{p.client}</span>
+                          <span className="font-medium text-ink">{p.client}</span>
                           {p.clientEmail && (
-                            <span className="text-[11px] text-slate-400 font-normal mt-0.5">
+                            <span className="text-[11px] text-gray-400 font-normal">
                               {p.clientEmail}
                             </span>
                           )}
@@ -348,98 +333,91 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
                       </td>
 
                       {/* Project Name */}
-                      <td className="py-4 px-5">
+                      <td className="py-3.5 px-4">
                         <Link
                           href={`/accounts/${p.id}`}
-                          className="font-bold text-slate-900 hover:text-blue-600 transition-colors flex items-center gap-1.5 group/link"
+                          className="font-medium text-ink hover:text-accent transition-colors"
                         >
-                          <span>{p.name}</span>
-                          <span className="text-slate-300 group-hover/link:text-blue-500 font-black">
-                            ↗
-                          </span>
+                          {p.name}
                         </Link>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-semibold mt-0.5">
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-0.5">
                           <span>{p.category}</span>
-                          <span>•</span>
+                          <span>·</span>
                           <Link
                             href={`/projects/${p.id}`}
-                            className="hover:underline text-slate-500"
+                            className="hover:underline text-gray-500"
                           >
-                            Project Workspace
+                            Workspace
                           </Link>
                         </div>
                       </td>
 
                       {/* Total Amount */}
-                      <td className="py-4 px-4 text-right font-black text-slate-900">
+                      <td className="py-3.5 px-4 text-right font-medium text-ink tabular-nums">
                         {formatCurrency(p.totalAmount)}
                       </td>
 
                       {/* Received Amount */}
-                      <td className="py-4 px-4 text-right font-black text-emerald-600">
+                      <td className="py-3.5 px-4 text-right font-medium text-signal-green tabular-nums">
                         {formatCurrency(p.receivedAmount)}
                       </td>
 
                       {/* Remaining Balance */}
-                      <td className="py-4 px-4 text-right font-black">
+                      <td className="py-3.5 px-4 text-right font-medium tabular-nums">
                         <span
                           className={
                             p.balance > 0
-                              ? "text-amber-600"
-                              : "text-slate-400 font-normal"
+                              ? "text-signal-amber"
+                              : "text-gray-400 font-normal"
                           }
                         >
                           {formatCurrency(p.balance)}
                         </span>
                       </td>
 
-                      {/* Progress & Badge */}
-                      <td className="py-4 px-5 text-center">
-                        <div className="flex flex-col items-center gap-1.5">
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
                           <span
-                            className={`inline-block text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border ${
+                            className={`inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
                               isFullyPaid
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                ? "bg-emerald-50 text-signal-green border-emerald-200"
                                 : isPartial
-                                ? "bg-amber-50 text-amber-700 border-amber-200"
-                                : "bg-rose-50 text-rose-700 border-rose-200"
+                                ? "bg-amber-50 text-signal-amber border-amber-200"
+                                : "bg-rose-50 text-signal-red border-rose-200"
                             }`}
                           >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                isFullyPaid
+                                  ? "bg-signal-green"
+                                  : isPartial
+                                  ? "bg-signal-amber"
+                                  : "bg-signal-red"
+                              }`}
+                            />
                             {isFullyPaid
                               ? "Paid in Full"
                               : isPartial
                               ? `Partial (${percentPaid}%)`
                               : "Unpaid"}
                           </span>
-                          <div className="w-24 bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                            <div
-                              className={`h-1.5 rounded-full ${
-                                isFullyPaid
-                                  ? "bg-emerald-500"
-                                  : isPartial
-                                  ? "bg-amber-500"
-                                  : "bg-rose-400"
-                              }`}
-                              style={{ width: `${percentPaid}%` }}
-                            />
-                          </div>
                         </div>
                       </td>
 
                       {/* Action */}
-                      <td className="py-4 px-5 text-right whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={`/accounts/${p.id}`}
-                            className="px-3 py-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100/70 border border-blue-200 rounded-xl transition-all inline-flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 text-[12px] font-medium text-accent hover:bg-blue-50 border border-border rounded-md transition-colors"
                           >
-                            <span>History & Invoices</span>
-                            <span>→</span>
+                            History
                           </Link>
                           <button
                             type="button"
                             onClick={() => handleOpenPaymentModal(p)}
-                            className="px-2.5 py-1.5 text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 rounded-xl transition-all cursor-pointer"
+                            className="px-2.5 py-1 text-[12px] font-medium text-signal-green hover:bg-emerald-50 border border-border rounded-md transition-colors cursor-pointer"
                           >
                             + Pay
                           </button>
@@ -456,48 +434,48 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
 
       {/* Record Payment Modal */}
       {selectedProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-xl border border-slate-200 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white max-w-md w-full p-6 rounded-lg border border-border shadow-lg space-y-5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
-                  Record / Update Payment
+                <h3 className="text-base font-semibold text-ink">
+                  Record Payment
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {selectedProject.name} • {selectedProject.client}
+                <p className="text-[12px] text-gray-500 mt-0.5">
+                  {selectedProject.name} · {selectedProject.client}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedProject(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+                className="text-gray-400 hover:text-ink text-sm"
               >
                 ✕
               </button>
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl">
-                ⚠️ {errorMsg}
+              <div className="p-3 bg-rose-50 border border-rose-200 text-signal-red text-[12px] font-medium rounded-md">
+                {errorMsg}
               </div>
             )}
 
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium">Total Contract Value:</span>
-                <span className="font-extrabold text-slate-900">
+            <div className="bg-surface p-3.5 rounded-md border border-border space-y-2">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-500">Contract value:</span>
+                <span className="font-semibold text-ink tabular-nums">
                   {formatCurrency(selectedProject.totalAmount)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-500 font-medium">Previously Received:</span>
-                <span className="font-extrabold text-emerald-600">
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="text-gray-500">Previously received:</span>
+                <span className="font-semibold text-signal-green tabular-nums">
                   {formatCurrency(selectedProject.receivedAmount)}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60">
-                <span className="text-slate-500 font-medium">Current Balance:</span>
-                <span className="font-extrabold text-amber-600">
+              <div className="flex items-center justify-between text-[12px] pt-1.5 border-t border-border">
+                <span className="text-gray-500">Remaining balance:</span>
+                <span className="font-semibold text-signal-amber tabular-nums">
                   {formatCurrency(selectedProject.balance)}
                 </span>
               </div>
@@ -505,8 +483,8 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
 
             <form onSubmit={handleSavePayment} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Payment Amount to Record (₹) <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Payment Amount (₹) <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="number"
@@ -516,29 +494,29 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
                   placeholder="e.g. 25000"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-black text-slate-900"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md font-semibold text-ink tabular-nums"
                 />
                 {selectedProject.balance > 0 && (
-                  <div className="flex items-center gap-2 mt-2">
+                  <div className="mt-1.5">
                     <button
                       type="button"
                       onClick={() => setPaymentAmount(selectedProject.balance.toString())}
-                      className="text-[11px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 cursor-pointer"
+                      className="text-[11px] font-medium text-accent hover:underline cursor-pointer"
                     >
-                      Fill Remaining Balance ({formatCurrency(selectedProject.balance)})
+                      Fill remaining balance ({formatCurrency(selectedProject.balance)})
                     </button>
                   </div>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
                   Payment Method
                 </label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md font-normal text-ink cursor-pointer"
                 >
                   <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
                   <option value="UPI">UPI / GPay / PhonePe</option>
@@ -549,7 +527,7 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
                   Note / Reference
                 </label>
                 <input
@@ -557,32 +535,31 @@ export default function AccountsClient({ initialProjects }: AccountsClientProps)
                   placeholder="e.g. Milestone 1 settlement, UTR: 938210"
                   value={paymentNote}
                   onChange={(e) => setPaymentNote(e.target.value)}
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md font-normal text-ink"
                 />
               </div>
 
-              <div className="pt-1 text-center">
+              <div className="pt-1">
                 <Link
                   href={`/accounts/${selectedProject.id}`}
-                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline inline-flex items-center gap-1"
+                  className="text-[12px] font-medium text-accent hover:underline inline-flex items-center gap-1"
                 >
-                  <span>View full payment history & invoices for this project</span>
-                  <span>→</span>
+                  View full payment history & invoices →
                 </Link>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setSelectedProject(null)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-4 py-1.5 text-[12px] font-medium text-white bg-accent hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   {isPending ? "Saving..." : "Save Payment"}
                 </button>

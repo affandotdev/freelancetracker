@@ -65,147 +65,135 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-          Objections & Blockers Inbox
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-          Review and resolve roadblocks, questions, and blockers raised by your freelance workers.
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-ink tracking-tight">
+            Objections & Blockers
+          </h1>
+          <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-700 border border-border">
+            Inbox
+          </span>
+        </div>
+        <p className="text-[13px] text-gray-500 mt-1">
+          Review and resolve roadblocks, questions, and blockers raised by freelance workers.
         </p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Open Roadblocks
-          </span>
-          <div className="text-2xl font-black text-rose-600 mt-1">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Open roadblocks
+          </p>
+          <div className="text-2xl font-semibold text-signal-red tracking-tight tabular-nums">
             {openCount}
           </div>
-          <span className="text-[11px] text-slate-500">
+          <p className="text-[12px] text-signal-red font-medium mt-1">
             Tasks currently paused or blocked
-          </span>
+          </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Resolved Issues
-          </span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Resolved issues
+          </p>
+          <div className="text-2xl font-semibold text-signal-green tracking-tight tabular-nums">
             {resolvedCount}
           </div>
-          <span className="text-[11px] text-slate-500">
+          <p className="text-[12px] text-gray-400 mt-1">
             Past objections addressed
-          </span>
+          </p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Total Objections
-          </span>
-          <div className="text-2xl font-black text-slate-900 mt-1">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Total objections
+          </p>
+          <div className="text-2xl font-semibold text-ink tracking-tight tabular-nums">
             {objections.length}
           </div>
-          <span className="text-[11px] text-slate-500">
+          <p className="text-[12px] text-gray-400 mt-1">
             Lifetime team feedback
-          </span>
+          </p>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 p-1 bg-slate-200/70 rounded-2xl max-w-sm text-xs font-bold">
-        <button
-          type="button"
-          onClick={() => setFilter("Open")}
-          className={`flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${
-            filter === "Open"
-              ? "bg-white text-rose-600 shadow-xs"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          Open Blockers ({openCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter("Resolved")}
-          className={`flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${
-            filter === "Resolved"
-              ? "bg-white text-emerald-600 shadow-xs"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          Resolved ({resolvedCount})
-        </button>
-        <button
-          type="button"
-          onClick={() => setFilter("All")}
-          className={`flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${
-            filter === "All"
-              ? "bg-white text-slate-900 shadow-xs"
-              : "text-slate-600 hover:text-slate-900"
-          }`}
-        >
-          All ({objections.length})
-        </button>
+      <div className="flex items-center gap-1">
+        {(["Open", "Resolved", "All"] as const).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => setFilter(tab)}
+            className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors cursor-pointer ${
+              filter === tab
+                ? "bg-ink text-white"
+                : "text-gray-600 hover:bg-gray-100"
+            }`}
+          >
+            {tab === "Open" && `Open (${openCount})`}
+            {tab === "Resolved" && `Resolved (${resolvedCount})`}
+            {tab === "All" && `All (${objections.length})`}
+          </button>
+        ))}
       </div>
 
       {/* Objections List */}
       {filtered.length === 0 ? (
-        <div className="bg-white p-12 border border-slate-200/80 rounded-3xl text-center space-y-2">
-          <span className="text-3xl">🎉</span>
-          <h3 className="text-sm font-bold text-slate-800">
+        <div className="bg-white p-8 border border-dashed border-border rounded-lg text-center space-y-1">
+          <h3 className="text-[13px] font-medium text-ink">
             {filter === "Open"
-              ? "No open blockers right now!"
+              ? "No open blockers"
               : "No objections found in this view."}
           </h3>
-          <p className="text-xs text-slate-400">
-            Your team is working smoothly without any active roadblocks.
+          <p className="text-[12px] text-gray-400">
+            Team is working smoothly without any active roadblocks.
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {filtered.map((obj) => {
             const isOpen = obj.status === "Open";
 
             return (
               <div
                 key={obj.id}
-                className={`bg-white p-6 rounded-2xl border transition-all shadow-2xs ${
-                  isOpen
-                    ? "border-rose-200/90 hover:border-rose-300"
-                    : "border-slate-200/80"
-                }`}
+                className="bg-white p-5 rounded-lg border border-border space-y-3"
               >
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                        className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
                           isOpen
-                            ? "bg-rose-100 text-rose-800"
-                            : "bg-emerald-100 text-emerald-800"
+                            ? "bg-rose-50 text-signal-red border-rose-200"
+                            : "bg-emerald-50 text-signal-green border-emerald-200"
                         }`}
                       >
-                        {isOpen ? "⚠️ Open Blocker" : "✅ Resolved"}
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isOpen ? "bg-signal-red" : "bg-signal-green"
+                          }`}
+                        />
+                        {isOpen ? "Open Blocker" : "Resolved"}
                       </span>
-                      <span className="text-xs text-slate-400 font-semibold">
-                        📁 {obj.projectName}
+                      <span className="text-[11px] text-gray-400 font-medium">
+                        {obj.projectName}
                       </span>
                     </div>
 
                     <Link
                       href={`/tasks/${obj.taskId}`}
-                      className="text-base font-bold text-slate-900 hover:text-blue-600 transition-colors block"
+                      className="text-[14px] font-semibold text-ink hover:text-accent transition-colors block"
                     >
                       {obj.taskTitle} →
                     </Link>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-semibold text-slate-700 block">
+                    <span className="text-[12px] font-medium text-gray-700 block">
                       Raised by {obj.raisedByName}
                     </span>
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-gray-400 tabular-nums">
                       {new Date(obj.createdAt).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -217,24 +205,22 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
                 </div>
 
                 {/* Blocker Message */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                    Worker's Message:
+                <div className="bg-surface p-3 rounded-md border border-border">
+                  <span className="text-[11px] font-medium text-gray-400 block mb-0.5">
+                    Worker&apos;s Message:
                   </span>
-                  <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-[13px] text-gray-700 whitespace-pre-wrap leading-relaxed">
                     {obj.message}
                   </p>
                 </div>
 
                 {/* Resolution note if already resolved */}
                 {!isOpen && obj.resolution && (
-                  <div className="bg-emerald-50/80 p-4 rounded-xl border border-emerald-200/80 text-xs text-emerald-900 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-emerald-800">
-                        Resolution Note:
-                      </span>
+                  <div className="bg-emerald-50 p-3 rounded-md border border-emerald-200 text-[12px] text-signal-green space-y-0.5">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>Resolution Note:</span>
                       {obj.resolvedAt && (
-                        <span className="text-[10px] text-emerald-700 font-semibold">
+                        <span className="text-[11px] text-gray-500 font-normal tabular-nums">
                           Resolved on {new Date(obj.resolvedAt).toLocaleDateString()}
                         </span>
                       )}
@@ -245,13 +231,13 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
 
                 {/* Super Admin Action: Resolve */}
                 {isOpen && (
-                  <div className="pt-2">
+                  <div className="pt-1">
                     {resolvingId === obj.id ? (
                       <form
                         onSubmit={(e) => handleResolveSubmit(e, obj.id)}
-                        className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3"
+                        className="bg-surface p-3.5 rounded-md border border-border space-y-2.5"
                       >
-                        <label className="block text-xs font-bold text-slate-700">
+                        <label className="block text-[12px] font-medium text-gray-700">
                           Add Resolution Note (Shared with worker):
                         </label>
                         <textarea
@@ -260,7 +246,7 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
                           value={resolutionText}
                           onChange={(e) => setResolutionText(e.target.value)}
                           placeholder="e.g. Sent client credentials via Slack. You are unblocked!"
-                          className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 text-[13px] bg-white border border-border rounded-md focus:outline-none"
                         />
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -269,14 +255,14 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
                               setResolvingId(null);
                               setResolutionText("");
                             }}
-                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg"
+                            className="px-2.5 py-1 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded"
                           >
                             Cancel
                           </button>
                           <button
                             type="submit"
                             disabled={isPending}
-                            className="px-4 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-2xs transition-all cursor-pointer"
+                            className="px-3.5 py-1 text-[12px] font-medium text-white bg-signal-green hover:bg-emerald-700 rounded transition-colors cursor-pointer"
                           >
                             {isPending ? "Resolving..." : "Mark as Resolved"}
                           </button>
@@ -289,9 +275,9 @@ export default function ObjectionsClient({ objections }: ObjectionsClientProps) 
                           setResolvingId(obj.id);
                           setResolutionText("");
                         }}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+                        className="inline-flex items-center px-3 py-1.5 bg-signal-green hover:bg-emerald-700 text-white text-[12px] font-medium rounded-md transition-colors cursor-pointer"
                       >
-                        <span>✓ Resolve This Objection</span>
+                        Resolve Objection
                       </button>
                     )}
                   </div>

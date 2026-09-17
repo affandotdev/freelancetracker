@@ -60,21 +60,21 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Top Action Bar - Hidden in Print */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden bg-white p-4 rounded-lg border border-border shadow-xs">
         <div className="flex items-center gap-3">
           <BackButton
             fallbackHref={`/accounts/${invoice.project.id}`}
             label="Back to Project Accounts"
           />
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500">Status:</span>
+            <span className="text-xs font-semibold text-slate-500">Status:</span>
             <select
               value={status}
               disabled={isPending}
               onChange={(e) =>
                 handleStatusChange(e.target.value as "Draft" | "Sent" | "Paid")
               }
-              className="text-xs font-bold px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none cursor-pointer"
+              className="text-xs font-medium px-2.5 py-1 bg-white border border-border rounded-md focus:outline-none cursor-pointer text-ink"
             >
               <option value="Draft">Draft</option>
               <option value="Sent">Sent</option>
@@ -87,28 +87,28 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
           <button
             type="button"
             onClick={handlePrint}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer select-none"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-ink hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors cursor-pointer select-none"
           >
-            <span>🖨️ Print / Save as PDF</span>
+            <span>Print / Save PDF</span>
           </button>
         </div>
       </div>
 
       {/* Invoice Document Sheet - Full print fidelity */}
-      <div className="bg-white p-8 sm:p-12 rounded-3xl border border-slate-200 shadow-md print:shadow-none print:border-none print:p-0 print:m-0 space-y-8 text-slate-900">
+      <div className="bg-white p-8 sm:p-12 rounded-lg border border-border shadow-xs print:shadow-none print:border-none print:p-0 print:m-0 space-y-8 text-ink">
         {/* Header Block */}
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-slate-100 pb-8">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 border-b border-border pb-8">
           <div>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-black text-sm">
+              <div className="w-9 h-9 rounded-lg bg-ink text-white flex items-center justify-center font-bold text-xs">
                 WP
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-900 leading-tight">
+                <h2 className="text-lg font-bold text-ink leading-tight">
                   WorkPlan Studio
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Freelance Design & Engineering Services
+                  Freelance Deliverables & Engineering Services
                 </p>
               </div>
             </div>
@@ -118,20 +118,20 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
           </div>
 
           <div className="sm:text-right">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900">
+            <h1 className="text-3xl font-bold tracking-tight text-ink">
               INVOICE
             </h1>
-            <p className="text-base font-extrabold text-blue-600 mt-1">
+            <p className="text-sm font-semibold text-accent mt-1 tabular-nums">
               {invoice.invoiceNumber}
             </p>
             <div className="mt-2 inline-block">
               <span
-                className={`text-[11px] font-extrabold uppercase px-3 py-1 rounded-full border ${
+                className={`text-[11px] font-semibold uppercase px-2.5 py-0.5 rounded-full border ${
                   status === "Paid"
-                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    ? "bg-emerald-50 text-signal-green border-emerald-200"
                     : status === "Sent"
-                    ? "bg-blue-50 text-blue-700 border-blue-200"
-                    : "bg-slate-100 text-slate-700 border-slate-200"
+                    ? "bg-blue-50 text-accent border-blue-200"
+                    : "bg-surface text-slate-700 border-border"
                 }`}
               >
                 {status === "Paid" ? "PAID IN FULL" : status}
@@ -142,15 +142,15 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
 
         {/* Client & Date Information */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-          <div className="space-y-1 bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
-            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+          <div className="space-y-1 bg-surface p-4 rounded-lg border border-border">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
               Billed To:
             </span>
-            <p className="text-sm font-black text-slate-900">{invoice.project.client}</p>
+            <p className="text-sm font-bold text-ink">{invoice.project.client}</p>
             {invoice.project.clientEmail && (
               <p className="text-slate-600">{invoice.project.clientEmail}</p>
             )}
-            <p className="text-slate-500 pt-1 font-semibold">
+            <p className="text-slate-600 pt-1 font-medium">
               Project: {invoice.project.name}
             </p>
             <p className="text-slate-400 text-[11px]">
@@ -158,12 +158,12 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
             </p>
           </div>
 
-          <div className="space-y-2 sm:text-right flex flex-col justify-center bg-slate-50/70 p-4 rounded-2xl border border-slate-100">
+          <div className="space-y-2 sm:text-right flex flex-col justify-center bg-surface p-4 rounded-lg border border-border">
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
                 Date Issued:
               </span>
-              <span className="font-bold text-slate-800 text-xs">
+              <span className="font-semibold text-ink text-xs tabular-nums">
                 {new Date(invoice.issueDate).toLocaleDateString("en-IN", {
                   day: "numeric",
                   month: "long",
@@ -174,10 +174,10 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
 
             {invoice.dueDate && (
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
                   Payment Due Date:
                 </span>
-                <span className="font-bold text-amber-700 text-xs">
+                <span className="font-semibold text-signal-amber text-xs tabular-nums">
                   {new Date(invoice.dueDate).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "long",
@@ -190,18 +190,18 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
         </div>
 
         {/* Itemized Table */}
-        <div className="overflow-hidden rounded-2xl border border-slate-200">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-                <th className="py-3 px-5">Description & Deliverable</th>
-                <th className="py-3 px-5 text-right">Amount (₹)</th>
+              <tr className="bg-surface border-b border-border text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <th className="py-3 px-4">Description & Deliverable</th>
+                <th className="py-3 px-4 text-right">Amount (₹)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-border">
               <tr>
-                <td className="py-5 px-5">
-                  <p className="font-bold text-slate-900 text-sm">
+                <td className="py-4 px-4">
+                  <p className="font-semibold text-ink text-sm">
                     {invoice.project.name} — Professional Deliverable Services
                   </p>
                   {invoice.notes && (
@@ -215,7 +215,7 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
                     </p>
                   )}
                 </td>
-                <td className="py-5 px-5 text-right font-black text-slate-900 text-base align-top">
+                <td className="py-4 px-4 text-right font-bold text-ink text-base align-top tabular-nums">
                   {formatCurrency(invoice.amount)}
                 </td>
               </tr>
@@ -226,31 +226,31 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
         {/* Totals Summary */}
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6 pt-2">
           {/* Payment Instructions */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 text-xs text-slate-600 max-w-sm w-full space-y-1.5">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+          <div className="bg-surface p-4 rounded-lg border border-border text-xs text-slate-600 max-w-sm w-full space-y-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 block">
               Payment Instructions / Bank Details:
             </span>
-            <p className="font-semibold text-slate-800">Bank Transfer / UPI Accepted</p>
+            <p className="font-semibold text-ink">Bank Transfer / UPI Accepted</p>
             <p className="text-[11px]">A/C Name: WorkPlan Freelance Studio</p>
-            <p className="text-[11px]">Account #: 009281928392 • IFSC: HDFC0001234</p>
+            <p className="text-[11px] tabular-nums">Account #: 009281928392 • IFSC: HDFC0001234</p>
             <p className="text-[11px]">UPI ID: pay.workplan@okhdfcbank</p>
           </div>
 
           {/* Amount Due Box */}
-          <div className="sm:text-right space-y-2 w-full sm:w-auto">
+          <div className="sm:text-right space-y-1.5 w-full sm:w-auto">
             <div className="text-xs text-slate-500 flex justify-between sm:justify-end gap-6">
               <span>Subtotal:</span>
-              <span className="font-bold text-slate-800">
+              <span className="font-semibold text-ink tabular-nums">
                 {formatCurrency(invoice.amount)}
               </span>
             </div>
             <div className="text-xs text-slate-500 flex justify-between sm:justify-end gap-6">
               <span>Taxes / Fees:</span>
-              <span className="font-bold text-slate-800">₹0</span>
+              <span className="font-semibold text-ink tabular-nums">₹0</span>
             </div>
-            <div className="pt-2 border-t border-slate-200 flex justify-between sm:justify-end items-baseline gap-6">
-              <span className="text-sm font-bold text-slate-700">Total Due:</span>
-              <span className="text-2xl font-black text-slate-900">
+            <div className="pt-2 border-t border-border flex justify-between sm:justify-end items-baseline gap-6">
+              <span className="text-sm font-semibold text-slate-700">Total Due:</span>
+              <span className="text-2xl font-bold text-ink tabular-nums">
                 {formatCurrency(invoice.amount)}
               </span>
             </div>
@@ -258,9 +258,9 @@ export default function InvoicePrintView({ invoice }: InvoicePrintViewProps) {
         </div>
 
         {/* Footer Note */}
-        <div className="pt-8 border-t border-slate-100 text-center text-xs text-slate-400">
-          <p className="font-semibold text-slate-600">
-            Thank you for working with WorkPlan Studio!
+        <div className="pt-8 border-t border-border text-center text-xs text-slate-400">
+          <p className="font-medium text-slate-600">
+            Thank you for working with WorkPlan Studio
           </p>
           <p className="text-[11px] mt-1">
             Questions regarding this invoice? Contact us at team@workplan.dev.

@@ -19,6 +19,8 @@ model User {
   objections     Objection[]
   issuesAssigned Issue[]     @relation("IssuesAssigned")
   issuesRaised   Issue[]     @relation("IssuesRaised")
+  meetingsAssigned Meeting[] @relation("MeetingsAssigned")
+  meetingsCreated  Meeting[] @relation("MeetingsCreated")
 }
 
 model Project {
@@ -40,6 +42,7 @@ model Project {
   payments        Payment[]
   invoices        Invoice[]
   issues          Issue[]
+  meetings        Meeting[]
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }
@@ -172,5 +175,39 @@ model Issue {
   @@index([projectId])
   @@index([raisedById])
   @@index([assignedToId])
+}
+
+model Meeting {
+  id               String    @id @default(cuid())
+  projectId        String?
+  project          Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  clientName       String
+  clientEmail      String?
+  clientPhone      String?
+  title            String
+  type             String    @default("Client Meeting") // Discovery Call | Requirement Gathering | Progress Review | Deliverable Walkthrough | Follow-up Check-in | Payment Follow-up | General
+  platform         String    @default("Google Meet")    // Google Meet | Zoom | Microsoft Teams | Phone Call | In-Person | Other
+  meetingLink      String?
+  scheduledAt      DateTime
+  durationMinutes  Int       @default(30)
+  status           String    @default("Scheduled")      // Scheduled | Completed | Rescheduled | Cancelled
+  agenda           String?   @db.Text
+  notes            String?   @db.Text
+  actionItems      String?   @db.Text
+  outcome          String?                              // Positive - Approved | Revisions Requested | Decision Pending | Follow-up Required | Deal Closed | No Show
+  nextFollowUpDate DateTime?
+  assignedToId     String?
+  assignedTo       User?     @relation("MeetingsAssigned", fields: [assignedToId], references: [id])
+  createdById      String?
+  createdBy        User?     @relation("MeetingsCreated", fields: [createdById], references: [id])
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([assignedToId])
+  @@index([createdById])
+  @@index([scheduledAt])
+  @@index([status])
 }
 

@@ -43,7 +43,7 @@ export default function PaymentHistoryTable({
       case "Cheque":
         return "bg-amber-50 text-amber-700 border-amber-200";
       default:
-        return "bg-slate-50 text-slate-700 border-slate-200";
+        return "bg-gray-50 text-gray-700 border-gray-200";
     }
   };
 
@@ -69,33 +69,32 @@ export default function PaymentHistoryTable({
 
   if (payments.length === 0) {
     return (
-      <div className="bg-slate-50/70 p-8 rounded-2xl border border-dashed border-slate-200 text-center text-slate-400 text-xs">
-        <span className="text-2xl block mb-1">💳</span>
-        <p className="font-semibold text-slate-600">No payment logs recorded yet</p>
-        <p className="text-[11px] mt-0.5">Use &quot;Record Payment&quot; to log incoming client milestones.</p>
+      <div className="bg-white p-8 rounded-lg border border-dashed border-border text-center text-gray-400 text-[13px]">
+        <p className="font-medium text-ink">No payment logs recorded yet</p>
+        <p className="text-[12px] mt-0.5 text-gray-400">Use &quot;Record Payment&quot; to log incoming client milestones.</p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200/80 bg-white shadow-2xs">
-      <table className="w-full text-left border-collapse text-xs">
+    <div className="overflow-x-auto rounded-lg border border-border bg-white">
+      <table className="w-full text-left border-collapse table-zebra text-[13px]">
         <thead>
-          <tr className="bg-slate-50/80 border-b border-slate-200/70 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
-            <th className="py-3 px-4">Date Paid</th>
-            <th className="py-3 px-4 text-right">Amount (₹)</th>
-            <th className="py-3 px-4 text-center">Payment Method</th>
-            <th className="py-3 px-4">Notes / Reference</th>
-            <th className="py-3 px-4 text-right">Action</th>
+          <tr className="bg-surface border-b border-border text-[11px] font-medium text-gray-500">
+            <th className="py-2.5 px-4">Date Paid</th>
+            <th className="py-2.5 px-4 text-right">Amount</th>
+            <th className="py-2.5 px-4 text-center">Method</th>
+            <th className="py-2.5 px-4">Notes / Reference</th>
+            <th className="py-2.5 px-4 text-right">Action</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-border">
           {payments.map((p) => {
             const isDeleting = deletingId === p.id;
 
             return (
-              <tr key={p.id} className="hover:bg-slate-50/60 transition-colors">
-                <td className="py-3 px-4 font-semibold text-slate-900 whitespace-nowrap">
+              <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                <td className="py-3 px-4 font-medium text-ink whitespace-nowrap tabular-nums">
                   {new Date(p.paidOn).toLocaleDateString("en-IN", {
                     day: "numeric",
                     month: "short",
@@ -103,13 +102,13 @@ export default function PaymentHistoryTable({
                   })}
                 </td>
 
-                <td className="py-3 px-4 text-right font-black text-emerald-600 text-sm whitespace-nowrap">
+                <td className="py-3 px-4 text-right font-medium text-signal-green whitespace-nowrap tabular-nums">
                   {formatCurrency(p.amount)}
                 </td>
 
                 <td className="py-3 px-4 text-center whitespace-nowrap">
                   <span
-                    className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${getMethodBadge(
+                    className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded border ${getMethodBadge(
                       p.method
                     )}`}
                   >
@@ -117,8 +116,8 @@ export default function PaymentHistoryTable({
                   </span>
                 </td>
 
-                <td className="py-3 px-4 text-slate-600 max-w-xs truncate">
-                  {p.note || <span className="text-slate-300 italic">—</span>}
+                <td className="py-3 px-4 text-gray-600 max-w-xs truncate">
+                  {p.note || <span className="text-gray-300 italic">—</span>}
                 </td>
 
                 <td className="py-3 px-4 text-right">
@@ -126,10 +125,10 @@ export default function PaymentHistoryTable({
                     type="button"
                     disabled={isDeleting || isPending}
                     onClick={() => handleDelete(p.id, p.amount)}
-                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors disabled:opacity-40 cursor-pointer"
+                    className="text-[12px] font-medium text-gray-400 hover:text-signal-red transition-colors disabled:opacity-40 cursor-pointer"
                     title="Delete payment"
                   >
-                    {isDeleting ? "..." : "🗑️"}
+                    {isDeleting ? "..." : "Delete"}
                   </button>
                 </td>
               </tr>

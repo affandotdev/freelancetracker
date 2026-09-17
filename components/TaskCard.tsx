@@ -25,28 +25,30 @@ interface TaskCardProps {
   task: TaskCardData;
   showProject?: boolean;
   onReportBug?: (task: TaskCardData) => void;
+  onLogMeeting?: (task: TaskCardData) => void;
 }
 
 export default function TaskCard({
   task,
   showProject = true,
   onReportBug,
+  onLogMeeting,
 }: TaskCardProps) {
   const duration = getProjectDuration(task.deadline, task.status);
 
   return (
     <Link
       href={`/tasks/${task.id}`}
-      className="group block bg-white p-5 border border-slate-200/90 rounded-2xl hover:border-blue-400 hover:shadow-md transition-all duration-200"
+      className="group block bg-white p-4 border border-border rounded-lg hover:border-gray-300 transition-colors"
     >
-      <div className="flex items-start justify-between gap-3 mb-2.5">
-        <div className="space-y-1 min-w-0">
+      <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="space-y-0.5 min-w-0">
           {showProject && task.projectName && (
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">
-              📁 {task.projectName}
+            <span className="text-[11px] font-medium text-gray-400 block truncate">
+              {task.projectName}
             </span>
           )}
-          <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+          <h3 className="text-[13px] font-medium text-ink group-hover:text-accent transition-colors line-clamp-1">
             {task.title}
           </h3>
         </div>
@@ -54,84 +56,91 @@ export default function TaskCard({
       </div>
 
       {task.description && (
-        <p className="text-xs text-slate-500 line-clamp-2 mb-3 leading-relaxed">
+        <p className="text-[12px] text-gray-500 line-clamp-2 mb-2.5 leading-relaxed">
           {task.description}
         </p>
       )}
 
       {/* Progress Bar */}
-      <div className="space-y-1 mb-3">
-        <div className="flex justify-between text-[10px] font-bold text-slate-500">
+      <div className="space-y-1 mb-2.5">
+        <div className="flex justify-between text-[11px] text-gray-500">
           <span>Progress</span>
-          <span className="text-blue-600">{task.progress}%</span>
+          <span className="tabular-nums font-medium text-ink">{task.progress}%</span>
         </div>
-        <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
             className={`h-full transition-all duration-300 rounded-full ${
               task.status === "Done"
-                ? "bg-emerald-500"
+                ? "bg-signal-green"
                 : task.status === "Blocked"
-                ? "bg-rose-500"
-                : "bg-gradient-to-r from-blue-500 to-indigo-600"
+                ? "bg-signal-red"
+                : "bg-accent"
             }`}
             style={{ width: `${task.progress}%` }}
           />
         </div>
       </div>
 
-      {/* Meta Footer: Assignee, Deadline & Objections */}
-      <div className="flex items-center justify-between gap-2 pt-2.5 border-t border-slate-100 text-xs">
+      {/* Meta Footer */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border text-[12px]">
         <div className="flex items-center gap-1.5 min-w-0">
           {task.assignedTo ? (
-            <div className="flex items-center gap-1.5 text-slate-600 truncate">
-              <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center shrink-0">
-                {task.assignedTo.name.charAt(0).toUpperCase()}
-              </span>
-              <span className="text-[11px] font-semibold truncate">
-                {task.assignedTo.name}
-              </span>
-            </div>
+            <span className="text-[11px] text-gray-700 truncate">
+              {task.assignedTo.name}
+            </span>
           ) : (
-            <span className="text-[11px] text-slate-400 italic">Unassigned</span>
+            <span className="text-[11px] text-gray-400 italic">Unassigned</span>
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {onLogMeeting && (
+            <button
+              type="button"
+              title="Log client meeting or discussion update for this task"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onLogMeeting(task);
+              }}
+              className="px-2 py-0.5 text-[11px] font-medium text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition-colors cursor-pointer"
+            >
+              Log Call
+            </button>
+          )}
+
           {onReportBug && (
             <button
               type="button"
-              title="Report bug against this task & member"
+              title="Report issue against this task"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onReportBug(task);
               }}
-              className="px-2 py-0.5 text-[11px] font-bold text-slate-500 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+              className="px-2 py-0.5 text-[11px] font-medium text-gray-600 hover:text-signal-red bg-surface hover:bg-gray-100 border border-border rounded transition-colors cursor-pointer"
             >
-              <span>🐛</span>
-              <span>Report Bug</span>
+              Report
             </button>
           )}
 
           {task.openObjectionsCount && task.openObjectionsCount > 0 ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-bold border border-rose-200">
-              ⚠️ {task.openObjectionsCount} blocker{task.openObjectionsCount > 1 ? "s" : ""}
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-rose-50 text-signal-red text-[10px] font-medium border border-rose-200">
+              {task.openObjectionsCount} blocker{task.openObjectionsCount > 1 ? "s" : ""}
             </span>
           ) : null}
 
           {task.deadline && (
             <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border ${
+              className={`text-[10px] font-medium px-1.5 py-0.5 rounded border tabular-nums ${
                 duration.statusType === "overdue"
-                  ? "bg-rose-50 text-rose-700 border-rose-200 font-bold"
+                  ? "bg-rose-50 text-signal-red border-rose-200"
                   : duration.statusType === "today"
-                  ? "bg-amber-50 text-amber-700 border-amber-200 font-bold"
-                  : duration.statusType === "urgent"
-                  ? "bg-amber-50 text-amber-600 border-amber-200"
-                  : "bg-slate-50 text-slate-600 border-slate-200"
+                  ? "bg-amber-50 text-signal-amber border-amber-200"
+                  : "bg-surface text-gray-600 border-border"
               }`}
             >
-              ⏱️ {duration.label}
+              {duration.label}
             </span>
           )}
         </div>

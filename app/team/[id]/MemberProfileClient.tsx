@@ -159,7 +159,7 @@ export default function MemberProfileClient({
 
   return (
     <div className="space-y-6">
-      {/* Top Bar with Back Button */}
+      {/* Top Bar */}
       <div className="flex items-center justify-between gap-4">
         <BackButton fallbackHref="/team" label="Back to Team" />
         <button
@@ -168,36 +168,36 @@ export default function MemberProfileClient({
             setErrorMsg(null);
             setIsAssignModalOpen(true);
           }}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-500/20 hover:shadow-lg transition-all cursor-pointer"
+          className="inline-flex items-center px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors cursor-pointer"
         >
-          <span>+ Assign Work to {member.name.split(" ")[0]}</span>
+          + Assign Work
         </button>
       </div>
 
-      {/* Member Profile Header Card */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+      {/* Member Profile Header */}
+      <div className="bg-white p-6 rounded-lg border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-500 to-violet-600 text-white flex items-center justify-center font-black text-2xl shadow-md shadow-indigo-500/20 ring-4 ring-indigo-50">
+          <div className="w-12 h-12 rounded-lg bg-surface border border-border text-ink flex items-center justify-center font-semibold text-lg">
             {member.name.charAt(0).toUpperCase()}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900">
+              <h1 className="text-xl font-semibold text-ink">
                 {member.name}
               </h1>
               <span
-                className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${
+                className={`text-[11px] font-medium px-2 py-0.5 rounded border ${
                   member.role === "SUPER_ADMIN"
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-indigo-100 text-indigo-800"
+                    ? "bg-amber-50 text-amber-800 border-amber-200"
+                    : "bg-gray-50 text-gray-700 border-border"
                 }`}
               >
-                {member.role === "SUPER_ADMIN" ? "Super Admin" : "Freelance Worker"}
+                {member.role === "SUPER_ADMIN" ? "Admin" : "Member"}
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">{member.email}</p>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Member since {new Date(member.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
+            <p className="text-[13px] text-gray-500 mt-0.5">{member.email}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Joined {new Date(member.createdAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
             </p>
           </div>
         </div>
@@ -209,59 +209,59 @@ export default function MemberProfileClient({
               setErrorMsg(null);
               setIsAssignModalOpen(true);
             }}
-            className="w-full sm:w-auto px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-2xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="px-3.5 py-1.5 bg-accent hover:bg-blue-700 text-white text-[13px] font-medium rounded-md transition-colors cursor-pointer"
           >
-            <span>💼 New Deliverable</span>
+            + Assign Deliverable
           </button>
         </div>
       </div>
 
       {/* Metrics Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Total Deliverables
-          </span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{totalTasks}</div>
-          <span className="text-[11px] text-slate-500">Assigned works</span>
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Total deliverables
+          </p>
+          <div className="text-2xl font-semibold text-ink tracking-tight tabular-nums">{totalTasks}</div>
+          <p className="text-[12px] text-gray-400 mt-1">Assigned works</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            In Progress
-          </span>
-          <div className="text-2xl font-black text-blue-600 mt-1">{inProgressTasks}</div>
-          <span className="text-[11px] text-slate-500">Currently active</span>
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            In progress
+          </p>
+          <div className="text-2xl font-semibold text-accent tracking-tight tabular-nums">{inProgressTasks}</div>
+          <p className="text-[12px] text-gray-400 mt-1">Currently active</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
             Completed
-          </span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{doneTasks}</div>
-          <span className="text-[11px] text-slate-500">Finished deliverables</span>
+          </p>
+          <div className="text-2xl font-semibold text-signal-green tracking-tight tabular-nums">{doneTasks}</div>
+          <p className="text-[12px] text-gray-400 mt-1">Finished deliverables</p>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Blockers / Objections
-          </span>
-          <div className="text-2xl font-black text-rose-600 mt-1">{blockedTasks}</div>
-          <span className="text-[11px] text-slate-500">Requires attention</span>
+        <div className="bg-white p-5 rounded-lg border border-border">
+          <p className="text-[12px] font-medium text-gray-500 mb-1">
+            Blockers
+          </p>
+          <div className="text-2xl font-semibold text-signal-red tracking-tight tabular-nums">{blockedTasks}</div>
+          <p className="text-[12px] text-gray-400 mt-1">Requires attention</p>
         </div>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-1 overflow-x-auto">
         {(["All", "In Progress", "Done", "Blocked"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
             onClick={() => setFilterTab(tab)}
-            className={`px-3.5 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap ${
+            className={`px-3 py-1.5 text-[12px] font-medium rounded-md transition-colors cursor-pointer whitespace-nowrap ${
               filterTab === tab
-                ? "bg-slate-900 text-white shadow-2xs"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                ? "bg-ink text-white"
+                : "text-gray-600 hover:bg-gray-100"
             }`}
           >
             {tab} {tab === "All" ? `(${tasks.length})` : ""}
@@ -270,13 +270,12 @@ export default function MemberProfileClient({
       </div>
 
       {/* Tasks List */}
-      <div className="space-y-4">
+      <div className="space-y-3">
         {filteredTasks.length === 0 ? (
-          <div className="bg-white p-12 text-center rounded-3xl border border-slate-200/80 shadow-2xs text-slate-400">
-            <span className="text-3xl block mb-2">📋</span>
-            <p className="text-sm font-bold text-slate-700">No deliverables found</p>
-            <p className="text-xs mt-1">
-              Click &quot;+ Assign Work to {member.name.split(" ")[0]}&quot; to assign a project task.
+          <div className="bg-white p-8 text-center rounded-lg border border-dashed border-border text-gray-400 text-[13px]">
+            <p className="font-medium text-ink">No deliverables found</p>
+            <p className="text-[12px] mt-0.5 text-gray-400">
+              Click &quot;+ Assign Work&quot; to assign a project task.
             </p>
           </div>
         ) : (
@@ -286,7 +285,7 @@ export default function MemberProfileClient({
             return (
               <div
                 key={task.id}
-                className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/90 shadow-2xs hover:shadow-xs transition-all space-y-4"
+                className="bg-white p-5 rounded-lg border border-border space-y-3"
               >
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
@@ -294,32 +293,32 @@ export default function MemberProfileClient({
                     <div className="flex items-center gap-2 flex-wrap">
                       <Link
                         href={`/tasks/${task.id}`}
-                        className="text-base font-bold text-slate-900 hover:text-blue-600 transition-colors"
+                        className="text-[14px] font-medium text-ink hover:text-accent transition-colors"
                       >
                         {task.title}
                       </Link>
                       <TaskStatusBadge status={task.status} />
                       {task.openObjectionsCount > 0 && (
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                          ⚠️ {task.openObjectionsCount} Blocker
+                        <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-rose-50 text-signal-red border border-rose-200">
+                          {task.openObjectionsCount} Blocker{task.openObjectionsCount > 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">
-                        📁 {task.projectName}
+                    <div className="flex items-center gap-2 text-[12px] text-gray-500">
+                      <span className="font-medium text-ink">
+                        {task.projectName}
                       </span>
                       {task.clientName && (
                         <>
-                          <span>•</span>
+                          <span>·</span>
                           <span>Client: {task.clientName}</span>
                         </>
                       )}
                       {task.deadline && (
                         <>
-                          <span>•</span>
-                          <span className="text-slate-600 font-medium">
+                          <span>·</span>
+                          <span className="text-gray-600 tabular-nums">
                             Due: {new Date(task.deadline).toLocaleDateString("en-IN")}
                           </span>
                         </>
@@ -327,35 +326,35 @@ export default function MemberProfileClient({
                     </div>
 
                     {task.description && (
-                      <p className="text-xs text-slate-600 pt-1 line-clamp-2">
+                      <p className="text-[12px] text-gray-600 pt-1 line-clamp-2">
                         {task.description}
                       </p>
                     )}
                   </div>
 
-                  {/* Actions & Links */}
+                  {/* Actions */}
                   <div className="flex items-center gap-2 shrink-0 self-start">
                     <Link
                       href={`/tasks/${task.id}`}
-                      className="px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-blue-600 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl transition-all"
+                      className="px-2.5 py-1 text-[12px] font-medium text-accent hover:bg-blue-50 border border-border rounded-md transition-colors"
                     >
-                      Open Task View ↗
+                      Open Task
                     </Link>
                   </div>
                 </div>
 
-                {/* Progress & Live Controls */}
-                <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-3">
+                {/* Progress & Controls */}
+                <div className="bg-surface p-3 rounded-md border border-border space-y-2.5">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-gray-600">
                         Status:
                       </span>
                       <select
                         value={task.status}
                         disabled={isUpdating}
                         onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                        className="text-xs font-bold px-2.5 py-1 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        className="text-[12px] font-medium px-2 py-1 bg-white border border-border rounded-md focus:outline-none cursor-pointer"
                       >
                         <option value="To Do">To Do</option>
                         <option value="In Progress">In Progress</option>
@@ -365,9 +364,9 @@ export default function MemberProfileClient({
                       </select>
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-bold text-slate-700">
-                        Progress: <span className="text-blue-600">{task.progress}%</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[12px] font-medium text-gray-600 tabular-nums">
+                        Progress: <span className="text-ink">{task.progress}%</span>
                       </span>
                       <input
                         type="range"
@@ -379,18 +378,18 @@ export default function MemberProfileClient({
                         onChange={(e) =>
                           handleProgressChange(task.id, parseInt(e.target.value))
                         }
-                        className="w-28 sm:w-36 accent-blue-600 cursor-pointer"
+                        className="w-24 sm:w-32 accent-accent cursor-pointer"
                       />
                     </div>
                   </div>
 
                   {/* Latest Update */}
                   {task.latestUpdate && (
-                    <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-200/50 flex items-center justify-between">
+                    <div className="text-[11px] text-gray-500 pt-1 border-t border-border flex items-center justify-between">
                       <span className="truncate max-w-md">
-                        💬 Latest update: &quot;{task.latestUpdate.text}&quot;
+                        Update: &quot;{task.latestUpdate.text}&quot;
                       </span>
-                      <span className="shrink-0 text-[10px] text-slate-400">
+                      <span className="shrink-0 text-[10px] text-gray-400 tabular-nums">
                         {new Date(task.latestUpdate.createdAt).toLocaleDateString("en-IN")}
                       </span>
                     </div>
@@ -404,41 +403,41 @@ export default function MemberProfileClient({
 
       {/* Assign Task Modal */}
       {isAssignModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white max-w-md w-full p-6 sm:p-7 rounded-3xl shadow-xl border border-slate-200 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white max-w-md w-full p-6 rounded-lg border border-border shadow-lg space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-extrabold text-slate-900">
+                <h3 className="text-base font-semibold text-ink">
                   Assign Work to {member.name}
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-[12px] text-gray-500 mt-0.5">
                   Select a project deliverable and assign deadline.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsAssignModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+                className="text-gray-400 hover:text-ink text-sm"
               >
                 ✕
               </button>
             </div>
 
             {errorMsg && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl">
-                ⚠️ {errorMsg}
+              <div className="p-3 bg-rose-50 border border-rose-200 text-signal-red text-[12px] font-medium rounded-md">
+                {errorMsg}
               </div>
             )}
 
             <form onSubmit={handleAssignTask} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Select Project <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Select Project <span className="text-signal-red">*</span>
                 </label>
                 <select
                   name="projectId"
                   required
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink cursor-pointer"
                 >
                   <option value="">-- Choose a project --</option>
                   {projects.map((p) => (
@@ -450,39 +449,39 @@ export default function MemberProfileClient({
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Task / Deliverable Title <span className="text-rose-500">*</span>
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
+                  Task / Deliverable Title <span className="text-signal-red">*</span>
                 </label>
                 <input
                   type="text"
                   name="title"
                   required
                   placeholder="e.g. Design Landing Page Mockups"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                <label className="block text-[12px] font-medium text-gray-700 mb-1">
                   Description / Instructions
                 </label>
                 <textarea
                   name="description"
                   rows={2}
                   placeholder="Brief details about what needs to be accomplished..."
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium resize-none"
+                  className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink resize-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1">
                     Initial Status
                   </label>
                   <select
                     name="status"
                     defaultValue="To Do"
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+                    className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink cursor-pointer"
                   >
                     <option value="To Do">To Do</option>
                     <option value="In Progress">In Progress</option>
@@ -490,29 +489,29 @@ export default function MemberProfileClient({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1">
                     Deadline
                   </label>
                   <input
                     type="date"
                     name="deadline"
-                    className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                    className="w-full px-3 py-2 text-[13px] bg-white border border-border rounded-md text-ink"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsAssignModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl"
+                  className="px-3 py-1.5 text-[12px] font-medium text-gray-600 hover:bg-gray-100 rounded-md"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-5 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md shadow-blue-500/20 disabled:opacity-50 transition-all cursor-pointer"
+                  className="px-4 py-1.5 text-[12px] font-medium text-white bg-accent hover:bg-blue-700 rounded-md disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   {isPending ? "Assigning..." : "Assign Task"}
                 </button>

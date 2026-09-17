@@ -28,9 +28,9 @@ export default function BackButton({
     <Link
       href={fallbackHref}
       onClick={handleBack}
-      className={`inline-flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-blue-600 bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-slate-300 rounded-xl shadow-2xs hover:shadow-xs transition-all cursor-pointer group select-none shrink-0 ${className}`}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 hover:text-ink bg-white hover:bg-surface border border-border rounded-lg shadow-xs transition-colors cursor-pointer group select-none shrink-0 ${className}`}
     >
-      <span className="text-slate-400 group-hover:text-blue-600 group-hover:-translate-x-0.5 transition-all text-sm font-black">
+      <span className="text-slate-400 group-hover:text-ink transition-colors text-xs font-semibold">
         ←
       </span>
       <span>{label}</span>
