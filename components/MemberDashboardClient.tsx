@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition, useMemo } from "react";
+import React, { useState, useTransition, useMemo, useEffect } from "react";
 import Link from "next/link";
 import TaskCard, { TaskCardData } from "./TaskCard";
 import ReportBugModal from "./ReportBugModal";
@@ -11,6 +11,28 @@ import LogDirectMeetingModal from "./LogDirectMeetingModal";
 import EditTaskModal, { EditableTaskData } from "./EditTaskModal";
 import EditIssueModal from "./EditIssueModal";
 import { updateIssueStatusAction, reassignIssueAction, updateMeetingStatusAction, deleteIssueAction } from "@/lib/actions";
+import { getProjectDuration, formatDeadlineDate } from "@/lib/dateUtils";
+
+export interface MemberProjectData {
+  id: string;
+  name: string;
+  client?: string | null;
+  clientEmail?: string | null;
+  projectUrl?: string | null;
+  category?: string | null;
+  priority?: string;
+  status: string;
+  progress: number;
+  deadline?: string | null;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  attachmentCount?: number;
+  totalTasksCount?: number;
+  myTasksCount?: number;
+  completedTasksCount?: number;
+  openBugsCount?: number;
+}
 
 export interface MemberIssueData {
   id: string;
@@ -75,7 +97,7 @@ interface MemberDashboardClientProps {
   tasks: TaskCardData[];
   issues?: MemberIssueData[];
   meetings?: MemberMeetingData[];
-  projects?: { id: string; name: string; client?: string | null }[];
+  projects?: MemberProjectData[];
   teamMembers?: { id: string; name: string; email: string; role?: string }[];
 }
 
@@ -89,7 +111,7 @@ export default function MemberDashboardClient({
   teamMembers = [],
 }: MemberDashboardClientProps) {
   const [tasks, setTasks] = useState<TaskCardData[]>(initialTasks);
-  const [activeTab, setActiveTab] = useState<"tasks" | "issues" | "meetings">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "issues" | "meetings" | "projects">("tasks");
   const [taskFilter, setTaskFilter] = useState<string>("All");
   const [issueFilter, setIssueFilter] = useState<string>("All");
   const [issueProjectFilter, setIssueProjectFilter] = useState<string>("All");
@@ -105,6 +127,18 @@ export default function MemberDashboardClient({
   const [issueViewMode, setIssueViewMode] = useState<"table" | "cards">("table");
   const [expandedIssueIds, setExpandedIssueIds] = useState<Set<string>>(new Set());
   const [expandedMeetingIds, setExpandedMeetingIds] = useState<Set<string>>(new Set());
+
+  // Projects Tab State
+  const [projectFilter, setProjectFilter] = useState<string>("All");
+  const [projectCategoryFilter, setProjectCategoryFilter] = useState<string>("All");
+  const [projectSearchQuery, setProjectSearchQuery] = useState<string>("");
+  const [projectViewMode, setProjectViewMode] = useState<"cards" | "table">("cards");
+  const [toastMessage, setToastMessage] = useState<string>("");
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [meetings, setMeetings] = useState<MemberMeetingData[]>(initialMeetings);
   const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
@@ -328,6 +362,66 @@ export default function MemberDashboardClient({
     });
   }, [meetings, meetingFilter, meetingSearchQuery]);
 
+  // Projects Memoized Computations
+  const uniqueCategories = useMemo(() => {
+    const set = new Set<string>();
+    projects.forEach((p) => {
+      if (p.category) set.add(p.category);
+    });
+    return Array.from(set);
+  }, [projects]);
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      // 1. Status / Scope Filter
+      if (projectFilter === "In Progress" && p.status !== "In Progress") return false;
+      if (projectFilter === "Planning" && p.status !== "Planning") return false;
+      if (projectFilter === "Not Started" && p.status !== "Not Started") return false;
+      if (projectFilter === "Completed" && p.status !== "Completed") return false;
+      if (projectFilter === "On Hold" && p.status !== "On Hold") return false;
+      if (projectFilter === "My Tasks" && (!p.myTasksCount || p.myTasksCount === 0)) return false;
+
+      // 2. Category Filter
+      if (projectCategoryFilter !== "All" && (p.category || "Web Development") !== projectCategoryFilter) {
+        return false;
+      }
+
+      // 3. Search Query
+      if (projectSearchQuery.trim()) {
+        const q = projectSearchQuery.toLowerCase();
+        const matchName = (p.name || "").toLowerCase().includes(q);
+        const matchClient = (p.client || "").toLowerCase().includes(q);
+        const matchCategory = (p.category || "").toLowerCase().includes(q);
+        const matchDesc = (p.description || "").toLowerCase().includes(q);
+        const matchUrl = (p.projectUrl || "").toLowerCase().includes(q);
+        if (!matchName && !matchClient && !matchCategory && !matchDesc && !matchUrl) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [projects, projectFilter, projectCategoryFilter, projectSearchQuery]);
+
+  const getProjectCategoryBadge = (cat?: string | null) => {
+    switch (cat) {
+      case "Web Development":
+        return "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+      case "UI/UX Design":
+        return "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border-purple-200 dark:border-purple-800";
+      case "Mobile App":
+        return "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800";
+      case "Branding":
+        return "bg-pink-50 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300 border-pink-200 dark:border-pink-800";
+      case "SEO & Marketing":
+        return "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+      case "Maintenance":
+        return "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+      default:
+        return "bg-slate-100 text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-slate-200 dark:border-neutral-700";
+    }
+  };
+
   const getModuleBadgeClass = (m?: string | null) => {
     switch (m) {
       case "Admin Side":
@@ -457,6 +551,14 @@ export default function MemberDashboardClient({
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-20 right-6 z-50 bg-black text-white dark:bg-white dark:text-black border border-white/20 dark:border-black/20 px-4 py-2.5 rounded-lg shadow-xl flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-2 duration-150">
+          <span className="w-1.5 h-1.5 rounded-full bg-signal-green"></span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Welcome Banner */}
       <div className="bg-white border border-border p-6 sm:p-7 rounded-lg shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
@@ -464,13 +566,13 @@ export default function MemberDashboardClient({
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 px-2 py-0.5 rounded bg-surface border border-border">
               Worker Workspace
             </span>
-            <span className="text-xs text-slate-400 font-medium">• Live Deliverables & Issues</span>
+            <span className="text-xs text-slate-400 font-medium">• Live Deliverables, Projects & Issues</span>
           </div>
           <h1 className="text-2xl font-bold text-ink tracking-tight">
             Welcome back, {memberName}
           </h1>
           <p className="text-sm text-slate-500 max-w-xl">
-            Track your assigned deliverables, post work logs, and report or resolve project bugs directly against teammates.
+            Track your assigned deliverables, browse all active projects, access external project links, and report or resolve bugs.
           </p>
         </div>
 
@@ -561,6 +663,27 @@ export default function MemberDashboardClient({
 
           <button
             type="button"
+            onClick={() => setActiveTab("projects")}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+              activeTab === "projects"
+                ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                : "bg-white dark:bg-[#0a0a0a] text-slate-600 dark:text-slate-300 hover:text-black dark:hover:text-white border border-border dark:border-[#262626]"
+            }`}
+          >
+            <span>📁 All Projects</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-md tabular-nums ${
+                activeTab === "projects"
+                  ? "bg-white/20 text-white dark:bg-black/15 dark:text-black"
+                  : "bg-surface dark:bg-[#141414] text-slate-600 dark:text-slate-300 border border-border dark:border-[#262626]"
+              }`}
+            >
+              {projects.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("issues")}
             className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
               activeTab === "issues"
@@ -611,6 +734,10 @@ export default function MemberDashboardClient({
               <span>Open Meetings Hub</span>
               <span>→</span>
             </Link>
+          ) : activeTab === "projects" ? (
+            <span className="text-xs font-medium text-slate-400">
+              {projects.length} Total Projects
+            </span>
           ) : (
             <Link
               href="/issues"
@@ -2018,6 +2145,657 @@ export default function MemberDashboardClient({
               </span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* TAB 4: ALL PROJECTS DIRECTORY & WORKSPACES */}
+      {activeTab === "projects" && (
+        <div className="space-y-6">
+          {/* Projects KPI Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => setProjectFilter("All")}
+              className={`p-4 bg-white dark:bg-[#111111] rounded-lg border text-left transition-all cursor-pointer shadow-xs ${
+                projectFilter === "All"
+                  ? "ring-2 ring-slate-400/20 border-slate-400 dark:border-neutral-500 bg-slate-50 dark:bg-neutral-800/60"
+                  : "border-border dark:border-[#262626] hover:border-slate-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block">
+                Total Projects
+              </span>
+              <div className="text-2xl font-bold text-ink dark:text-white mt-1 tabular-nums">
+                {projects.length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">All company projects</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProjectFilter("In Progress")}
+              className={`p-4 bg-white dark:bg-[#111111] rounded-lg border text-left transition-all cursor-pointer shadow-xs ${
+                projectFilter === "In Progress"
+                  ? "ring-2 ring-blue-400/20 border-blue-400 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-950/30"
+                  : "border-blue-200/60 dark:border-blue-950/40 hover:border-blue-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-accent dark:text-blue-400 block">
+                In Progress
+              </span>
+              <div className="text-2xl font-bold text-accent dark:text-blue-400 mt-1 tabular-nums">
+                {projects.filter((p) => p.status === "In Progress").length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Active builds</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProjectFilter("My Tasks")}
+              className={`p-4 bg-white dark:bg-[#111111] rounded-lg border text-left transition-all cursor-pointer shadow-xs ${
+                projectFilter === "My Tasks"
+                  ? "ring-2 ring-indigo-400/20 border-indigo-400 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/30"
+                  : "border-indigo-200/60 dark:border-indigo-950/40 hover:border-indigo-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-indigo-700 dark:text-indigo-400 block">
+                Your Projects
+              </span>
+              <div className="text-2xl font-bold text-indigo-700 dark:text-indigo-400 mt-1 tabular-nums">
+                {projects.filter((p) => (p.myTasksCount || 0) > 0).length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">With tasks assigned to you</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setProjectFilter("Completed")}
+              className={`p-4 bg-white dark:bg-[#111111] rounded-lg border text-left transition-all cursor-pointer shadow-xs ${
+                projectFilter === "Completed"
+                  ? "ring-2 ring-emerald-400/20 border-emerald-400 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30"
+                  : "border-emerald-200/60 dark:border-emerald-950/40 hover:border-emerald-300"
+              }`}
+            >
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-signal-green dark:text-emerald-400 block">
+                Completed
+              </span>
+              <div className="text-2xl font-bold text-signal-green dark:text-emerald-400 mt-1 tabular-nums">
+                {projects.filter((p) => p.status === "Completed").length}
+              </div>
+              <span className="text-[11px] text-slate-500 dark:text-neutral-400">Delivered & closed</span>
+            </button>
+          </div>
+
+          {/* Projects Toolbar */}
+          <div className="bg-white dark:bg-[#111111] p-3 sm:p-4 rounded-xl border border-border dark:border-[#262626] shadow-xs flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1 sm:w-80">
+                <span className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400 dark:text-neutral-500 text-xs">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={projectSearchQuery}
+                  onChange={(e) => setProjectSearchQuery(e.target.value)}
+                  placeholder="Search project name, client, link URL, notes..."
+                  className="w-full pl-8 pr-7 py-1.5 text-xs bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-xl text-ink dark:text-white placeholder:text-slate-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent"
+                />
+                {projectSearchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setProjectSearchQuery("")}
+                    className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-ink dark:hover:text-white text-xs cursor-pointer"
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* View Mode Switcher */}
+              <div className="flex items-center gap-2 self-end md:self-auto">
+                <div className="flex p-0.5 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-xl text-xs font-medium shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setProjectViewMode("cards")}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      projectViewMode === "cards"
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-ink dark:hover:text-white"
+                    }`}
+                  >
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProjectViewMode("table")}
+                    className={`px-3 py-1 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      projectViewMode === "table"
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-ink dark:hover:text-white"
+                    }`}
+                  >
+                    <span>Table</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Pills & Dropdown */}
+            <div className="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-border/60 dark:border-[#262626]/60">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { key: "All", label: `All (${projects.length})` },
+                  { key: "In Progress", label: `In Progress (${projects.filter((p) => p.status === "In Progress").length})` },
+                  { key: "My Tasks", label: `Your Tasks (${projects.filter((p) => (p.myTasksCount || 0) > 0).length})` },
+                  { key: "Planning", label: `Planning (${projects.filter((p) => p.status === "Planning").length})` },
+                  { key: "Not Started", label: `Not Started (${projects.filter((p) => p.status === "Not Started").length})` },
+                  { key: "Completed", label: `Completed (${projects.filter((p) => p.status === "Completed").length})` },
+                  { key: "On Hold", label: `On Hold (${projects.filter((p) => p.status === "On Hold").length})` },
+                ].map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setProjectFilter(tab.key)}
+                    className={`px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer tabular-nums font-medium ${
+                      projectFilter === tab.key
+                        ? "bg-black text-white dark:bg-white dark:text-black font-semibold shadow-xs"
+                        : "bg-surface dark:bg-[#161616] text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-neutral-800 border border-border dark:border-[#262626]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+
+                {/* Category Dropdown */}
+                {uniqueCategories.length > 0 && (
+                  <div className="flex items-center gap-1 ml-1">
+                    <select
+                      value={projectCategoryFilter}
+                      onChange={(e) => setProjectCategoryFilter(e.target.value)}
+                      className="px-2.5 py-1 bg-surface dark:bg-[#161616] border border-border dark:border-[#262626] rounded-lg text-xs font-medium text-ink dark:text-white focus:outline-none focus:ring-2 focus:ring-accent/20 cursor-pointer max-w-[150px] truncate"
+                    >
+                      <option value="All">📁 All Categories</option>
+                      {uniqueCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-[11px] text-slate-400 font-medium tabular-nums">
+                  Showing {filteredProjects.length} of {projects.length} projects
+                </span>
+
+                {(projectSearchQuery || projectFilter !== "All" || projectCategoryFilter !== "All") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProjectSearchQuery("");
+                      setProjectFilter("All");
+                      setProjectCategoryFilter("All");
+                    }}
+                    className="px-2.5 py-1 text-xs font-medium text-accent hover:text-blue-700 dark:text-blue-400 hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>✕</span>
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Projects Presentation: Cards View vs Table View */}
+          {filteredProjects.length === 0 ? (
+            <div className="bg-white dark:bg-[#111111] p-12 border border-border dark:border-[#262626] rounded-xl text-center space-y-2 shadow-xs">
+              <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">No projects found</h3>
+              <p className="text-xs text-slate-400 dark:text-neutral-500 max-w-sm mx-auto">
+                {projectSearchQuery
+                  ? `No projects matched "${projectSearchQuery}". Try adjusting your search or filters.`
+                  : "No projects exist under the selected filter criteria."}
+              </p>
+            </div>
+          ) : projectViewMode === "cards" ? (
+            /* CARDS GRID VIEW */
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredProjects.map((project) => {
+                const duration = getProjectDuration(project.deadline, project.status, mounted);
+
+                return (
+                  <div
+                    key={project.id}
+                    className="bg-white dark:bg-[#111111] rounded-xl border border-border dark:border-[#262626] shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
+                  >
+                    <div className="p-5 space-y-4">
+                      {/* Badges Row */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getProjectCategoryBadge(
+                              project.category
+                            )}`}
+                          >
+                            {project.category || "Web Dev"}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                              project.priority === "Urgent"
+                                ? "bg-red-50 text-signal-red dark:bg-red-950/40 dark:text-rose-300 border-red-200"
+                                : project.priority === "High"
+                                ? "bg-amber-50 text-signal-amber dark:bg-amber-950/40 dark:text-amber-300 border-amber-200"
+                                : "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border"
+                            }`}
+                          >
+                            {project.priority || "Medium"}
+                          </span>
+                        </div>
+
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                            project.status === "In Progress"
+                              ? "bg-blue-50 text-accent dark:bg-blue-950/40 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+                              : project.status === "Completed"
+                              ? "bg-emerald-50 text-signal-green dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                              : project.status === "Planning"
+                              ? "bg-cyan-50 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800"
+                              : project.status === "On Hold"
+                              ? "bg-amber-50 text-signal-amber dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                              : "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border dark:border-neutral-700"
+                          }`}
+                        >
+                          {project.status}
+                        </span>
+                      </div>
+
+                      {/* Project Title & Client */}
+                      <div className="space-y-1">
+                        <Link
+                          href={`/projects/${project.id}`}
+                          className="text-base font-bold text-ink dark:text-white group-hover:text-accent dark:group-hover:text-blue-400 transition-colors line-clamp-1 block"
+                        >
+                          {project.name}
+                        </Link>
+                        {project.client && (
+                          <p className="text-xs text-slate-500 dark:text-neutral-400 truncate">
+                            Client: <strong className="text-slate-700 dark:text-slate-300 font-semibold">{project.client}</strong>
+                            {project.clientEmail && (
+                              <span className="text-slate-400 ml-1">· {project.clientEmail}</span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* HERO FEATURE: LIVE PROJECT LINK */}
+                      {project.projectUrl ? (
+                        <div className="p-2.5 bg-blue-50/60 dark:bg-blue-950/30 rounded-lg border border-blue-200/70 dark:border-blue-800/50 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="text-xs shrink-0">🌐</span>
+                            <a
+                              href={
+                                project.projectUrl.startsWith("http://") || project.projectUrl.startsWith("https://")
+                                  ? project.projectUrl
+                                  : `https://${project.projectUrl}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-accent dark:text-blue-400 hover:underline truncate"
+                              title={project.projectUrl}
+                            >
+                              {project.projectUrl.replace(/^https?:\/\//, "")}
+                            </a>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <a
+                              href={
+                                project.projectUrl.startsWith("http://") || project.projectUrl.startsWith("https://")
+                                  ? project.projectUrl
+                                  : `https://${project.projectUrl}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2 py-0.5 bg-accent hover:bg-blue-700 text-white text-[11px] font-semibold rounded shadow-2xs transition-colors inline-flex items-center gap-0.5 cursor-pointer"
+                              title="Open link in new tab"
+                            >
+                              <span>Open</span>
+                              <span className="text-[9px]">↗</span>
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(project.projectUrl || "");
+                                setToastMessage(`Link for "${project.name}" copied!`);
+                                setTimeout(() => setToastMessage(""), 2500);
+                              }}
+                              className="p-1 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-slate-500 dark:text-slate-400 hover:text-accent rounded transition-colors text-xs cursor-pointer"
+                              title="Copy project link"
+                            >
+                              📋
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-surface dark:bg-[#161616] rounded-lg border border-border dark:border-[#262626] text-[11px] text-slate-400 dark:text-neutral-500 flex items-center gap-1.5">
+                          <span>🔗</span>
+                          <span className="italic">No live link attached yet</span>
+                        </div>
+                      )}
+
+                      {/* Description / Scope snippet */}
+                      {project.description && (
+                        <p className="text-xs text-slate-600 dark:text-neutral-300 line-clamp-2 leading-relaxed">
+                          {project.description}
+                        </p>
+                      )}
+
+                      {/* Progress Bar & Deadline */}
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500 dark:text-neutral-400 font-medium">Work Completion</span>
+                          <span className="font-bold text-accent dark:text-blue-400 tabular-nums">{project.progress}%</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 rounded-full ${
+                              project.status === "Completed"
+                                ? "bg-signal-green"
+                                : "bg-accent dark:bg-blue-500"
+                            }`}
+                            style={{ width: `${project.progress}%` }}
+                          />
+                        </div>
+
+                        {/* Deadline badge */}
+                        <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500 dark:text-neutral-400">
+                          <span>
+                            {project.deadline
+                              ? `Due: ${formatDeadlineDate(project.deadline)}`
+                              : "No deadline set"}
+                          </span>
+                          {mounted && (
+                            <span
+                              className={`font-semibold ${
+                                duration.statusType === "overdue"
+                                  ? "text-signal-red"
+                                  : duration.statusType === "today" || duration.statusType === "urgent"
+                                  ? "text-signal-amber"
+                                  : duration.statusType === "completed"
+                                  ? "text-signal-green"
+                                  : "text-slate-600 dark:text-neutral-400"
+                              }`}
+                            >
+                              {duration.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Task & Bug Metrics Pills */}
+                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/70 dark:border-[#262626]/70 text-[11px]">
+                        <div className="p-2 bg-surface dark:bg-[#161616] rounded-lg border border-border dark:border-[#262626] text-center">
+                          <span className="text-slate-400 dark:text-neutral-500 text-[10px] block font-semibold uppercase">
+                            Tasks
+                          </span>
+                          <span className="font-bold text-ink dark:text-white tabular-nums">
+                            {project.totalTasksCount || 0}
+                          </span>
+                          {(project.myTasksCount || 0) > 0 && (
+                            <span className="text-[10px] text-accent dark:text-blue-400 block font-semibold">
+                              {project.myTasksCount} yours
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="p-2 bg-surface dark:bg-[#161616] rounded-lg border border-border dark:border-[#262626] text-center">
+                          <span className="text-slate-400 dark:text-neutral-500 text-[10px] block font-semibold uppercase">
+                            Bugs
+                          </span>
+                          <span
+                            className={`font-bold tabular-nums ${
+                              (project.openBugsCount || 0) > 0
+                                ? "text-signal-red"
+                                : "text-ink dark:text-white"
+                            }`}
+                          >
+                            {project.openBugsCount || 0}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">open</span>
+                        </div>
+
+                        <div className="p-2 bg-surface dark:bg-[#161616] rounded-lg border border-border dark:border-[#262626] text-center">
+                          <span className="text-slate-400 dark:text-neutral-500 text-[10px] block font-semibold uppercase">
+                            Files
+                          </span>
+                          <span className="font-bold text-ink dark:text-white tabular-nums">
+                            {project.attachmentCount || 0}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block">docs</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Actions Footer */}
+                    <div className="p-3 bg-surface/50 dark:bg-[#161616]/50 border-t border-border dark:border-[#262626] flex items-center justify-between gap-2">
+                      <Link
+                        href={`/projects/${project.id}`}
+                        className="px-3 py-1.5 bg-accent hover:bg-blue-700 text-white font-semibold text-xs rounded-lg transition-colors inline-flex items-center gap-1 shadow-2xs"
+                      >
+                        <span>View Details</span>
+                        <span>→</span>
+                      </Link>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenReportModal("", project.id, "")}
+                          className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-signal-red dark:text-rose-300 border border-red-200 dark:border-red-900 font-semibold text-xs rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Report bug on this project"
+                        >
+                          <span>🐛</span>
+                          <span className="hidden sm:inline">Bug</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenDirectMeetingModal(project.id, `Client sync: ${project.name}`)}
+                          className="px-2.5 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-900 font-semibold text-xs rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                          title="Log meeting on this project"
+                        >
+                          <span>📞</span>
+                          <span className="hidden sm:inline">Call</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* TABLE VIEW FOR PROJECTS */
+            <div className="bg-white dark:bg-[#111111] border border-border dark:border-[#262626] rounded-xl shadow-xs overflow-hidden flex flex-col">
+              <div className="overflow-x-auto overflow-y-auto max-h-[75vh]">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-20 bg-surface/95 dark:bg-[#161616]/95 backdrop-blur border-b border-border dark:border-[#262626]">
+                    <tr className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      <th className="py-3 px-3">Project & Client</th>
+                      <th className="py-3 px-2 w-28">Category</th>
+                      <th className="py-3 px-2 w-24">Status</th>
+                      <th className="py-3 px-2 w-28">Progress</th>
+                      <th className="py-3 px-2 w-32">Deadline</th>
+                      <th className="py-3 px-2 min-w-[150px]">Project Link</th>
+                      <th className="py-3 px-2 w-28 text-center">Tasks & Bugs</th>
+                      <th className="py-3 px-3 w-36 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60 dark:divide-[#262626]/60">
+                    {filteredProjects.map((project) => {
+                      const duration = getProjectDuration(project.deadline, project.status, mounted);
+
+                      return (
+                        <tr
+                          key={project.id}
+                          className="hover:bg-surface/70 dark:hover:bg-neutral-800/50 transition-colors"
+                        >
+                          {/* Project & Client */}
+                          <td className="py-3 px-3">
+                            <div className="space-y-0.5">
+                              <Link
+                                href={`/projects/${project.id}`}
+                                className="font-bold text-ink dark:text-white hover:text-accent dark:hover:text-blue-400 text-xs block truncate max-w-[200px]"
+                              >
+                                {project.name}
+                              </Link>
+                              {project.client && (
+                                <p className="text-[11px] text-slate-500 dark:text-neutral-400 truncate max-w-[200px]">
+                                  {project.client}
+                                </p>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Category */}
+                          <td className="py-3 px-2">
+                            <span
+                              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-md border ${getProjectCategoryBadge(
+                                project.category
+                              )}`}
+                            >
+                              {project.category || "Web Dev"}
+                            </span>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-3 px-2">
+                            <span
+                              className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                                project.status === "In Progress"
+                                  ? "bg-blue-50 text-accent dark:bg-blue-950/40 dark:text-blue-300 border-blue-200"
+                                  : project.status === "Completed"
+                                  ? "bg-emerald-50 text-signal-green dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200"
+                                  : "bg-surface text-slate-700 dark:bg-neutral-800 dark:text-slate-300 border-border"
+                              }`}
+                            >
+                              {project.status}
+                            </span>
+                          </td>
+
+                          {/* Progress */}
+                          <td className="py-3 px-2">
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px] font-bold text-slate-600 dark:text-slate-300 tabular-nums">
+                                <span>{project.progress}%</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 dark:bg-neutral-800 rounded-full overflow-hidden">
+                                <div
+                                  className="bg-accent h-full rounded-full transition-all"
+                                  style={{ width: `${project.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Deadline */}
+                          <td className="py-3 px-2">
+                            <div className="space-y-0.5">
+                              <span className="text-[11px] font-medium text-slate-700 dark:text-slate-300 tabular-nums block">
+                                {project.deadline ? formatDeadlineDate(project.deadline) : "—"}
+                              </span>
+                              {mounted && project.deadline && (
+                                <span
+                                  className={`text-[10px] font-semibold block ${
+                                    duration.statusType === "overdue"
+                                      ? "text-signal-red"
+                                      : duration.statusType === "today" || duration.statusType === "urgent"
+                                      ? "text-signal-amber"
+                                      : "text-slate-400 dark:text-neutral-500"
+                                  }`}
+                                >
+                                  {duration.label}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Project Link */}
+                          <td className="py-3 px-2">
+                            {project.projectUrl ? (
+                              <div className="flex items-center gap-1.5">
+                                <a
+                                  href={
+                                    project.projectUrl.startsWith("http://") || project.projectUrl.startsWith("https://")
+                                      ? project.projectUrl
+                                      : `https://${project.projectUrl}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-0.5 bg-blue-50 dark:bg-blue-950/40 text-accent dark:text-blue-300 hover:bg-blue-100 rounded text-[11px] font-semibold border border-blue-200 dark:border-blue-800 inline-flex items-center gap-1 truncate max-w-[140px]"
+                                  title={project.projectUrl}
+                                >
+                                  <span>🌐 Link</span>
+                                  <span className="text-[9px]">↗</span>
+                                </a>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(project.projectUrl || "");
+                                    setToastMessage(`Link for "${project.name}" copied!`);
+                                    setTimeout(() => setToastMessage(""), 2500);
+                                  }}
+                                  className="p-1 hover:bg-slate-100 dark:hover:bg-neutral-800 text-slate-500 rounded text-xs cursor-pointer"
+                                  title="Copy URL"
+                                >
+                                  📋
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 dark:text-neutral-600 text-[11px] italic">—</span>
+                            )}
+                          </td>
+
+                          {/* Tasks & Bugs */}
+                          <td className="py-3 px-2 text-center">
+                            <div className="text-[11px] text-slate-600 dark:text-slate-300 font-medium tabular-nums">
+                              <span>{project.totalTasksCount || 0} tasks</span>
+                              {(project.openBugsCount || 0) > 0 && (
+                                <span className="text-signal-red font-semibold ml-1">
+                                  • {project.openBugsCount} bugs
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                href={`/projects/${project.id}`}
+                                className="px-2.5 py-1 bg-accent/10 hover:bg-accent text-accent hover:text-white dark:bg-blue-950/50 dark:hover:bg-blue-600 dark:text-blue-300 dark:hover:text-white font-semibold rounded-lg text-[11px] transition-all inline-flex items-center gap-0.5 border border-accent/20 dark:border-blue-800 shadow-2xs"
+                              >
+                                <span>Details</span>
+                                <span>→</span>
+                              </Link>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReportModal("", project.id, "")}
+                                className="p-1 text-slate-500 hover:text-signal-red dark:hover:text-rose-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded transition-colors text-xs cursor-pointer"
+                                title="Report bug"
+                              >
+                                🐛
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

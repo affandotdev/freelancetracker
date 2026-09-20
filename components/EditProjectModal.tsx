@@ -9,6 +9,7 @@ export interface EditableProjectData {
   name: string;
   client?: string | null;
   clientEmail?: string | null;
+  projectUrl?: string | null;
   category?: string | null;
   priority?: string;
   status: string;
@@ -35,6 +36,7 @@ export default function EditProjectModal({
   const [name, setName] = useState("");
   const [client, setClient] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [projectUrl, setProjectUrl] = useState("");
   const [category, setCategory] = useState("Web Development");
   const [priority, setPriority] = useState("Medium");
   const [status, setStatus] = useState("In Progress");
@@ -52,6 +54,7 @@ export default function EditProjectModal({
       setName(project.name || "");
       setClient(project.client || "");
       setClientEmail(project.clientEmail || "");
+      setProjectUrl(project.projectUrl || "");
       setCategory(project.category || "Web Development");
       setPriority(project.priority || "Medium");
       setStatus(project.status || "In Progress");
@@ -119,6 +122,7 @@ export default function EditProjectModal({
         name: name.trim(),
         client: client.trim() || null,
         clientEmail: clientEmail.trim() || null,
+        projectUrl: projectUrl.trim() || null,
         category,
         priority,
         status,
@@ -134,6 +138,7 @@ export default function EditProjectModal({
         name: name.trim(),
         client: client.trim() || null,
         clientEmail: clientEmail.trim() || null,
+        projectUrl: projectUrl.trim() || null,
         category,
         priority,
         status,
@@ -150,8 +155,7 @@ export default function EditProjectModal({
 
       onClose();
     } catch (err: any) {
-      console.error("Failed to update project:", err);
-      setError(err?.message || "Failed to update project. Please try again.");
+      setError(err?.message || "Failed to update project.");
     } finally {
       setIsSaving(false);
     }
@@ -159,19 +163,19 @@ export default function EditProjectModal({
 
   return (
     <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white rounded-xl shadow-2xl border border-border max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]"
+        className="bg-white rounded-xl shadow-2xl border border-border max-w-xl w-full overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface">
           <div>
-            <h3 className="text-base font-bold text-ink">Edit Project Specifications</h3>
+            <h3 className="text-base font-bold text-ink">Edit Project Details</h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Update project scope, financials, schedule, and client contact details.
+              Update project scope, metadata, timeline, contract valuation, and deliverables.
             </p>
           </div>
           <button
@@ -183,7 +187,7 @@ export default function EditProjectModal({
           </button>
         </div>
 
-        {/* Modal Form Body */}
+        {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-signal-red font-medium">
@@ -191,9 +195,9 @@ export default function EditProjectModal({
             </div>
           )}
 
-          {/* Project Title, Category, Priority */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="sm:col-span-1">
+          {/* Project Title & Category & Priority */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-3">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Project Name <span className="text-signal-red">*</span>
               </label>
@@ -203,11 +207,11 @@ export default function EditProjectModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Website Redesign"
-                className="w-full px-3 py-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink font-medium"
+                className="w-full px-3 py-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink font-medium placeholder:text-slate-400"
               />
             </div>
 
-            <div>
+            <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Category
               </label>
@@ -240,6 +244,29 @@ export default function EditProjectModal({
                 <option value="High">High</option>
                 <option value="Urgent">Urgent</option>
               </select>
+            </div>
+          </div>
+
+          {/* Project Link / Live URL */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                <span>🌐</span>
+                <span>Project Link / Live URL / Figma / Repo</span>
+              </label>
+              <span className="text-[10px] text-slate-400">Visible to team members</span>
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={projectUrl}
+                onChange={(e) => setProjectUrl(e.target.value)}
+                placeholder="https://myclient.com, https://figma.com/..., or github.com/..."
+                className="w-full px-3 py-2 text-xs bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink font-medium placeholder:text-slate-400 pl-8"
+              />
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">
+                🔗
+              </span>
             </div>
           </div>
 

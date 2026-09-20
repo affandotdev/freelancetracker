@@ -223,6 +223,7 @@ export async function createProjectAction(formData: FormData) {
   const name = formData.get("name") as string;
   const client = formData.get("client") as string;
   const clientEmail = formData.get("clientEmail") as string;
+  const projectUrl = formData.get("projectUrl") as string;
   const category = formData.get("category") as string;
   const priority = formData.get("priority") as string;
   const status = formData.get("status") as string;
@@ -241,6 +242,7 @@ export async function createProjectAction(formData: FormData) {
       name: name.trim(),
       client: client?.trim() || null,
       clientEmail: clientEmail?.trim() || null,
+      projectUrl: projectUrl?.trim() || null,
       category: category || "Web Development",
       priority: priority || "Medium",
       status: status || "Not Started",
@@ -262,6 +264,7 @@ export async function updateProjectAction(
     name?: string;
     client?: string | null;
     clientEmail?: string | null;
+    projectUrl?: string | null;
     category?: string;
     priority?: string;
     status?: string;
@@ -279,6 +282,7 @@ export async function updateProjectAction(
   if (data.name !== undefined) updateData.name = data.name.trim();
   if (data.client !== undefined) updateData.client = data.client?.trim() || null;
   if (data.clientEmail !== undefined) updateData.clientEmail = data.clientEmail?.trim() || null;
+  if (data.projectUrl !== undefined) updateData.projectUrl = data.projectUrl?.trim() || null;
   if (data.category !== undefined) updateData.category = data.category;
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.status !== undefined) updateData.status = data.status;

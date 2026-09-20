@@ -98,6 +98,7 @@ interface ProjectDetailClientProps {
     name: string;
     client: string | null;
     clientEmail: string | null;
+    projectUrl?: string | null;
     category: string | null;
     priority: string;
     status: string;
@@ -115,6 +116,7 @@ interface ProjectDetailClientProps {
   initialMeetings?: ProjectMeetingItem[];
   teamMembers?: TeamMemberOption[];
   currentUserId?: string;
+  isSuperAdmin?: boolean;
 }
 
 export default function ProjectDetailClient({
@@ -125,6 +127,7 @@ export default function ProjectDetailClient({
   initialMeetings = [],
   teamMembers = [],
   currentUserId = "",
+  isSuperAdmin = false,
 }: ProjectDetailClientProps) {
   const [meetings, setMeetings] = useState<ProjectMeetingItem[]>(initialMeetings);
   const [isScheduleMeetingModalOpen, setIsScheduleMeetingModalOpen] = useState(false);
@@ -134,6 +137,7 @@ export default function ProjectDetailClient({
   const [name, setName] = useState(project.name);
   const [client, setClient] = useState(project.client || "");
   const [clientEmail, setClientEmail] = useState(project.clientEmail || "");
+  const [projectUrl, setProjectUrl] = useState(project.projectUrl || "");
   const [category, setCategory] = useState(project.category || "Web Development");
   const [priority, setPriority] = useState(project.priority || "Medium");
   const [status, setStatus] = useState(project.status || "Not Started");
@@ -305,6 +309,7 @@ export default function ProjectDetailClient({
         name,
         client,
         clientEmail,
+        projectUrl: projectUrl.trim() || null,
         category,
         priority,
         status,
@@ -517,20 +522,35 @@ export default function ProjectDetailClient({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsEditProjectModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors cursor-pointer"
-          >
-            <span>✏️ Edit Project</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsDeleteModalOpen(true)}
-            className="text-xs font-medium text-signal-red hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
-          >
-            Delete Project
-          </button>
+          {projectUrl && (
+            <a
+              href={projectUrl.startsWith("http://") || projectUrl.startsWith("https://") ? projectUrl : `https://${projectUrl}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors shadow-xs"
+            >
+              <span>🌐 Open Link</span>
+              <span className="text-[10px]">↗</span>
+            </a>
+          )}
+          {isSuperAdmin && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsEditProjectModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors cursor-pointer"
+              >
+                <span>✏️ Edit Project</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="text-xs font-medium text-signal-red hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg border border-red-200 transition-colors cursor-pointer"
+              >
+                Delete Project
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -606,12 +626,12 @@ export default function ProjectDetailClient({
         </div>
 
         {/* Project Title & Client Info */}
-        <div>
+        <div className="space-y-2">
           <h1 className="text-2xl font-bold text-ink tracking-tight">
             {name}
           </h1>
           {client && (
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500">
               Client: <strong className="text-slate-800 font-semibold">{client}</strong>
               {clientEmail && (
                 <span className="ml-2 text-slate-400">
@@ -626,77 +646,169 @@ export default function ProjectDetailClient({
               )}
             </p>
           )}
+
+          {/* Project Link Banner */}
+          {projectUrl && (
+            <div className="flex items-center gap-2 pt-1 flex-wrap">
+              <a
+                href={projectUrl.startsWith("http://") || projectUrl.startsWith("https://") ? projectUrl : `https://${projectUrl}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-accent font-semibold border border-blue-200 rounded-lg text-xs transition-colors shadow-xs"
+              >
+                <span>🌐 Open Project Link</span>
+                <span className="text-[10px]">↗</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(projectUrl);
+                  setToastMessage("Project link copied to clipboard!");
+                  setTimeout(() => setToastMessage(""), 2500);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-surface hover:bg-slate-100 text-slate-600 font-medium border border-border rounded-lg text-xs transition-colors cursor-pointer"
+                title="Copy link"
+              >
+                <span>📋 Copy</span>
+              </button>
+              <span className="text-xs text-slate-500 font-mono truncate max-w-sm">
+                {projectUrl}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* Financial & Timeline KPI Cards Grid */}
-        <div className="pt-4 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Total Contract */}
-          <div className="p-4 bg-surface rounded-lg border border-border">
-            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
-              Total Contract
-            </span>
-            <span
-              suppressHydrationWarning
-              className="text-xl font-bold text-ink tracking-tight tabular-nums block"
-            >
-              {formatCurrency(totalAmount)}
-            </span>
-          </div>
+        {/* KPI Cards Grid: Super Admin Financials vs Member Work Overview */}
+        {isSuperAdmin ? (
+          <div className="pt-4 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Total Contract */}
+            <div className="p-4 bg-surface rounded-lg border border-border">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
+                Total Contract
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-xl font-bold text-ink tracking-tight tabular-nums block"
+              >
+                {formatCurrency(totalAmount)}
+              </span>
+            </div>
 
-          {/* Received Cash */}
-          <div className="p-4 bg-emerald-50/50 rounded-lg border border-emerald-100">
-            <span className="text-xs uppercase tracking-wider font-semibold text-signal-green block mb-1">
-              Received Cash
-            </span>
-            <span
-              suppressHydrationWarning
-              className="text-xl font-bold text-emerald-700 tracking-tight tabular-nums block"
-            >
-              {formatCurrency(receivedAmount)}
-            </span>
-            <span className="text-[11px] text-emerald-600 block mt-0.5 font-medium tabular-nums">
-              {paymentPct}% collected
-            </span>
-          </div>
+            {/* Received Cash */}
+            <div className="p-4 bg-emerald-50/50 rounded-lg border border-emerald-100">
+              <span className="text-xs uppercase tracking-wider font-semibold text-signal-green block mb-1">
+                Received Cash
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-xl font-bold text-emerald-700 tracking-tight tabular-nums block"
+              >
+                {formatCurrency(receivedAmount)}
+              </span>
+              <span className="text-[11px] text-emerald-600 block mt-0.5 font-medium tabular-nums">
+                {paymentPct}% collected
+              </span>
+            </div>
 
-          {/* Pending Balance */}
-          <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
-            <span className="text-xs uppercase tracking-wider font-semibold text-signal-amber block mb-1">
-              Pending Balance
-            </span>
-            <span
-              suppressHydrationWarning
-              className="text-xl font-bold text-amber-700 tracking-tight tabular-nums block"
-            >
-              {formatCurrency(pendingAmount)}
-            </span>
-            <span className="text-[11px] text-amber-600 block mt-0.5 font-medium">
-              {pendingAmount === 0 ? "Fully Settled" : "Awaiting payment"}
-            </span>
-          </div>
+            {/* Pending Balance */}
+            <div className="p-4 bg-amber-50/50 rounded-lg border border-amber-100">
+              <span className="text-xs uppercase tracking-wider font-semibold text-signal-amber block mb-1">
+                Pending Balance
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-xl font-bold text-amber-700 tracking-tight tabular-nums block"
+              >
+                {formatCurrency(pendingAmount)}
+              </span>
+              <span className="text-[11px] text-amber-600 block mt-0.5 font-medium">
+                {pendingAmount === 0 ? "Fully Settled" : "Awaiting payment"}
+              </span>
+            </div>
 
-          {/* Project Duration Left */}
-          <div className="p-4 bg-surface rounded-lg border border-border">
-            <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
-              {status === "Planning" ? "Kickoff Countdown" : "Duration Left"}
-            </span>
-            <span
-              suppressHydrationWarning
-              className="text-xl font-bold text-ink tracking-tight block truncate"
-            >
-              {duration.label}
-            </span>
-            <span
-              suppressHydrationWarning
-              className="text-[11px] text-slate-500 block mt-0.5 truncate tabular-nums"
-            >
-              {deadline ? `Target: ${formatDeadlineDate(deadline)}` : "No deadline set"}
-            </span>
+            {/* Project Duration Left */}
+            <div className="p-4 bg-surface rounded-lg border border-border">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
+                {status === "Planning" ? "Kickoff Countdown" : "Duration Left"}
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-xl font-bold text-ink tracking-tight block truncate"
+              >
+                {duration.label}
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-[11px] text-slate-500 block mt-0.5 truncate tabular-nums"
+              >
+                {deadline ? `Target: ${formatDeadlineDate(deadline)}` : "No deadline set"}
+              </span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="pt-4 border-t border-border grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* Total Deliverables */}
+            <div className="p-4 bg-surface rounded-lg border border-border">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
+                Deliverable Tasks
+              </span>
+              <span className="text-xl font-bold text-ink tracking-tight tabular-nums block">
+                {tasks.length}
+              </span>
+              <span className="text-[11px] text-slate-500 block mt-0.5">
+                {tasks.filter((t) => t.status === "Done").length} completed
+              </span>
+            </div>
 
-        {/* Dual Progress Meter for Deliverable & Collection */}
-        {totalAmount > 0 && (
+            {/* Work Completion */}
+            <div className="p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+              <span className="text-xs uppercase tracking-wider font-semibold text-accent block mb-1">
+                Project Progress
+              </span>
+              <span className="text-xl font-bold text-accent tracking-tight tabular-nums block">
+                {progress}%
+              </span>
+              <span className="text-[11px] text-blue-600 block mt-0.5 font-medium">
+                {status}
+              </span>
+            </div>
+
+            {/* Active Bugs */}
+            <div className="p-4 bg-red-50/50 rounded-lg border border-red-100">
+              <span className="text-xs uppercase tracking-wider font-semibold text-signal-red block mb-1">
+                Open Defects
+              </span>
+              <span className="text-xl font-bold text-signal-red tracking-tight tabular-nums block">
+                {initialIssues.filter((i) => i.status !== "Resolved" && i.status !== "Closed").length}
+              </span>
+              <span className="text-[11px] text-slate-500 block mt-0.5">
+                {initialIssues.length} total logged
+              </span>
+            </div>
+
+            {/* Project Duration Left */}
+            <div className="p-4 bg-surface rounded-lg border border-border">
+              <span className="text-xs uppercase tracking-wider font-semibold text-slate-400 block mb-1">
+                {status === "Planning" ? "Kickoff Countdown" : "Duration Left"}
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-xl font-bold text-ink tracking-tight block truncate"
+              >
+                {duration.label}
+              </span>
+              <span
+                suppressHydrationWarning
+                className="text-[11px] text-slate-500 block mt-0.5 truncate tabular-nums"
+              >
+                {deadline ? `Target: ${formatDeadlineDate(deadline)}` : "No deadline set"}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Progress Meter */}
+        {isSuperAdmin && totalAmount > 0 ? (
           <div className="pt-2 space-y-2">
             <div className="flex items-center justify-between text-xs font-medium text-slate-600">
               <span>Financial Recovery vs Work Progress</span>
@@ -713,6 +825,19 @@ export default function ProjectDetailClient({
               <div
                 className="bg-slate-200 h-full transition-all duration-300"
                 style={{ width: `${100 - paymentPct}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="pt-2 space-y-2">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-600">
+              <span>Work Completion Progress</span>
+              <span className="text-accent font-semibold tabular-nums">{progress}% Built</span>
+            </div>
+            <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+              <div
+                className="bg-accent h-full transition-all duration-300 rounded-full"
+                style={{ width: `${progress}%` }}
               />
             </div>
           </div>
@@ -1556,71 +1681,89 @@ export default function ProjectDetailClient({
         </div>
       )}
 
-      {/* Editable Management Form */}
-      <form
-        onSubmit={handleUpdate}
-        className="bg-white p-6 sm:p-7 border border-border rounded-lg shadow-xs space-y-6"
-      >
-        <div className="flex items-center justify-between pb-3 border-b border-border">
-          <div>
-            <h2 className="text-base font-bold text-ink">
-              Project Configuration & Specifications
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Update scope, timeline, contracted fees, and current completion level
-            </p>
+      {/* Editable Management Form (Super Admin Only) */}
+      {isSuperAdmin && (
+        <form
+          onSubmit={handleUpdate}
+          className="bg-white p-6 sm:p-7 border border-border rounded-lg shadow-xs space-y-6"
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-border">
+            <div>
+              <h2 className="text-base font-bold text-ink">
+                Project Configuration & Specifications
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Update scope, timeline, project links, contracted fees, and current completion level
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Title, Category & Priority */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* Title, Category & Priority */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Project Title
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Category
+              </label>
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink cursor-pointer font-medium"
+              >
+                <option value="Web Development">Web Development</option>
+                <option value="UI/UX Design">UI/UX Design</option>
+                <option value="Mobile App">Mobile App</option>
+                <option value="Branding">Branding</option>
+                <option value="SEO & Marketing">SEO & Marketing</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Priority
+              </label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink cursor-pointer font-medium"
+              >
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Project Link / Live URL */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Project Title
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700">
+                🌐 Project Link / Live Preview / Figma / Repo URL
+              </label>
+              <span className="text-[10px] text-slate-400">Accessible by all members</span>
+            </div>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink"
+              value={projectUrl}
+              onChange={(e) => setProjectUrl(e.target.value)}
+              placeholder="https://myclientproject.com, https://figma.com/..., or github.com/..."
+              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent font-medium text-ink placeholder:text-slate-400"
             />
           </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Category
-            </label>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink cursor-pointer font-medium"
-            >
-              <option value="Web Development">Web Development</option>
-              <option value="UI/UX Design">UI/UX Design</option>
-              <option value="Mobile App">Mobile App</option>
-              <option value="Branding">Branding</option>
-              <option value="SEO & Marketing">SEO & Marketing</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Priority
-            </label>
-            <select
-              value={priority}
-              onChange={(e) => setPriority(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-white border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent text-ink cursor-pointer font-medium"
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Urgent">Urgent</option>
-            </select>
-          </div>
-        </div>
 
         {/* Client & Email */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1927,6 +2070,7 @@ export default function ProjectDetailClient({
           </button>
         </div>
       </form>
+      )}
 
       {/* Delete Confirmation Modal */}
       {isDeleteModalOpen && (
@@ -2080,6 +2224,7 @@ export default function ProjectDetailClient({
           name,
           client,
           clientEmail,
+          projectUrl,
           category,
           priority,
           status,
@@ -2093,6 +2238,7 @@ export default function ProjectDetailClient({
           setName(updated.name);
           setClient(updated.client || "");
           setClientEmail(updated.clientEmail || "");
+          setProjectUrl(updated.projectUrl || "");
           setCategory(updated.category || "Web Development");
           setPriority(updated.priority || "Medium");
           setStatus(updated.status);

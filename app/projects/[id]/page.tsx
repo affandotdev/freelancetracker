@@ -16,11 +16,6 @@ export default async function ProjectDetailPage({ params }: PageProps) {
     redirect("/login");
   }
 
-  // Only Super Admin manages whole projects and financials
-  if (session.role !== "SUPER_ADMIN") {
-    redirect("/");
-  }
-
   const resolvedParams = await params;
   const { id } = resolvedParams;
   const isSuperAdmin = session.role === "SUPER_ADMIN";
@@ -193,12 +188,13 @@ export default async function ProjectDetailPage({ params }: PageProps) {
         name: project.name,
         client: project.client,
         clientEmail: project.clientEmail,
+        projectUrl: project.projectUrl || null,
         category: project.category,
         priority: project.priority,
         status: project.status,
         progress: project.progress,
-        totalAmount: project.totalAmount,
-        receivedAmount: project.receivedAmount,
+        totalAmount: isSuperAdmin ? project.totalAmount : 0,
+        receivedAmount: isSuperAdmin ? project.receivedAmount : 0,
         deadline: project.deadline ? project.deadline.toISOString() : null,
         description: project.description,
         createdAt: project.createdAt.toISOString(),
@@ -210,6 +206,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
       initialMeetings={meetings}
       teamMembers={rawTeamMembers}
       currentUserId={session.userId}
+      isSuperAdmin={isSuperAdmin}
     />
   );
 }

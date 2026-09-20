@@ -28,6 +28,7 @@ model Project {
   name            String
   client          String?
   clientEmail     String?
+  projectUrl      String?      // Project Live / Preview / Repo Link
   category        String?      @default("Web Development") // Web Development | UI/UX Design | Mobile App | Branding | SEO & Marketing | Maintenance | Other
   priority        String       @default("Medium")           // Low | Medium | High | Urgent
   status          String       @default("Not Started")      // Enquiry | Planning | Not Started | In Progress | On Hold | Completed

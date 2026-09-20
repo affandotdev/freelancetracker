@@ -68,14 +68,46 @@ export default async function DashboardPage() {
             })
           : Promise.resolve([]),
         prisma.project.findMany({
-          select: { id: true, name: true, client: true },
-          orderBy: { name: "asc" },
+          orderBy: [{ deadline: "asc" }, { updatedAt: "desc" }],
+          include: {
+            tasks: {
+              select: { id: true, status: true, assignedToId: true },
+            },
+            issues: {
+              where: { status: { not: "Resolved" } },
+              select: { id: true },
+            },
+            _count: {
+              select: { attachments: true, tasks: true },
+            },
+          },
         }),
         prisma.user.findMany({
           select: { id: true, name: true, email: true },
           orderBy: { name: "asc" },
         }),
       ]);
+
+      projects = rawProjects.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        client: p.client || null,
+        clientEmail: p.clientEmail || null,
+        projectUrl: p.projectUrl || null,
+        category: p.category || "Web Development",
+        priority: p.priority || "Medium",
+        status: p.status,
+        progress: p.progress,
+        deadline: p.deadline ? new Date(p.deadline).toISOString() : null,
+        description: p.description || null,
+        createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+        updatedAt: p.updatedAt ? new Date(p.updatedAt).toISOString() : new Date().toISOString(),
+        attachmentCount: p._count?.attachments || 0,
+        totalTasksCount: p._count?.tasks || 0,
+        myTasksCount: (p.tasks || []).filter((t: any) => t.assignedToId === session.userId).length,
+        completedTasksCount: (p.tasks || []).filter((t: any) => t.status === "Done").length,
+        openBugsCount: (p.issues || []).length,
+      }));
 
       memberTasks = rawTasks.map((t) => ({
         id: t.id,
@@ -151,7 +183,6 @@ export default async function DashboardPage() {
           : null,
       }));
 
-      projects = rawProjects;
       teamMembers = rawUsers;
     } catch (err) {
       console.warn("Could not load member data, retrying with fallback:", err);
